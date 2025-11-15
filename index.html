@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Safenest — Private file sharing</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <!-- FontAwesome v4 (icons yang kamu minta) -->
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="top-header glass">
+      <div class="brand">
+        <div class="brand-logo">SN</div>
+        <div class="brand-text">
+          <div class="site-title">Safenest</div>
+          <div class="site-sub">Setiap unggahan mendapat rumah. Setiap rahasia mendapat penjaga.</div>
+        </div>
+      </div>
+     
+    </header>
+
+    <main class="main-area">
+      <!-- DOWNLOAD -->
+      <section id="page-download" class="page active">
+        <div class="card glass-card">
+          <h2 class="page-title"><i class="fa fa-download"></i> Download</h2>
+          <p class="muted">Masukkan username & password yang diberikan uploader.</p>
+
+          <div class="grid-2">
+            <input id="dlUser" placeholder="username (piw-xxxx)" />
+            <input id="dlPass" placeholder="password" type="password" />
+          </div>
+
+          <div class="row" style="margin-top:12px">
+            <button id="btnVerify" class="btn primary"><i class="fa fa-check-circle"></i> Verify & Show</button>
+            <button id="btnClear" class="btn ghost"><i class="fa fa-refresh"></i> Bersihkan</button>
+          </div>
+
+          <div id="dlInfo" class="file-info hide">
+            <h3 id="fileName">-</h3>
+            <p class="muted small">Ukuran: <span id="fileSize">-</span> • Diunggah: <span id="fileTime">-</span></p>
+
+            <div class="row" style="margin-top:12px">
+              <button id="btnView" class="btn ghost"><i class="fa fa-eye"></i> Lihat File</button>
+              <button id="btnDownload" class="btn primary"><i class="fa fa-download"></i> Download</button>
+            </div>
+          </div>
+        </div>
+
+        <footer class="page-footer">copyright by safenest © 2025-2026</footer>
+      </section>
+
+      <!-- UPLOAD -->
+      <section id="page-upload" class="page">
+        <div class="card glass-card">
+          <h2 class="page-title"><i class="fa fa-cloud-upload"></i> Upload</h2>
+          <p class="muted">Upload file. Kamu akan menerima username & password sekali tampil.</p>
+
+          <label class="filebox">
+            <input id="fileInput" type="file" />
+            <div class="filebox-inner">
+              <strong>Pilih file</strong>
+              <small>pdf, png, jpg, mp3, mp4, zip, html, dll</small>
+            </div>
+          </label>
+
+          <div class="row" style="margin-top:12px">
+            <button id="btnUpload" class="btn primary"><i class="fa fa-upload"></i> Upload & Generate Credentials</button>
+          </div>
+
+          <div id="creds" class="creds-box hide">
+            <p><strong>Username:</strong> <code id="outUser"></code></p>
+            <p><strong>Password:</strong> <code id="outPass"></code></p>
+            <div class="row" style="margin-top:8px">
+              <button id="copyCreds" class="btn ghost"><i class="fa fa-clipboard"></i> Salin Kredensial</button>
+            </div>
+            <small class="muted">Link login: <code id="outLink">-</code></small>
+          </div>
+        </div>
+
+        <footer class="page-footer">copyright by safenest © 2025-2026</footer>
+      </section>
+
+      <!-- ABOUT -->
+      <section id="page-about" class="page">
+        <div class="card glass-card">
+          <h2 class="page-title"><i class="fa fa-info-circle"></i> About</h2>
+          <p><strong>Safenest</strong> adalah ruang privat untuk berbagi file dengan cara yang sederhana, tenang, dan aman.
+Dirancang untuk penggunaan personal, platform ini menjaga setiap unggahan dengan kredensial unik dan akses yang sepenuhnya berada dalam kendali pengguna. Tidak rumit, tidak ribut—hanya tempat yang lembut untuk menitipkan sesuatu yang penting.
+</p>
+          
+          <p><em>Visi:</em> Mewujudkan ruang berbagi file yang aman, pribadi, dan minimalis, di mana setiap pengguna merasa terlindungi tanpa kehilangan kesederhanaan.</p>
+          <p><em>Misi:</em></p>
+          <p><strong>1.</strong>Menghadirkan sistem berbagi file yang cepat, mudah, dan bebas distraksi.</p>
+          <p><strong>2.</strong>Menjamin privasi melalui kredensial unik per-file yang hanya diketahui pengguna.</p>
+          <p><strong>3.</strong>Menyediakan lingkungan tenang yang memprioritaskan keamanan dan kenyamanan pribadi.</p>
+          <p><strong>4.</strong>Menghilangkan kerumitan konfigurasi, sehingga pengguna dapat fokus pada hal yang benar-benar penting.</p>
+          <p><strong>5.</strong>Menciptakan pengalaman modern dengan tampilan lembut, bersih, dan intuitif.</p>
+          
+          <p>
+  <h4>
+    pembuat:
+    <a href="https://aryapiw.pages.dev" target="_blank">Aryapiw</a>
+    &
+    <a href="https://dapid.my.id" target="_blank">Dapid</a>
+  </h4>
+</p>
+
+          <hr/>
+
+          <h3>Komentar</h3>
+          <div class="comment-form">
+            <input id="cName" placeholder="Nama (opsional)" />
+            <textarea id="cMsg" placeholder="Tulis komentar..." rows="3"></textarea>
+            <div class="row" style="margin-top:8px">
+              <button id="cSend" class="btn primary"><i class="fa fa-paper-plane"></i> Kirim</button>
+            </div>
+          </div>
+
+          <div id="commentsBox" class="comments-box"></div>
+        </div>
+
+        <footer class="page-footer">copyright by safenest © 2025-2026</footer>
+      </section>
+    </main>
+
+    <!-- Bottom floating navbar -->
+    <nav class="bottom-nav glass-nav" role="navigation" aria-label="Main navigation">
+      <div class="nav-inner">
+        <button class="nav-btn" data-target="page-download" id="nav-download" aria-label="Download">
+          <div class="icon-wrap"><i class="fa fa-download"></i></div>
+          <div class="label">Download</div>
+        </button>
+
+        <button class="nav-btn center" data-target="page-upload" id="nav-upload" aria-label="Upload">
+          <div class="circle-plus"><i class="fa fa-plus"></i></div>
+          <div class="label">Upload</div>
+        </button>
+
+        <button class="nav-btn" data-target="page-about" id="nav-about" aria-label="About">
+          <div class="icon-wrap"><i class="fa fa-info-circle"></i></div>
+          <div class="label">About</div>
+        </button>
+      </div>
+    </nav>
+  </div>
+
+  <script type="module" src="firebase.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
