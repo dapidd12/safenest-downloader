@@ -1,21 +1,24 @@
-// app.js — Safenest (full) : Upload + Expiry + Admin + Maintenance
-// Disclaimer: menggunakan service key di frontend itu berbahaya — kamu sudah tahu.
-
+// app.js — Safenest dengan Fitur Expired Files yang Diperbaiki
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
 
-// ========== CONFIG (ganti sesuai project) ==========
+// ========== CONFIG ==========
 const SUPABASE_URL = 'https://rjsifamddfdhnlvrrwbb.supabase.co'
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJqc2lmYW1kZGZkaG5sdnJyd2JiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2Mjc2ODM5NiwiZXhwIjoyMDc4MzQ0Mzk2fQ.RwHToh53bF3iqWLomtBQczrkErqjXRxprIhvT4RB-1k'
 const BUCKET = 'piw-files'
-const BASE_LOGIN_LINK = 'https://example.com'
-// admin secret "pintu rahasia"
+const BASE_LOGIN_LINK = window.location.origin
 const ADMIN_CREDENTIALS = { user: 'aryapiw.pages.dev', pass: 'dapid.my.id' }
-// ====================================================
+// ============================
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 
-// ----------------- helpers -----------------
+// ----------------- Global State -----------------
+let updateCountdownInterval = null
+let maintenanceCountdownInterval = null
+let currentUpdateEndsAt = null
+
+// ----------------- Optimized Helpers -----------------
 const $ = id => document.getElementById(id)
+const $$ = selector => document.querySelectorAll(selector)
 const rand = (n=6) => [...Array(n)].map(()=> 'abcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random()*36)]).join('')
 const sha256 = async s => {
   const buf = new TextEncoder().encode(s)
@@ -29,385 +32,862 @@ const niceBytes = b => {
   while(val>1024 && i<u.length-1){ val/=1024; i++ }
   return `${val.toFixed(1)} ${u[i]}`
 }
+const formatTime = ms => {
+  if (ms <= 0) return '00:00:00'
+  
+  const days = Math.floor(ms / (1000 * 60 * 60 * 24))
+  const hours = Math.floor((ms % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60))
+  const seconds = Math.floor((ms % (1000 * 60)) / 1000)
+  
+  if (days > 0) {
+    return `${days}h ${hours.toString().padStart(2, '0')}j ${minutes.toString().padStart(2, '0')}m ${seconds.toString().padStart(2, '0')}d`
+  }
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+}
 const log = (...a) => console.log('[safenest]',...a)
 
-function escapeHtml(s=''){ return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;') }
-
-// ----------------- Supabase helpers -----------------
-async function uploadFileToStorage(file, destName){
-  const { data, error } = await supabase.storage.from(BUCKET).upload(destName, file)
-  if (error) throw error
-  return data.path ?? data?.Key ?? data
+function escapeHtml(s=''){ 
+  return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;') 
 }
 
-// Insert file record. include expires_at optional (ISO string or null)
+// ----------------- Cache System -----------------
+const cache = {
+  get: (key) => {
+    try {
+      const item = localStorage.getItem(`sn_${key}`)
+      if (!item) return null
+      const { value, expiry } = JSON.parse(item)
+      if (expiry && Date.now() > expiry) {
+        localStorage.removeItem(`sn_${key}`)
+        return null
+      }
+      return value
+    } catch {
+      return null
+    }
+  },
+  
+  set: (key, value, ttl = 5 * 60 * 1000) => {
+    try {
+      const item = {
+        value,
+        expiry: ttl ? Date.now() + ttl : null
+      }
+      localStorage.setItem(`sn_${key}`, JSON.stringify(item))
+    } catch (e) {
+      console.warn('Cache set failed:', e)
+    }
+  },
+  
+  clear: (key) => {
+    localStorage.removeItem(`sn_${key}`)
+  }
+}
+
+// ----------------- Update Countdown System -----------------
+async function getUpdateStatus() {
+  const cacheKey = 'update_status'
+  const cached = cache.get(cacheKey)
+  if (cached) return cached
+
+  const setting = await getSetting('update_countdown')
+  const status = {
+    enabled: false,
+    ends_at: null,
+    message: 'Pembaruan sistem untuk pengalaman yang lebih baik!',
+    show_banner: true
+  }
+
+  if (setting?.value) {
+    status.enabled = setting.value.enabled || false
+    status.ends_at = setting.value.ends_at || null
+    status.message = setting.value.message || status.message
+    status.show_banner = setting.value.show_banner !== false
+  }
+
+  cache.set(cacheKey, status, 30 * 1000)
+  return status
+}
+
+async function upsertUpdateSettings(settings) {
+  const payload = { 
+    key: 'update_countdown',
+    value: {
+      ...settings,
+      updated_at: new Date().toISOString()
+    }
+  }
+  
+  const { data, error } = await supabase
+    .from('settings')
+    .upsert([payload])
+    .select()
+    .single()
+
+  if (error) throw error
+  
+  cache.clear('update_status')
+  return data
+}
+
+function startUpdateCountdown(endsAt) {
+  if (updateCountdownInterval) {
+    clearInterval(updateCountdownInterval)
+  }
+  
+  currentUpdateEndsAt = endsAt
+  
+  updateCountdownInterval = setInterval(() => {
+    const now = new Date()
+    const ends = new Date(endsAt)
+    const diff = ends - now
+    
+    if (diff <= 0) {
+      clearInterval(updateCountdownInterval)
+      updateCountdownInterval = null
+      hideUpdateBanner()
+      cache.clear('update_status')
+      return
+    }
+    
+    // Update all countdown displays
+    const countdownText = formatTime(diff)
+    
+    // Global banner
+    const globalCountdown = $('globalUpdateCountdown')
+    if (globalCountdown) globalCountdown.textContent = countdownText
+    
+    // Header badge
+    const headerCountdown = $('headerUpdateCountdown')
+    if (headerCountdown) headerCountdown.textContent = `Update: ${countdownText}`
+    
+    // Page badges
+    const pageCountdowns = ['download', 'upload', 'about']
+    pageCountdowns.forEach(page => {
+      const element = $(`${page}UpdateCountdown`)
+      if (element) element.textContent = countdownText
+    })
+    
+    // Admin preview
+    const adminPreview = $('preview-update-countdown')
+    if (adminPreview) adminPreview.textContent = countdownText
+    
+  }, 1000)
+}
+
+function hideUpdateBanner() {
+  const banner = $('updateCountdownBanner')
+  if (banner) {
+    banner.classList.add('hide')
+  }
+}
+
+function showUpdateBanner() {
+  const banner = $('updateCountdownBanner')
+  if (banner) {
+    banner.classList.remove('hide')
+  }
+}
+
+async function initializeUpdateCountdown() {
+  try {
+    const updateStatus = await getUpdateStatus()
+    
+    if (updateStatus.enabled && updateStatus.ends_at) {
+      const endsAt = new Date(updateStatus.ends_at)
+      const now = new Date()
+      
+      if (endsAt > now) {
+        // Show banner if enabled
+        if (updateStatus.show_banner) {
+          showUpdateBanner()
+        }
+        
+        // Show header badge
+        const headerBadge = $('headerUpdateBadge')
+        if (headerBadge) headerBadge.classList.remove('hide')
+        
+        // Show page badges
+        const pages = ['download', 'upload', 'about']
+        pages.forEach(page => {
+          const badge = $(`${page}UpdateBadge`)
+          if (badge) badge.classList.remove('hide')
+        })
+        
+        // Start countdown
+        startUpdateCountdown(updateStatus.ends_at)
+        
+      } else {
+        // Update has passed, disable it
+        await upsertUpdateSettings({ enabled: false })
+        cache.clear('update_status')
+      }
+    } else {
+      hideUpdateBanner()
+    }
+  } catch (error) {
+    console.warn('Failed to initialize update countdown:', error)
+  }
+}
+
+// ----------------- Maintenance System -----------------
+async function getMaintenanceStatus() {
+  const cacheKey = 'maintenance_status'
+  const cached = cache.get(cacheKey)
+  if (cached) return cached
+
+  const setting = await getSetting('maintenance')
+  const status = {
+    enabled: false,
+    ends_at: null,
+    message: 'Sistem dalam perbaikan. Terima kasih atas pengertiannya.'
+  }
+
+  if (setting?.value) {
+    status.enabled = setting.value.enabled || false
+    status.ends_at = setting.value.ends_at || null
+    status.message = setting.value.message || status.message
+  }
+
+  cache.set(cacheKey, status, 30 * 1000)
+  return status
+}
+
+function startMaintenanceCountdown(endsAt) {
+  if (maintenanceCountdownInterval) {
+    clearInterval(maintenanceCountdownInterval)
+  }
+  
+  maintenanceCountdownInterval = setInterval(() => {
+    const now = new Date()
+    const ends = new Date(endsAt)
+    const diff = ends - now
+    
+    if (diff <= 0) {
+      clearInterval(maintenanceCountdownInterval)
+      maintenanceCountdownInterval = null
+      hideMaintenanceOverlay()
+      cache.clear('maintenance_status')
+      return
+    }
+    
+    // Update maintenance countdown displays
+    const countdownText = formatTime(diff)
+    
+    const modalCountdown = $('maintenance-modal-countdown')
+    if (modalCountdown) modalCountdown.textContent = countdownText
+    
+    const adminPreview = $('preview-maintenance-countdown')
+    if (adminPreview) adminPreview.textContent = countdownText
+    
+  }, 1000)
+}
+
+function showMaintenanceOverlay(message) {
+  const overlay = $('globalMaintenanceOverlay')
+  const messageEl = $('maintenance-modal-message')
+  
+  if (overlay && messageEl) {
+    messageEl.textContent = message
+    overlay.classList.remove('hide')
+    overlay.classList.add('active')
+  }
+}
+
+function hideMaintenanceOverlay() {
+  const overlay = $('globalMaintenanceOverlay')
+  if (overlay) {
+    overlay.classList.remove('active')
+    setTimeout(() => {
+      overlay.classList.add('hide')
+    }, 300)
+  }
+}
+
+// ----------------- Supabase Helpers -----------------
+async function uploadFileToStorage(file, destName){
+  const { data, error } = await supabase.storage.from(BUCKET).upload(destName, file, {
+    cacheControl: '3600',
+    upsert: false
+  })
+  if (error) throw error
+  return data.path
+}
+
 async function insertFileRecord({ filename, storage_path, username, password_hash, size, expires_at = null }){
-  const payload = { filename, storage_path, username, password_hash }
-  if(typeof size !== 'undefined') payload.size = size
-  if(expires_at) payload.expires_at = expires_at
-  const { data, error } = await supabase.from('files').insert([payload]).select().maybeSingle()
+  const payload = { 
+    filename, 
+    storage_path, 
+    username, 
+    password_hash, 
+    size,
+    expires_at: expires_at || null
+  }
+  
+  const { data, error } = await supabase
+    .from('files')
+    .insert([payload])
+    .select()
+    .single()
+  
   if (error) throw error
   return data
 }
 
 async function getRecordByUsername(username){
-  const { data, error } = await supabase.from('files').select('*').eq('username', username).maybeSingle()
-  if (error) throw error
+  const cacheKey = `file_${username}`
+  const cached = cache.get(cacheKey)
+  if (cached) return cached
+
+  const { data, error } = await supabase
+    .from('files')
+    .select('*')
+    .eq('username', username)
+    .single()
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      return null // No data found
+    }
+    throw error
+  }
+  
+  if (data) {
+    // Check if file is expired
+    if (data.expires_at && new Date(data.expires_at) < new Date()) {
+      // File is expired, delete it and return null
+      try {
+        await deleteFile(data)
+        cache.clear(cacheKey)
+        return null
+      } catch (deleteError) {
+        console.warn('Failed to delete expired file:', deleteError)
+        return null
+      }
+    }
+    cache.set(cacheKey, data, 2 * 60 * 1000)
+  }
   return data
 }
 
-async function createSignedUrl(path, expires=120){
+async function createSignedUrl(path, expires=300){
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, expires)
   if (error) throw error
-  return data?.signedUrl ?? data?.signedURL ?? null
+  return data?.signedUrl
 }
 
 async function forceDownloadUrl(url, filename){
   const res = await fetch(url)
-  if (!res.ok) throw new Error('Failed to fetch file: '+res.status)
+  if (!res.ok) throw new Error(`Download failed: ${res.status}`)
   const blob = await res.blob()
-  const u = URL.createObjectURL(blob)
+  
   const a = document.createElement('a')
-  a.href = u
+  a.href = URL.createObjectURL(blob)
   a.download = filename || 'download'
+  a.style.display = 'none'
   document.body.appendChild(a)
   a.click()
-  a.remove()
-  URL.revokeObjectURL(u)
+  document.body.removeChild(a)
+  URL.revokeObjectURL(a.href)
 }
 
-// delete storage object + DB record
 async function deleteFile(file){
-  if(!file) throw new Error('file missing')
-  try {
-    await supabase.storage.from(BUCKET).remove([file.storage_path])
-  } catch(e) { console.warn('failed remove storage', e) }
-  const { error } = await supabase.from('files').delete().eq('id', file.id)
-  if(error) throw error
+  if(!file?.id || !file?.storage_path) throw new Error('Invalid file data')
+  
+  // Delete from storage first
+  const { error: storageError } = await supabase.storage.from(BUCKET).remove([file.storage_path])
+  if (storageError) {
+    console.warn('Storage deletion warning:', storageError)
+    // Continue with DB deletion even if storage deletion fails
+  }
+  
+  // Delete from database
+  const { error: dbError } = await supabase.from('files').delete().eq('id', file.id)
+  if (dbError) throw dbError
+  
+  // Clear relevant caches
+  cache.clear(`file_${file.username}`)
+  cache.clear('files_list')
+  cache.clear('stats')
+  
   return true
 }
 
-// get files list
 async function listFiles(){
-  const { data, error } = await supabase.from('files').select('*').order('created_at', { ascending:false }).limit(500)
-  if(error) throw error
-  return data || []
+  const cacheKey = 'files_list'
+  const cached = cache.get(cacheKey)
+  if (cached) return cached
+
+  const { data, error } = await supabase
+    .from('files')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(500)
+
+  if (error) throw error
+  
+  // Filter out expired files
+  const now = new Date()
+  const validFiles = (data || []).filter(file => 
+    !file.expires_at || new Date(file.expires_at) > now
+  )
+  
+  cache.set(cacheKey, validFiles, 30 * 1000)
+  return validFiles
 }
 
-// record download event for stats
 async function recordDownload({ file_id = null, filename = null, username = null } = {}){
   try {
-    await supabase.from('downloads').insert([{ file_id, filename, username }])
+    await supabase.from('downloads').insert([{ 
+      file_id, 
+      filename, 
+      username,
+      downloaded_at: new Date().toISOString()
+    }])
+    cache.clear('stats')
   } catch(e) {
-    console.warn('recordDownload failed', e)
+    console.warn('Download recording failed:', e)
   }
 }
 
-// settings table helpers (key/value json in 'settings' table)
 async function getSetting(key){
-  const { data, error } = await supabase.from('settings').select('*').eq('key', key).maybeSingle()
-  if(error) { console.warn('getSetting err', error); return null }
+  const cacheKey = `setting_${key}`
+  const cached = cache.get(cacheKey)
+  if (cached) return cached
+
+  const { data, error } = await supabase
+    .from('settings')
+    .select('*')
+    .eq('key', key)
+    .single()
+
+  if (error && error.code !== 'PGRST116') {
+    console.warn('getSetting error:', error)
+    return null
+  }
+  
+  if (data) cache.set(cacheKey, data, 60 * 1000)
   return data
 }
+
 async function upsertSetting(key, valueObj){
-  const payload = { key, value: valueObj }
-  const { data, error } = await supabase.from('settings').upsert([payload]).select().maybeSingle()
-  if(error) throw error
+  const payload = { 
+    key, 
+    value: valueObj,
+    updated_at: new Date().toISOString()
+  }
+  
+  const { data, error } = await supabase
+    .from('settings')
+    .upsert([payload])
+    .select()
+    .single()
+
+  if (error) throw error
+  
+  cache.clear(`setting_${key}`)
+  if (key === 'maintenance') cache.clear('maintenance_status')
+  if (key === 'update_countdown') cache.clear('update_status')
+  
   return data
 }
 
-// stats loader (important: make sure this is defined)
 async function loadStats(){
+  const cacheKey = 'stats'
+  const cached = cache.get(cacheKey)
+  if (cached) return cached
+
   try {
-    const up = await supabase.from('files').select('*', { count: 'exact', head: true })
-    const dl = await supabase.from('downloads').select('*', { count: 'exact', head: true })
-    return {
-      uploads: up?.count ?? 0,
-      downloads: dl?.count ?? 0
+    const [upResult, dlResult, filesResult] = await Promise.all([
+      supabase.from('files').select('*', { count: 'exact', head: true }),
+      supabase.from('downloads').select('*', { count: 'exact', head: true }),
+      supabase.from('files').select('id', { count: 'exact', head: true })
+        .is('expires_at', null) // Only count non-expired files
+        .or('expires_at.gt.' + new Date().toISOString())
+    ])
+    
+    const stats = {
+      uploads: upResult?.count ?? 0,
+      downloads: dlResult?.count ?? 0,
+      files: filesResult?.count ?? 0
     }
+    
+    cache.set(cacheKey, stats, 2 * 60 * 1000)
+    return stats
   } catch(e) {
-    console.warn('loadStats error', e)
-    return { uploads: 0, downloads: 0 }
+    console.warn('loadStats error:', e)
+    return { uploads: 0, downloads: 0, files: 0 }
   }
 }
 
-// ----------------- Admin session helpers -----------------
-function isAdminSession(){ return localStorage.getItem('sn_admin') === '1' }
-function setAdminSession(on=true){ if(on) localStorage.setItem('sn_admin','1'); else localStorage.removeItem('sn_admin') }
+// ----------------- Admin Session -----------------
+function isAdminSession(){ 
+  const session = localStorage.getItem('sn_admin_session')
+  if (!session) return false
+  
+  try {
+    const { expiry } = JSON.parse(session)
+    if (expiry && Date.now() > expiry) {
+      localStorage.removeItem('sn_admin_session')
+      return false
+    }
+    return true
+  } catch {
+    localStorage.removeItem('sn_admin_session')
+    return false
+  }
+}
 
-// ----------------- Expiry helpers -----------------
-// Map select value -> milliseconds (or null)
+function setAdminSession(on = true, ttl = 24 * 60 * 60 * 1000){
+  if (on) {
+    const session = {
+      created: Date.now(),
+      expiry: Date.now() + ttl
+    }
+    localStorage.setItem('sn_admin_session', JSON.stringify(session))
+  } else {
+    localStorage.removeItem('sn_admin_session')
+    cache.clear('stats')
+    cache.clear('files_list')
+  }
+}
+
+// ----------------- Fixed Expiry System -----------------
 function expiryToIso(selectVal){
-  // selectVal expected: 'none' | '2h' | '1d' | '5d' | '1m'
-  if(!selectVal || selectVal === 'none') return null
+  if(!selectVal || selectVal === 'never') return null
+  
   const now = new Date()
-  let ms = null
+  let expiryDate = new Date(now)
+  
   switch(selectVal){
-    case '2h': ms = 1000 * 60 * 60 * 2; break
-    case '1d': ms = 1000 * 60 * 60 * 24; break
-    case '5d': ms = 1000 * 60 * 60 * 24 * 5; break
-    case '1m': ms = 1000 * 60 * 60 * 24 * 30; break
-    default: ms = null
+    case '2h':
+      expiryDate.setHours(expiryDate.getHours() + 2)
+      break
+    case '1d':
+      expiryDate.setDate(expiryDate.getDate() + 1)
+      break
+    case '5d':
+      expiryDate.setDate(expiryDate.getDate() + 5)
+      break
+    case '1m':
+      expiryDate.setMonth(expiryDate.getMonth() + 1)
+      break
+    default:
+      return null
   }
-  return ms ? new Date(Date.now() + ms).toISOString() : null
+  
+  return expiryDate.toISOString()
 }
 
-// ----------------- Cleanup expired files (client-side safety) -----------------
-// Find files where expires_at is not null and less than now.
-// For each file: check downloads count. If downloads === 0 => delete file.
+// ----------------- Fixed Cleanup System -----------------
 async function cleanExpiredFiles(){
   try {
-    // query expired (simple where using lt). Must match your DB column name 'expires_at' typed as timestamp
-    const nowIso = new Date().toISOString()
+    const now = new Date().toISOString()
+    
+    // Find expired files that haven't been downloaded
     const { data: expiredFiles, error } = await supabase
       .from('files')
-      .select('*')
-      .lt('expires_at', nowIso)
+      .select(`
+        *,
+        downloads:downloads(count)
+      `)
+      .lt('expires_at', now)
       .not('expires_at', 'is', null)
-      .limit(500)
-    if(error) { /* not fatal */ console.warn('cleanExpiredFiles: select err', error); return }
-    if(!expiredFiles || expiredFiles.length === 0) return
 
-    for(const f of expiredFiles){
+    if (error) {
+      console.warn('Cleanup query error:', error)
+      return { cleaned: 0, total: 0 }
+    }
+
+    if (!expiredFiles?.length) {
+      return { cleaned: 0, total: 0 }
+    }
+
+    let cleanedCount = 0
+    let totalExpired = expiredFiles.length
+
+    for (const file of expiredFiles) {
       try {
-        // count downloads for this file
-        const { count } = await supabase.from('downloads').select('id', { count: 'exact', head: true }).eq('file_id', f.id)
-        const dlCount = count || 0
-        if(dlCount === 0){
-          log('[expired] removing', f.storage_path, 'id', f.id)
-          await deleteFile(f).catch(e => console.warn('expired delete failed', e))
+        // Check if file has any downloads
+        const downloadCount = file.downloads?.[0]?.count || 0
+        
+        if (downloadCount === 0) {
+          // File has never been downloaded, safe to delete
+          await deleteFile(file)
+          cleanedCount++
+          log(`Deleted expired file: ${file.filename} (ID: ${file.id})`)
         } else {
-          log('[expired] file has downloads, skipping delete', f.id, 'downloads', dlCount)
+          log(`Skipping expired file with downloads: ${file.filename} (Downloads: ${downloadCount})`)
         }
-      } catch(e) {
-        console.warn('cleanExpiredFiles inner err', e)
+      } catch (e) {
+        console.warn(`Error processing file ${file.id}:`, e)
       }
     }
-  } catch(e) {
-    console.warn('cleanExpiredFiles err', e)
+    
+    // Clear cache after cleanup
+    if (cleanedCount > 0) {
+      cache.clear('files_list')
+      cache.clear('stats')
+      log(`Cleanup completed: ${cleanedCount}/${totalExpired} files deleted`)
+    }
+    
+    return { cleaned: cleanedCount, total: totalExpired }
+    
+  } catch (e) {
+    console.warn('Cleanup system error:', e)
+    return { cleaned: 0, total: 0, error: e.message }
   }
 }
 
-// ----------------- UI wiring and logic -----------------
-document.addEventListener('DOMContentLoaded', ()=> {
-  const pages = Array.from(document.querySelectorAll('.page'))
-  const navButtons = Array.from(document.querySelectorAll('.nav-btn'))
-
-  function showPage(id){
-    // protect admin page
-    if(id === 'page-admin' && !isAdminSession()) id = 'page-download'
-
-    pages.forEach(p => {
-      if(p.id === id){
-        p.classList.add('active')
-        p.querySelectorAll('.glass-card, .page-title, .filebox, input, .row, .comments-box').forEach((el,i)=>{
-          el.classList.add('fade-in')
-          el.style.animationDelay = `${i*40}ms`
-          setTimeout(()=> el.style.animationDelay = '', 800)
-        })
-      } else p.classList.remove('active')
-    })
-    navButtons.forEach(b => b.classList.toggle('active', b.dataset.target === id))
-
-    // enforce maintenance UI each time user navigates
-    enforceMaintenanceUI()
-
-    if(id === 'page-admin') loadAdminDashboard()
-  }
-
-  navButtons.forEach(btn => {
-    btn.addEventListener('click', ()=> {
-      const tgt = btn.dataset.target
-      showPage(tgt)
-      btn.animate([{ transform:'translateY(0)'},{transform:'translateY(-8px)'},{transform:'translateY(0)'}],{duration:360,easing:'cubic-bezier(.2,.9,.3,1)'})
-    })
-  })
-
-  // default
-  showPage('page-download')
-
-  // element refs
-  const fileInput = $('fileInput'), btnUpload = $('btnUpload'), credsBox = $('creds'),
-        outUser = $('outUser'), outPass = $('outPass'), outLink = $('outLink'), copyCreds = $('copyCreds'),
-        expirySelect = $('expirySelect') // optional element; if not present fallback to none
-
-  const dlUser = $('dlUser'), dlPass = $('dlPass'), btnVerify = $('btnVerify'), btnClear = $('btnClear'), dlInfo = $('dlInfo')
-  const fileNameEl = $('fileName'), fileSizeEl = $('fileSize'), fileTimeEl = $('fileTime'), btnView = $('btnView'), btnDownload = $('btnDownload')
-
-  // admin refs
-  const maintenanceToggle = $('maintenance-toggle'), maintenanceEnds = $('maintenance-ends'), saveSettingsBtn = $('save-settings'), maintenanceMsg = $('maintenance-msg')
-  const adminLogoutBtn = $('admin-logout'), filesListEl = $('files-list'), statUploadsEl = $('stat-uploads'), statDownloadsEl = $('stat-downloads')
-
-  // Upload handler (blocked during maintenance)
-  if(btnUpload){
-    btnUpload.addEventListener('click', async ()=>{
-      // check maintenance
-      const setting = await getSetting('maintenance').catch(()=>null)
-      if(setting && setting.value && setting.value.enabled){
-        const ends = setting.value.ends_at ? new Date(setting.value.ends_at) : null
-        if(!ends || new Date() < ends){
-          return showMaintenanceToastAndBlock()
-        }
-      }
-
-      const f = fileInput?.files?.[0]
-      if(!f) return alert('Pilih file dulu.')
-
-      btnUpload.disabled = true; btnUpload.textContent = 'Uploading...'
+// ----------------- Enhanced File Verification -----------------
+async function verifyFileAccess(fileRecord) {
+  if (!fileRecord) return { valid: false, reason: 'File tidak ditemukan' }
+  
+  // Check if file is expired
+  if (fileRecord.expires_at) {
+    const expiryDate = new Date(fileRecord.expires_at)
+    const now = new Date()
+    
+    if (expiryDate <= now) {
+      // File is expired, try to delete it
       try {
-        const dest = `${Date.now()}_${f.name.replace(/\s+/g,'_')}`
-        log('[upload] ->', dest)
-        const storage_path = await uploadFileToStorage(f, dest)
-
-        // expiry processing: read expirySelect (if present) or fallback 'none'
-        const sel = expirySelect ? expirySelect.value : 'none'
-        const expiresIso = expiryToIso(sel) // may be null
-
-        const username = 'sn-' + rand(6)
-        const password = 'sn-' + rand(10)
-        const hash = await sha256(password)
-        const rec = await insertFileRecord({ filename: f.name, storage_path, username, password_hash: hash, size: f.size, expires_at: expiresIso })
-        log('[db] inserted', rec)
-
-        if(outUser) outUser.textContent = username
-        if(outPass) outPass.textContent = password
-        if(outLink) outLink.textContent = `${BASE_LOGIN_LINK}/?user=${username}`
-        if(credsBox) credsBox.classList.remove('hide')
-
-        // show expiry in UI if you have an element - try to set data-expiry attribute
-        if(credsBox && expiresIso){
-          credsBox.dataset.expires = expiresIso
-        } else if(credsBox){
-          delete credsBox.dataset.expires
-        }
-
-        alert('Upload & record berhasil — simpan kredensial sekarang (password tampil sekali).')
-
-        // try cleaning expired files in background
-        cleanExpiredFiles().catch(()=>{})
-      } catch(err){
-        console.error(err)
-        alert('Upload gagal: '+(err.message||err))
-      } finally {
-        btnUpload.disabled = false; btnUpload.textContent = 'Upload & Generate Credentials'
+        await deleteFile(fileRecord)
+      } catch (deleteError) {
+        console.warn('Failed to delete expired file:', deleteError)
       }
-    })
+      return { valid: false, reason: 'File sudah kadaluarsa' }
+    }
+  }
+  
+  return { valid: true }
+}
+
+// ----------------- UI Manager -----------------
+class UIManager {
+  constructor() {
+    this.pages = Array.from($$('.page'))
+    this.navButtons = Array.from($$('.nav-btn'))
+    this.currentPage = 'page-download'
+    this.init()
   }
 
-  // copy credentials (now includes expiry line if available)
-  if(copyCreds){
-    copyCreds.addEventListener('click', ()=>{
-      const u = outUser?.textContent||'', p = outPass?.textContent||'', l = outLink?.textContent||''
-      const expiryText = credsBox?.dataset?.expires ? new Date(credsBox.dataset.expires).toLocaleString() : 'Tidak kedaluwarsa'
-      const txt = `username: ${u}\npassword: ${p}\nexpired: ${expiryText}\nlink: ${l}`
-      navigator.clipboard.writeText(txt).then(()=> {
-        copyCreds.animate([{ transform:'scale(1)' }, { transform:'scale(.96)' }, { transform:'scale(1)' }], { duration:280 })
-        alert('Kredensial disalin')
+  init() {
+    this.setupNavigation()
+    this.setupEventListeners()
+    this.showPage('page-download')
+    this.initializeAdminSettings()
+  }
+
+  setupNavigation() {
+    this.navButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const target = btn.dataset.target
+        this.showPage(target)
+        
+        btn.animate([
+          { transform: 'translateY(0)' },
+          { transform: 'translateY(-8px)' },
+          { transform: 'translateY(0)' }
+        ], {
+          duration: 360,
+          easing: 'cubic-bezier(.2,.9,.3,1)'
+        })
       })
     })
+
+    window.addEventListener('keydown', e => {
+      if (e.altKey || e.ctrlKey) return
+      
+      const order = ['page-download', 'page-upload', 'page-about', 'page-admin']
+      const currentIndex = order.indexOf(this.currentPage)
+      
+      if (e.key === 'ArrowLeft' && currentIndex > 0) {
+        this.showPage(order[currentIndex - 1])
+      } else if (e.key === 'ArrowRight' && currentIndex < order.length - 1) {
+        this.showPage(order[currentIndex + 1])
+      }
+    })
   }
 
-  // Verify handler — includes admin secret
-  if(btnVerify) btnVerify.addEventListener('click', async ()=>{
-    const username = dlUser?.value?.trim()||'', pass = dlPass?.value?.trim()||''
-    if(!username || !pass) return alert('Isi username & password.')
-
-    // admin secret door
-    if(username === ADMIN_CREDENTIALS.user && pass === ADMIN_CREDENTIALS.pass){
-      setAdminSession(true)
-      alert('Admin login diterima — membuka dashboard')
-      showPage('page-admin')
-      return
+  showPage(id) {
+    if (id === 'page-admin' && !isAdminSession()) {
+      id = 'page-download'
     }
 
+    this.currentPage = id
+    
+    this.pages.forEach(page => {
+      page.classList.toggle('active', page.id === id)
+    })
+
+    this.navButtons.forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.target === id)
+    })
+
+    this.checkMaintenance()
+    this.animatePageEntrance(id)
+
+    if (id === 'page-admin') {
+      this.loadAdminDashboard()
+    }
+  }
+
+  animatePageEntrance(pageId) {
+    const page = $(pageId)
+    if (!page) return
+
+    const elements = page.querySelectorAll('.glass-card, .page-title, .filebox, input, textarea, .row, .comments-box')
+    elements.forEach((el, i) => {
+      el.classList.add('fade-in')
+      el.style.animationDelay = `${i * 40}ms`
+      setTimeout(() => el.style.animationDelay = '', 800)
+    })
+  }
+
+  async checkMaintenance() {
     try {
-      const rec = await getRecordByUsername(username)
-      if(!rec) return alert('Username tidak ditemukan.')
-      const hash = await sha256(pass)
-      if(hash !== rec.password_hash) return alert('Password salah.')
-
-      // check if file expired already (safety)
-      if(rec.expires_at){
-        const ends = new Date(rec.expires_at)
-        if(new Date() > ends){
-          return alert('File sudah kadaluarsa.')
+      const maintenance = await getMaintenanceStatus()
+      
+      if (maintenance.enabled && maintenance.ends_at && new Date(maintenance.ends_at) > new Date()) {
+        if (this.currentPage === 'page-upload' || this.currentPage === 'page-about') {
+          this.showMaintenanceBlock(maintenance)
         }
+        
+        if (this.currentPage === 'page-download') {
+          showMaintenanceOverlay(maintenance.message)
+          startMaintenanceCountdown(maintenance.ends_at)
+        }
+      } else {
+        hideMaintenanceOverlay()
       }
-
-      let signed = null
-      try { signed = await createSignedUrl(rec.storage_path, 300) } catch(e){ console.warn('signed failed', e) }
-
-      if(fileNameEl) fileNameEl.textContent = rec.filename ?? rec.storage_path
-      if(fileSizeEl) fileSizeEl.textContent = niceBytes(rec.size)
-      if(fileTimeEl) fileTimeEl.textContent = rec.created_at ? new Date(rec.created_at).toLocaleString() : '-'
-      if(dlInfo) dlInfo.classList.remove('hide')
-
-      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(rec.storage_path)}`
-      const finalUrl = signed || publicUrl
-
-      if(btnView) btnView.onclick = ()=> window.open(finalUrl, '_blank')
-      if(btnDownload) btnDownload.onclick = async ()=>{
-        try{
-          await forceDownloadUrl(finalUrl, rec.filename ?? 'download')
-          await recordDownload({ file_id: rec.id || null, filename: rec.filename, username: rec.username })
-        } catch(e){ console.error(e); alert('Gagal unduh: '+(e.message||e)) }
-      }
-    } catch(err){
-      console.error(err)
-      alert('Verifikasi gagal: '+(err.message||err))
+    } catch (error) {
+      console.warn('Maintenance check failed:', error)
     }
-  })
+  }
 
-  if(btnClear) btnClear.addEventListener('click', ()=> { if(dlUser) dlUser.value=''; if(dlPass) dlPass.value=''; if(dlInfo) dlInfo.classList.add('hide') })
+  showMaintenanceBlock(maintenance) {
+    const currentPage = $(this.currentPage)
+    if (!currentPage) return
 
-  // --- ADMIN: load dashboard ---
-  async function loadAdminDashboard(){
-    if(!isAdminSession()) return showPage('page-download')
+    let overlay = currentPage.querySelector('.maintenance-page-overlay')
+    if (!overlay) {
+      overlay = document.createElement('div')
+      overlay.className = 'maintenance-page-overlay'
+      overlay.innerHTML = `
+        <div class="maintenance-page-content">
+          <div class="maintenance-page-icon">
+            <i class="fa fa-wrench"></i>
+          </div>
+          <div class="maintenance-page-text">
+            <h4>Fitur Sedang Tidak Tersedia</h4>
+            <p>${maintenance.message}</p>
+            <div class="maintenance-page-countdown">
+              <i class="fa fa-clock-o"></i>
+              <span>Tersedia dalam: <strong>${formatTime(new Date(maintenance.ends_at) - new Date())}</strong></span>
+            </div>
+          </div>
+        </div>
+      `
+      currentPage.appendChild(overlay)
+    }
+    
+    startMaintenanceCountdown(maintenance.ends_at)
+  }
 
-    // stats
+  async loadAdminDashboard() {
+    if (!isAdminSession()) return
+
     try {
       const stats = await loadStats()
-      if(statUploadsEl) statUploadsEl.textContent = stats.uploads ?? 0
-      if(statDownloadsEl) statDownloadsEl.textContent = stats.downloads ?? 0
-    } catch(e) { console.warn('stat load err', e) }
+      if ($('stat-uploads')) $('stat-uploads').textContent = stats.uploads
+      if ($('stat-downloads')) $('stat-downloads').textContent = stats.downloads
+      if ($('stat-files')) $('stat-files').textContent = stats.files
 
-    // files list
+      await this.loadFilesList()
+      await this.loadMaintenanceSettings()
+      await this.loadUpdateSettings()
+
+    } catch (e) {
+      console.error('Admin dashboard error:', e)
+    }
+  }
+
+  async loadFilesList() {
     try {
       const files = await listFiles()
-      if(!filesListEl) return
+      const filesListEl = $('files-list')
+      const filesCountEl = $('files-count')
+      
+      if (!filesListEl) return
+
       filesListEl.innerHTML = ''
-      files.forEach(f => {
+      
+      if (filesCountEl) filesCountEl.textContent = files.length
+
+      if (files.length === 0) {
+        filesListEl.innerHTML = '<div class="muted text-center" style="padding: 40px;">Tidak ada file</div>'
+        return
+      }
+
+      files.forEach(file => {
         const row = document.createElement('div')
         row.className = 'file-row'
 
         const meta = document.createElement('div')
         meta.className = 'file-meta'
-        const expiresText = f.expires_at ? ` • Expires: ${new Date(f.expires_at).toLocaleString()}` : ''
-        meta.innerHTML = `<div class="name">${escapeHtml(f.filename || f.storage_path)}</div>
-                          <div class="sub">${niceBytes(f.size || 0)} • ${f.created_at ? new Date(f.created_at).toLocaleString() : '-'}${expiresText}</div>`
+        
+        const expiresText = file.expires_at ? 
+          ` • Expires: ${new Date(file.expires_at).toLocaleString()}` : 
+          ''
+        
+        const isExpired = file.expires_at && new Date(file.expires_at) < new Date()
+        if (isExpired) {
+          row.classList.add('expired')
+        }
+        
+        meta.innerHTML = `
+          <div class="name ${isExpired ? 'expired-text' : ''}">${escapeHtml(file.filename || file.storage_path)}</div>
+          <div class="sub">
+            <span>${niceBytes(file.size || 0)}</span>
+            <span>•</span>
+            <span>${file.created_at ? new Date(file.created_at).toLocaleString() : '-'}</span>
+            ${expiresText}
+            ${isExpired ? '<span class="expired-badge">EXPIRED</span>' : ''}
+          </div>
+        `
 
         const actions = document.createElement('div')
         actions.className = 'file-actions'
 
         const btnView = document.createElement('button')
-        btnView.className = 'btn ghost'
+        btnView.className = `btn ghost small ${isExpired ? 'disabled' : ''}`
         btnView.innerHTML = '<i class="fa fa-eye"></i> View'
-        btnView.onclick = async ()=>{
-          const signed = await createSignedUrl(f.storage_path, 300).catch(()=>null)
-          const url = signed || `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(f.storage_path)}`
-          window.open(url, '_blank')
+        btnView.disabled = isExpired
+        btnView.onclick = async () => {
+          if (isExpired) return
+          
+          try {
+            const signed = await createSignedUrl(file.storage_path, 300)
+            const url = signed || `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(file.storage_path)}`
+            window.open(url, '_blank')
+          } catch (e) {
+            alert('Gagal membuka file: ' + e.message)
+          }
         }
 
         const btnDel = document.createElement('button')
-        btnDel.className = 'btn ghost'
+        btnDel.className = 'btn ghost small'
         btnDel.innerHTML = '<i class="fa fa-trash"></i> Hapus'
-        btnDel.onclick = async ()=>{
-          if(!confirm('Hapus file ini permanen?')) return
+        btnDel.onclick = async () => {
+          if (!confirm('Hapus file ini secara permanen?')) return
           try {
-            await deleteFile(f)
-            row.animate([{ opacity:1 },{ opacity:0}], { duration:420 })
-            setTimeout(()=> row.remove(), 420)
-          } catch(e){ alert('Gagal hapus: '+(e.message||e)) }
+            await deleteFile(file)
+            row.style.opacity = '0'
+            setTimeout(() => row.remove(), 300)
+          } catch (e) {
+            alert('Gagal menghapus: ' + e.message)
+          }
         }
 
         actions.appendChild(btnView)
@@ -416,114 +896,661 @@ document.addEventListener('DOMContentLoaded', ()=> {
         row.appendChild(actions)
         filesListEl.appendChild(row)
       })
-    } catch(e){
-      console.error('files list err', e)
-      if(filesListEl) filesListEl.innerHTML = '<div class="muted">Gagal memuat file</div>'
+
+    } catch (e) {
+      console.error('Files list error:', e)
+      if ($('files-list')) {
+        $('files-list').innerHTML = '<div class="muted text-center" style="padding: 20px;">Gagal memuat file</div>'
+      }
     }
   }
 
-  // save settings
-  if(saveSettingsBtn) saveSettingsBtn.addEventListener('click', async ()=>{
-    const enabled = !!maintenanceToggle.checked
-    const endsVal = maintenanceEnds.value ? new Date(maintenanceEnds.value).toISOString() : null
-    const payload = { enabled, ends_at: endsVal }
+  async loadMaintenanceSettings() {
     try {
-      await upsertSetting('maintenance', payload)
-      alert('Setting disimpan')
-      updateMaintenanceMsgDisplay(payload)
-      enforceMaintenanceUI()
-    } catch(e) {
-      alert('Gagal simpan: '+(e.message||e))
+      const maintenance = await getMaintenanceStatus()
+      const toggle = $('maintenance-toggle')
+      const daysInput = $('maintenance-days')
+      const hoursInput = $('maintenance-hours')
+      const endsInput = $('maintenance-ends')
+      const messageInput = $('maintenance-message')
+
+      if (toggle) toggle.checked = maintenance.enabled
+      if (daysInput) daysInput.value = ''
+      if (hoursInput) hoursInput.value = ''
+      if (endsInput && maintenance.ends_at) {
+        endsInput.value = new Date(maintenance.ends_at).toISOString().slice(0, 16)
+      }
+      if (messageInput) {
+        messageInput.value = maintenance.message || ''
+      }
+
+      this.updateMaintenanceDisplay(maintenance)
+
+    } catch (e) {
+      console.error('Maintenance settings error:', e)
     }
-  })
-
-  function updateMaintenanceMsgDisplay(val){
-    if(!val || !val.enabled){ maintenanceMsg.textContent = 'Maintenance tidak aktif' ; return }
-    const endsAt = val.ends_at ? new Date(val.ends_at) : null
-    if(endsAt) maintenanceMsg.textContent = `Maintenance aktif sampai ${endsAt.toLocaleString()}`
-    else maintenanceMsg.textContent = `Maintenance aktif (tanpa batas waktu)`
   }
 
-  if(adminLogoutBtn) adminLogoutBtn.addEventListener('click', ()=> { setAdminSession(false); alert('Logout admin berhasil'); showPage('page-download') })
+  async loadUpdateSettings() {
+    try {
+      const updateStatus = await getUpdateStatus()
+      const daysInput = $('update-days')
+      const hoursInput = $('update-hours')
+      const minutesInput = $('update-minutes')
+      const endsInput = $('update-ends')
+      const messageInput = $('update-message')
+      const bannerToggle = $('update-banner-toggle')
 
-  // small keyboard nav
-  window.addEventListener('keydown', e=>{
-    const order = ['page-download','page-upload','page-about','page-admin']
-    const cur = pages.findIndex(p=>p.classList.contains('active'))
-    if(e.key === 'ArrowLeft') showPage(order[Math.max(0,cur-1)])
-    if(e.key === 'ArrowRight') showPage(order[Math.min(order.length-1,cur+1)])
-  })
+      if (daysInput) daysInput.value = ''
+      if (hoursInput) hoursInput.value = ''
+      if (minutesInput) minutesInput.value = ''
+      if (endsInput && updateStatus.ends_at) {
+        endsInput.value = new Date(updateStatus.ends_at).toISOString().slice(0, 16)
+      }
+      if (messageInput) {
+        messageInput.value = updateStatus.message || ''
+      }
+      if (bannerToggle) {
+        bannerToggle.checked = updateStatus.show_banner !== false
+      }
 
-  /* ---------------- MAINTENANCE UI ---------------- */
+      this.updateUpdateDisplay(updateStatus)
 
-  function showMaintenanceToastAndBlock(){
-    alert('Sedang maintenance — fitur Upload & About dinonaktifkan. Kamu hanya bisa mendownload file yang sudah tersedia.')
+    } catch (e) {
+      console.error('Update settings error:', e)
+    }
   }
 
-  function createMaintOverlayElement(text){
-    const wrapper = document.createElement('div')
-    wrapper.className = 'maint-overlay'
-    wrapper.innerHTML = `
-      <div class="maint-card">
-        <div class="maint-icon"><i class="fa fa-wrench"></i></div>
-        <div class="maint-body">
-          <div class="maint-title">maintenance</div>
-          <div class="maint-desc">${escapeHtml(text)}</div>
-          <div class="maint-actions">
-            <button class="maint-ok">Oke — kembali ke Download</button>
+  updateMaintenanceDisplay(maintenance) {
+    const msgEl = $('maintenance-msg')
+    if (!msgEl) return
+
+    if (maintenance.enabled && maintenance.ends_at) {
+      const endsAt = new Date(maintenance.ends_at)
+      const now = new Date()
+      
+      if (endsAt > now) {
+        const diff = endsAt - now
+        msgEl.innerHTML = `
+          <div class="settings-message success">
+            <i class="fa fa-check-circle"></i> Maintenance aktif - Selesai dalam: 
+            <strong>${formatTime(diff)}</strong>
           </div>
-        </div>
-      </div>`
-    wrapper.querySelector('.maint-ok').addEventListener('click', ()=> {
-      wrapper.animate([{ transform:'translateY(0)', opacity:1 }, { transform:'translateY(10px)', opacity:0 }], { duration:280, easing:'ease' })
-      setTimeout(()=> {
-        document.querySelectorAll('.maint-overlay').forEach(o=> o.remove())
-        document.querySelectorAll('#page-upload .card, #page-about .card').forEach(c=> c.classList.remove('muted-overlay'))
-        showPage('page-download')
-      }, 300)
-    })
-    return wrapper
+        `
+        startMaintenanceCountdown(maintenance.ends_at)
+      } else {
+        msgEl.innerHTML = '<div class="settings-message error">Maintenance sudah berakhir</div>'
+      }
+    } else if (maintenance.enabled) {
+      msgEl.innerHTML = '<div class="settings-message success">Maintenance aktif (tanpa batas waktu)</div>'
+    } else {
+      msgEl.innerHTML = '<div class="settings-message">Maintenance tidak aktif</div>'
+    }
   }
 
-  async function enforceMaintenanceUI(){
-    try {
-      const s = await getSetting('maintenance')
-      const cards = document.querySelectorAll('#page-upload .card, #page-about .card')
-      // remove previous overlays
-      document.querySelectorAll('#page-upload .card .maint-overlay, #page-about .card .maint-overlay').forEach(n => n.remove())
+  updateUpdateDisplay(updateStatus) {
+    const msgEl = $('update-settings-msg')
+    if (!msgEl) return
 
-      if(s && s.value && s.value.enabled){
-        const ends = s.value.ends_at ? new Date(s.value.ends_at) : null
-        if(!ends || new Date() < ends){
-          const message = `Sedang ada perbaikan atau update website, jadi pengunjung tidak dapat meng-upload dan membuka menu About. Pengunjung hanya bisa mendownload file yang sudah diunggah sebelumnya. Terimakasih.`
-          cards.forEach(card => {
-            card.classList.add('muted-overlay')
-            const ov = createMaintOverlayElement(message)
-            if(getComputedStyle(card).position === 'static') card.style.position = 'relative'
-            card.appendChild(ov)
-          })
-          return
+    if (updateStatus.enabled && updateStatus.ends_at) {
+      const endsAt = new Date(updateStatus.ends_at)
+      const now = new Date()
+      
+      if (endsAt > now) {
+        const diff = endsAt - now
+        msgEl.innerHTML = `
+          <div class="settings-message success">
+            <i class="fa fa-check-circle"></i> Update countdown aktif - 
+            Selesai dalam: <strong>${formatTime(diff)}</strong>
+          </div>
+        `
+      } else {
+        msgEl.innerHTML = '<div class="settings-message error">Update countdown sudah berakhir</div>'
+      }
+    } else {
+      msgEl.innerHTML = '<div class="settings-message">Update countdown tidak aktif</div>'
+    }
+  }
+
+  setupEventListeners() {
+    // Upload handler
+    if ($('btnUpload')) {
+      $('btnUpload').addEventListener('click', this.handleUpload.bind(this))
+    }
+
+    // Verify handler - FIXED EXPIRY CHECK
+    if ($('btnVerify')) {
+      $('btnVerify').addEventListener('click', this.handleVerify.bind(this))
+    }
+
+    // Copy credentials
+    if ($('copyCreds')) {
+      $('copyCreds').addEventListener('click', this.handleCopyCreds.bind(this))
+    }
+
+    // Clear form
+    if ($('btnClear')) {
+      $('btnClear').addEventListener('click', () => {
+        if ($('dlUser')) $('dlUser').value = ''
+        if ($('dlPass')) $('dlPass').value = ''
+        if ($('dlInfo')) $('dlInfo').classList.add('hide')
+      })
+    }
+
+    // Refresh files
+    if ($('refresh-files')) {
+      $('refresh-files').addEventListener('click', () => {
+        this.loadFilesList()
+      })
+    }
+
+    // Cleanup files - FIXED
+    if ($('cleanup-files')) {
+      $('cleanup-files').addEventListener('click', async () => {
+        const btn = $('cleanup-files')
+        const originalText = btn.innerHTML
+        btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Cleaning...'
+        btn.disabled = true
+        
+        try {
+          const result = await cleanExpiredFiles()
+          if (result.error) {
+            this.showMessage('cleanup-result', `Gagal membersihkan: ${result.error}`, 'error')
+          } else {
+            this.showMessage('cleanup-result', 
+              `Pembersihan selesai! ${result.cleaned}/${result.total} file expired dihapus.`, 
+              'success'
+            )
+          }
+          this.loadFilesList()
+          this.loadAdminDashboard() // Refresh stats
+        } catch (e) {
+          this.showMessage('cleanup-result', 'Gagal membersihkan file: ' + e.message, 'error')
+        } finally {
+          btn.innerHTML = originalText
+          btn.disabled = false
+        }
+      })
+    }
+
+    // Clear cache
+    if ($('clear-cache')) {
+      $('clear-cache').addEventListener('click', () => {
+        const keys = Object.keys(localStorage).filter(key => key.startsWith('sn_'))
+        keys.forEach(key => localStorage.removeItem(key))
+        alert('Cache berhasil dibersihkan!')
+      })
+    }
+
+    // Maintenance settings
+    if ($('save-maintenance-settings')) {
+      $('save-maintenance-settings').addEventListener('click', this.handleSaveMaintenanceSettings.bind(this))
+    }
+
+    // Update settings
+    if ($('save-update-settings')) {
+      $('save-update-settings').addEventListener('click', this.handleSaveUpdateSettings.bind(this))
+    }
+
+    // Clear update
+    if ($('clear-update')) {
+      $('clear-update').addEventListener('click', this.handleClearUpdate.bind(this))
+    }
+
+    // Admin logout
+    if ($('admin-logout')) {
+      $('admin-logout').addEventListener('click', () => {
+        setAdminSession(false)
+        alert('Logout admin berhasil')
+        this.showPage('page-download')
+      })
+    }
+
+    // Comment system
+    if ($('cSend')) {
+      $('cSend').addEventListener('click', this.handleCommentSubmit.bind(this))
+    }
+
+    // Maintenance OK button
+    const maintenanceOk = $('globalMaintenanceOverlay')?.querySelector('.maintenance-ok')
+    if (maintenanceOk) {
+      maintenanceOk.addEventListener('click', hideMaintenanceOverlay)
+    }
+  }
+
+  initializeAdminSettings() {
+    // Maintenance settings toggle
+    const maintenanceToggle = $('maintenance-toggle')
+    const maintenanceSettings = $('maintenance-settings')
+    
+    if (maintenanceToggle && maintenanceSettings) {
+      maintenanceToggle.addEventListener('change', () => {
+        maintenanceSettings.style.display = maintenanceToggle.checked ? 'block' : 'none'
+      })
+      // Set initial state
+      maintenanceSettings.style.display = maintenanceToggle.checked ? 'block' : 'none'
+    }
+
+    // Real-time preview for maintenance message
+    const maintenanceMessage = $('maintenance-message')
+    const maintenancePreview = $('preview-maintenance-message')
+    
+    if (maintenanceMessage && maintenancePreview) {
+      maintenanceMessage.addEventListener('input', () => {
+        maintenancePreview.textContent = maintenanceMessage.value || 'Sistem dalam perbaikan. Terima kasih atas pengertiannya.'
+      })
+    }
+
+    // Real-time preview for update message
+    const updateMessage = $('update-message')
+    const updatePreview = $('preview-update-message')
+    
+    if (updateMessage && updatePreview) {
+      updateMessage.addEventListener('input', () => {
+        updatePreview.textContent = updateMessage.value || 'Pembaruan sistem untuk pengalaman yang lebih baik!'
+      })
+    }
+  }
+
+  async handleUpload() {
+    const btnUpload = $('btnUpload')
+    const fileInput = $('fileInput')
+    const file = fileInput?.files?.[0]
+
+    if (!file) {
+      alert('Pilih file terlebih dahulu.')
+      return
+    }
+
+    // Check maintenance
+    const maintenance = await getMaintenanceStatus()
+    if (maintenance.enabled) {
+      this.showMaintenanceBlock(maintenance)
+      return
+    }
+
+    btnUpload.disabled = true
+    btnUpload.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Uploading...'
+
+    try {
+      const dest = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`
+      const storage_path = await uploadFileToStorage(file, dest)
+
+      const expirySelect = $('expireSelect')
+      const expiresIso = expirySelect ? expiryToIso(expirySelect.value) : null
+
+      const username = 'sn-' + rand(6)
+      const password = 'sn-' + rand(10)
+      const hash = await sha256(password)
+
+      const record = await insertFileRecord({
+        filename: file.name,
+        storage_path,
+        username,
+        password_hash: hash,
+        size: file.size,
+        expires_at: expiresIso
+      })
+
+      // Show credentials
+      if ($('outUser')) $('outUser').textContent = username
+      if ($('outPass')) $('outPass').textContent = password
+      if ($('outLink')) $('outLink').textContent = `${BASE_LOGIN_LINK}/?user=${username}`
+      if ($('outExpire')) {
+        $('outExpire').textContent = expiresIso ? new Date(expiresIso).toLocaleString() : 'Tidak expired'
+      }
+      if ($('creds')) $('creds').classList.remove('hide')
+
+      alert('Upload berhasil! Simpan kredensial Anda - password hanya ditampilkan sekali.')
+
+      // Reset form
+      fileInput.value = ''
+
+      // Cleanup expired files in background
+      cleanExpiredFiles().catch(() => {})
+
+    } catch (err) {
+      console.error('Upload error:', err)
+      alert('Upload gagal: ' + (err.message || err))
+    } finally {
+      btnUpload.disabled = false
+      btnUpload.innerHTML = '<i class="fa fa-upload"></i> Upload & Generate Credentials'
+    }
+  }
+
+  async handleVerify() {
+    const username = ($('dlUser')?.value || '').trim()
+    const password = ($('dlPass')?.value || '').trim()
+
+    if (!username || !password) {
+      alert('Harap isi username dan password.')
+      return
+    }
+
+    // Admin secret access
+    if (username === ADMIN_CREDENTIALS.user && password === ADMIN_CREDENTIALS.pass) {
+      setAdminSession(true)
+      alert('Admin login berhasil - membuka dashboard')
+      this.showPage('page-admin')
+      return
+    }
+
+    try {
+      const record = await getRecordByUsername(username)
+      
+      // Enhanced file verification
+      const verification = await verifyFileAccess(record)
+      if (!verification.valid) {
+        alert(verification.reason)
+        return
+      }
+
+      const hash = await sha256(password)
+      if (hash !== record.password_hash) {
+        alert('Password salah.')
+        return
+      }
+
+      // Get signed URL
+      let signedUrl = null
+      try {
+        signedUrl = await createSignedUrl(record.storage_path, 300)
+      } catch (e) {
+        console.warn('Signed URL failed:', e)
+      }
+
+      // Update UI
+      if ($('fileName')) $('fileName').textContent = record.filename || record.storage_path
+      if ($('fileSize')) $('fileSize').textContent = niceBytes(record.size)
+      if ($('fileTime')) $('fileTime').textContent = record.created_at ? 
+        new Date(record.created_at).toLocaleString() : '-'
+      if ($('dlInfo')) $('dlInfo').classList.remove('hide')
+
+      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(record.storage_path)}`
+      const finalUrl = signedUrl || publicUrl
+
+      // Setup download handler
+      if ($('btnDownload')) {
+        $('btnDownload').onclick = async () => {
+          try {
+            await forceDownloadUrl(finalUrl, record.filename || 'download')
+            await recordDownload({
+              file_id: record.id,
+              filename: record.filename,
+              username: record.username
+            })
+          } catch (e) {
+            console.error('Download error:', e)
+            alert('Gagal mengunduh: ' + e.message)
+          }
         }
       }
-      // not in maintenance: clean UI
-      cards.forEach(card=>{
-        card.classList.remove('muted-overlay')
-        const exist = card.querySelector('.maint-overlay')
-        if(exist) exist.remove()
-      })
-    } catch(e) { console.warn('enforce maintenance err', e) }
+
+      // Setup view handler
+      if ($('btnView')) {
+        $('btnView').onclick = () => window.open(finalUrl, '_blank')
+      }
+
+    } catch (err) {
+      console.error('Verification error:', err)
+      if (err.message.includes('PGRST116')) {
+        alert('Username tidak ditemukan.')
+      } else {
+        alert('Verifikasi gagal: ' + (err.message || err))
+      }
+    }
   }
 
-  // run once at start
-  enforceMaintenanceUI()
-  // periodic checks
-  setInterval(enforceMaintenanceUI, 60 * 1000)
-  // periodic expired cleanup (every 5 minutes)
-  setInterval(cleanExpiredFiles, 5 * 60 * 1000)
-  // run a cleanup once on start
-  cleanExpiredFiles().catch(()=>{})
+  handleCopyCreds() {
+    const username = $('outUser')?.textContent || ''
+    const password = $('outPass')?.textContent || ''
+    const link = $('outLink')?.textContent || ''
+    const expiry = $('outExpire')?.textContent || 'Tidak expired'
 
-  // nav animation micro
-  document.querySelectorAll('.nav-btn').forEach((b,i)=> b.animate([{opacity:0, transform:'translateY(8px)'}, {opacity:1, transform:'translateY(0)'}], { duration: 420, delay: i*80, easing:'cubic-bezier(.2,.9,.3,1)' }))
+    const text = `SAFENEST CREDENTIALS\n====================\nUsername: ${username}\nPassword: ${password}\nLink: ${link}\nExpired: ${expiry}\n====================\nSimpan informasi ini dengan aman!`
 
-}) // DOMContentLoaded end
+    navigator.clipboard.writeText(text).then(() => {
+      $('copyCreds').animate([
+        { transform: 'scale(1)' },
+        { transform: 'scale(0.95)' },
+        { transform: 'scale(1)' }
+      ], { duration: 200 })
+      
+      alert('Kredensial berhasil disalin ke clipboard!')
+    }).catch(() => {
+      alert('Gagal menyalin kredensial.')
+    })
+  }
+
+  async handleSaveMaintenanceSettings() {
+    const toggle = $('maintenance-toggle')
+    const daysInput = $('maintenance-days')
+    const hoursInput = $('maintenance-hours')
+    const endsInput = $('maintenance-ends')
+    const messageInput = $('maintenance-message')
+
+    const enabled = toggle?.checked || false
+    let endsAt = null
+
+    if (enabled) {
+      // Calculate ends_at from days/hours or use datetime input
+      if (endsInput?.value) {
+        endsAt = new Date(endsInput.value).toISOString()
+      } else {
+        const days = parseInt(daysInput?.value || '0')
+        const hours = parseInt(hoursInput?.value || '0')
+        const totalMs = (days * 24 * 60 * 60 * 1000) + (hours * 60 * 60 * 1000)
+        
+        if (totalMs > 0) {
+          endsAt = new Date(Date.now() + totalMs).toISOString()
+        }
+      }
+    }
+
+    const message = messageInput?.value || 'Sistem dalam perbaikan. Terima kasih atas pengertiannya.'
+
+    try {
+      await upsertSetting('maintenance', {
+        enabled,
+        ends_at: endsAt,
+        message,
+        updated_by: 'admin'
+      })
+
+      this.showMessage('maintenance-msg', 'Pengaturan maintenance berhasil disimpan!', 'success')
+      
+      // Update display
+      const maintenance = await getMaintenanceStatus()
+      this.updateMaintenanceDisplay(maintenance)
+      this.checkMaintenance()
+
+    } catch (e) {
+      this.showMessage('maintenance-msg', 'Gagal menyimpan pengaturan: ' + e.message, 'error')
+    }
+  }
+
+  async handleSaveUpdateSettings() {
+    const daysInput = $('update-days')
+    const hoursInput = $('update-hours')
+    const minutesInput = $('update-minutes')
+    const endsInput = $('update-ends')
+    const messageInput = $('update-message')
+    const bannerToggle = $('update-banner-toggle')
+
+    let endsAt = null
+
+    // Calculate ends_at from days/hours/minutes or use datetime input
+    if (endsInput?.value) {
+      endsAt = new Date(endsInput.value).toISOString()
+    } else {
+      const days = parseInt(daysInput?.value || '0')
+      const hours = parseInt(hoursInput?.value || '0')
+      const minutes = parseInt(minutesInput?.value || '0')
+      const totalMs = (days * 24 * 60 * 60 * 1000) + (hours * 60 * 60 * 1000) + (minutes * 60 * 1000)
+      
+      if (totalMs > 0) {
+        endsAt = new Date(Date.now() + totalMs).toISOString()
+      }
+    }
+
+    if (!endsAt) {
+      this.showMessage('update-settings-msg', 'Harap tentukan waktu update!', 'error')
+      return
+    }
+
+    const message = messageInput?.value || 'Pembaruan sistem untuk pengalaman yang lebih baik!'
+    const showBanner = bannerToggle?.checked !== false
+
+    try {
+      await upsertUpdateSettings({
+        enabled: true,
+        ends_at: endsAt,
+        message,
+        show_banner: showBanner
+      })
+
+      this.showMessage('update-settings-msg', 'Update countdown berhasil diatur!', 'success')
+      
+      // Reinitialize update countdown
+      await initializeUpdateCountdown()
+      
+      // Update display
+      const updateStatus = await getUpdateStatus()
+      this.updateUpdateDisplay(updateStatus)
+
+    } catch (e) {
+      this.showMessage('update-settings-msg', 'Gagal menyimpan pengaturan: ' + e.message, 'error')
+    }
+  }
+
+  async handleClearUpdate() {
+    try {
+      await upsertUpdateSettings({
+        enabled: false,
+        ends_at: null,
+        message: 'Pembaruan sistem untuk pengalaman yang lebih baik!',
+        show_banner: true
+      })
+
+      this.showMessage('update-settings-msg', 'Update countdown berhasil dihapus!', 'success')
+      
+      // Clear current countdown
+      if (updateCountdownInterval) {
+        clearInterval(updateCountdownInterval)
+        updateCountdownInterval = null
+      }
+      
+      hideUpdateBanner()
+      
+      // Hide badges
+      const headerBadge = $('headerUpdateBadge')
+      if (headerBadge) headerBadge.classList.add('hide')
+      
+      const pages = ['download', 'upload', 'about']
+      pages.forEach(page => {
+        const badge = $(`${page}UpdateBadge`)
+        if (badge) badge.classList.add('hide')
+      })
+      
+      // Update display
+      const updateStatus = await getUpdateStatus()
+      this.updateUpdateDisplay(updateStatus)
+
+    } catch (e) {
+      this.showMessage('update-settings-msg', 'Gagal menghapus countdown: ' + e.message, 'error')
+    }
+  }
+
+  async handleCommentSubmit() {
+    const name = ($('cName')?.value || '').trim()
+    const message = ($('cMsg')?.value || '').trim()
+
+    if (!message) {
+      alert('Tulis komentar terlebih dahulu.')
+      return
+    }
+
+    try {
+      await window.sendComment({
+        name: name || 'anon',
+        message: message
+      })
+
+      // Clear form
+      if ($('cMsg')) $('cMsg').value = ''
+      if ($('cName')) $('cName').value = ''
+
+      // Show success feedback
+      const btn = $('cSend')
+      const originalText = btn.innerHTML
+      btn.innerHTML = '<i class="fa fa-check"></i> Terkirim!'
+      btn.disabled = true
+      
+      setTimeout(() => {
+        btn.innerHTML = originalText
+        btn.disabled = false
+      }, 2000)
+
+    } catch (e) {
+      alert('Gagal mengirim komentar: ' + e.message)
+    }
+  }
+
+  showMessage(elementId, message, type = 'info') {
+    const element = $(elementId)
+    if (!element) return
+
+    element.innerHTML = message
+    element.className = `settings-message ${type}`
+    
+    // Auto-hide success messages
+    if (type === 'success') {
+      setTimeout(() => {
+        element.innerHTML = ''
+        element.className = 'settings-message'
+      }, 5000)
+    }
+  }
+}
+
+// ----------------- Initialization -----------------
+document.addEventListener('DOMContentLoaded', () => {
+  // Initialize UI Manager
+  const uiManager = new UIManager()
+
+  // Initialize update countdown
+  initializeUpdateCountdown()
+
+  // Start background tasks - FIXED: Run cleanup more frequently
+  setInterval(cleanExpiredFiles, 2 * 60 * 1000) // Cleanup every 2 minutes
+  setInterval(() => uiManager.checkMaintenance(), 30 * 1000) // Check maintenance every 30 seconds
+
+  // Initial cleanup
+  cleanExpiredFiles().catch(() => {})
+  
+  // Nav entrance animations
+  $$('.nav-btn').forEach((btn, i) => {
+    btn.animate([
+      { opacity: 0, transform: 'translateY(8px)' },
+      { opacity: 1, transform: 'translateY(0)' }
+    ], {
+      duration: 420,
+      delay: i * 80,
+      easing: 'cubic-bezier(.2,.9,.3,1)'
+    })
+  })
+
+  // Hide global loader
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      const loader = $('globalLoader')
+      if (loader) {
+        loader.style.opacity = '0'
+        setTimeout(() => loader.remove(), 300)
+      }
+    }, 1000)
+  })
+})
+
+// Global function to hide update banner
+window.hideUpdateBanner = hideUpdateBanner

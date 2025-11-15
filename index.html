@@ -14,14 +14,39 @@
 <body>
   <div class="stars"></div>
   <div class="twinkling"></div>
+  
+  <!-- Global Update Countdown Banner -->
+  <div id="updateCountdownBanner" class="update-countdown-banner hide">
+    <div class="update-banner-content">
+      <div class="update-icon">
+        <i class="fa fa-rocket"></i>
+      </div>
+      <div class="update-text">
+        <strong>Update Berikutnya</strong>
+        <span>Akan datang dalam: <span id="globalUpdateCountdown">--:--:--</span></span>
+      </div>
+      <button class="update-close-btn" onclick="hideUpdateBanner()">
+        <i class="fa fa-times"></i>
+      </button>
+    </div>
+  </div>
+
   <div class="app-shell">
     <header class="top-header glass">
       <div class="brand">
-        <div class="brand-logo">SN</div>
+        <div class="brand-logo">
+          <i class="fa fa-shield"></i>
+        </div>
         <div class="brand-text">
           <div class="site-title">Safenest</div>
           <div class="site-sub">Setiap unggahan mendapat rumah. Setiap rahasia mendapat penjaga.</div>
         </div>
+      </div>
+      
+      <!-- Update Countdown Badge -->
+      <div id="headerUpdateBadge" class="update-badge hide">
+        <i class="fa fa-clock-o"></i>
+        <span id="headerUpdateCountdown">Update: --:--:--</span>
       </div>
     </header>
 
@@ -29,7 +54,14 @@
       <!-- DOWNLOAD -->
       <section id="page-download" class="page active">
         <div class="card glass-card">
-          <h2 class="page-title"><i class="fa fa-download"></i> Download</h2>
+          <div class="card-header">
+            <h2 class="page-title"><i class="fa fa-download"></i> Download</h2>
+            <div id="downloadUpdateBadge" class="page-update-badge hide">
+              <i class="fa fa-rocket"></i>
+              <span>Update dalam: <span id="downloadUpdateCountdown">--:--:--</span></span>
+            </div>
+          </div>
+          
           <p class="muted">Masukkan username & password yang diberikan uploader.</p>
 
           <div class="grid-2">
@@ -59,20 +91,32 @@
       <!-- UPLOAD -->
       <section id="page-upload" class="page">
         <div class="card glass-card">
-          <h2 class="page-title"><i class="fa fa-cloud-upload"></i> Upload</h2>
+          <div class="card-header">
+            <h2 class="page-title"><i class="fa fa-cloud-upload"></i> Upload</h2>
+            <div id="uploadUpdateBadge" class="page-update-badge hide">
+              <i class="fa fa-rocket"></i>
+              <span>Update dalam: <span id="uploadUpdateCountdown">--:--:--</span></span>
+            </div>
+          </div>
+          
           <p class="muted">Upload file. Kamu akan menerima username & password sekali tampil.</p>
 
           <label class="filebox">
             <input id="fileInput" type="file" />
             <div class="filebox-inner">
-              <strong>Pilih file</strong>
-              <small>pdf, png, jpg, mp3, mp4, zip, html, dll</small>
+              <div class="filebox-icon">
+                <i class="fa fa-cloud-upload"></i>
+              </div>
+              <div class="filebox-text">
+                <strong>Pilih file</strong>
+                <small>pdf, png, jpg, mp3, mp4, zip, html, dll</small>
+              </div>
             </div>
           </label>
 
           <!-- EXPIRE SELECT -->
-          <div style="margin-top:12px">
-            <label for="expireSelect" style="font-weight:700; margin-bottom:6px; display:block">Pilih masa expired</label>
+          <div style="margin-top:16px">
+            <label for="expireSelect" class="form-label">Pilih masa expired</label>
             <select id="expireSelect" class="select-expire">
               <option value="never">Tidak expired</option>
               <option value="2h">2 jam</option>
@@ -82,18 +126,38 @@
             </select>
           </div>
 
-          <div class="row" style="margin-top:12px">
+          <div class="row" style="margin-top:16px">
             <button id="btnUpload" class="btn primary"><i class="fa fa-upload"></i> Upload & Generate Credentials</button>
           </div>
 
           <div id="creds" class="creds-box hide">
-            <p><strong>Username:</strong> <code id="outUser"></code></p>
-            <p><strong>Password:</strong> <code id="outPass"></code></p>
-            <p><strong>Expired:</strong> <code id="outExpire">-</code></p>
-            <div class="row" style="margin-top:8px">
-              <button id="copyCreds" class="btn ghost"><i class="fa fa-clipboard"></i> Salin Kredensial</button>
+            <div class="creds-header">
+              <h4><i class="fa fa-key"></i> Kredensial File</h4>
+              <small class="muted">Simpan informasi ini dengan aman</small>
             </div>
-            <small class="muted">Link login: <code id="outLink">-</code></small>
+            
+            <div class="creds-grid">
+              <div class="cred-item">
+                <label>Username:</label>
+                <code id="outUser" class="cred-value"></code>
+              </div>
+              <div class="cred-item">
+                <label>Password:</label>
+                <code id="outPass" class="cred-value"></code>
+              </div>
+              <div class="cred-item">
+                <label>Expired:</label>
+                <code id="outExpire" class="cred-value">-</code>
+              </div>
+              <div class="cred-item">
+                <label>Link:</label>
+                <code id="outLink" class="cred-value">-</code>
+              </div>
+            </div>
+            
+            <div class="row" style="margin-top:16px">
+              <button id="copyCreds" class="btn ghost"><i class="fa fa-clipboard"></i> Salin Semua Kredensial</button>
+            </div>
           </div>
         </div>
 
@@ -103,91 +167,330 @@
       <!-- ABOUT -->
       <section id="page-about" class="page">
         <div class="card glass-card">
-          <h2 class="page-title"><i class="fa fa-info-circle"></i> About</h2>
-          <p><strong>Safenest</strong> adalah ruang privat untuk berbagi file dengan cara yang sederhana, tenang, dan aman.
-Dirancang untuk penggunaan personal, platform ini menjaga setiap unggahan dengan kredensial unik dan akses yang sepenuhnya berada dalam kendali pengguna. Tidak rumit, tidak ribut—hanya tempat yang lembut untuk menitipkan sesuatu yang penting.
-</p>
-
-          <p><em>Visi:</em> Mewujudkan ruang berbagi file yang aman, pribadi, dan minimalis, di mana setiap pengguna merasa terlindungi tanpa kehilangan kesederhanaan.</p>
-
-          <p><em>Misi:</em></p>
-          <p><strong>1.</strong> Menghadirkan sistem berbagi file yang cepat, mudah, dan bebas distraksi.</p>
-          <p><strong>2.</strong> Menjamin privasi melalui kredensial unik per-file yang hanya diketahui pengguna.</p>
-          <p><strong>3.</strong> Menyediakan lingkungan tenang yang memprioritaskan keamanan dan kenyamanan pribadi.</p>
-
-          <p>
-            <h4>pembuat:
-              <a id="link-arya" href="https://aryapiw.pages.dev" target="_blank">Aryapiw</a>
-              &nbsp;&amp;&nbsp;
-              <a id="link-dapid" href="https://dapid.my.id" target="_blank">Dapid</a>
-            </h4>
-          </p>
-
-          <hr/>
-
-          <h3>Komentar</h3>
-          <div class="comment-form">
-            <input id="cName" placeholder="Nama (opsional)" />
-            <textarea id="cMsg" placeholder="Tulis komentar..." rows="3"></textarea>
-            <div class="row" style="margin-top:8px">
-              <button id="cSend" class="btn primary"><i class="fa fa-paper-plane"></i> Kirim</button>
+          <div class="card-header">
+            <h2 class="page-title"><i class="fa fa-info-circle"></i> About</h2>
+            <div id="aboutUpdateBadge" class="page-update-badge hide">
+              <i class="fa fa-rocket"></i>
+              <span>Update dalam: <span id="aboutUpdateCountdown">--:--:--</span></span>
             </div>
           </div>
+          
+          <div class="about-content">
+            <div class="about-section">
+              <h3>Tentang Safenest</h3>
+              <p><strong>Safenest</strong> adalah ruang privat untuk berbagi file dengan cara yang sederhana, tenang, dan aman. Dirancang untuk penggunaan personal, platform ini menjaga setiap unggahan dengan kredensial unik dan akses yang sepenuhnya berada dalam kendali pengguna.</p>
+            </div>
 
-          <div id="commentsBox" class="comments-box"></div>
+            <div class="about-grid">
+              <div class="about-card">
+                <div class="about-card-icon">
+                  <i class="fa fa-eye-slash"></i>
+                </div>
+                <h4>Privasi</h4>
+                <p>Setiap file dilindungi dengan kredensial unik yang hanya diketahui oleh Anda</p>
+              </div>
+              
+              <div class="about-card">
+                <div class="about-card-icon">
+                  <i class="fa fa-clock-o"></i>
+                </div>
+                <h4>Expired</h4>
+                <p>Atur waktu kadaluarsa file sesuai kebutuhan Anda</p>
+              </div>
+              
+              <div class="about-card">
+                <div class="about-card-icon">
+                  <i class="fa fa-bolt"></i>
+                </div>
+                <h4>Cepat</h4>
+                <p>Upload dan download yang cepat dengan infrastruktur modern</p>
+              </div>
+            </div>
+
+            <div class="about-section">
+              <h4>Visi & Misi</h4>
+              <p><em>Visi:</em> Mewujudkan ruang berbagi file yang aman, pribadi, dan minimalis.</p>
+              
+              <div class="mission-list">
+                <div class="mission-item">
+                  <span class="mission-number">1</span>
+                  <span>Sistem berbagi file yang cepat dan bebas distraksi</span>
+                </div>
+                <div class="mission-item">
+                  <span class="mission-number">2</span>
+                  <span>Privasi melalui kredensial unik per-file</span>
+                </div>
+                <div class="mission-item">
+                  <span class="mission-number">3</span>
+                  <span>Lingkungan yang aman dan nyaman</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="creators-section">
+              <h4>Dibuat dengan ❤️ oleh:</h4>
+              <div class="creators-grid">
+                <a href="https://aryapiw.pages.dev" target="_blank" class="creator-card">
+                  <div class="creator-avatar">A</div>
+                  <div class="creator-info">
+                    <strong>Aryapiw</strong>
+                    <span>aryapiw.pages.dev</span>
+                  </div>
+                </a>
+                <a href="https://dapid.my.id" target="_blank" class="creator-card">
+                  <div class="creator-avatar">D</div>
+                  <div class="creator-info">
+                    <strong>Dapid</strong>
+                    <span>dapid.my.id</span>
+                  </div>
+                </a>
+              </div>
+            </div>
+
+            <hr/>
+
+            <div class="comments-section">
+              <h4><i class="fa fa-comments"></i> Komentar & Feedback</h4>
+              <p class="muted">Bagikan pendapat Anda tentang Safenest</p>
+
+              <div class="comment-form">
+                <input id="cName" placeholder="Nama Anda (opsional)" />
+                <textarea id="cMsg" placeholder="Tulis komentar atau saran Anda..." rows="3"></textarea>
+                <div class="row" style="margin-top:12px">
+                  <button id="cSend" class="btn primary"><i class="fa fa-paper-plane"></i> Kirim Komentar</button>
+                </div>
+              </div>
+
+              <div id="commentsBox" class="comments-box"></div>
+            </div>
+          </div>
         </div>
 
         <footer class="page-footer">copyright by safenest © 2025-2026</footer>
       </section>
 
-      <!-- ADMIN dashboard (hidden unless admin session) -->
+      <!-- ADMIN dashboard -->
       <section id="page-admin" class="page">
         <div class="card glass-card">
-          <h2 class="page-title"><i class="fa fa-lock"></i> Admin Dashboard</h2>
+          <div class="card-header">
+            <h2 class="page-title"><i class="fa fa-lock"></i> Admin Dashboard</h2>
+            <div class="admin-status">
+              <span class="status-badge active"><i class="fa fa-circle"></i> Online</span>
+            </div>
+          </div>
 
-          <div id="admin-welcome" class="muted">Selamat datang, Admin.</div>
+          <div id="admin-welcome" class="admin-welcome">
+            <div class="welcome-icon">
+              <i class="fa fa-shield"></i>
+            </div>
+            <div class="welcome-text">
+              <h3>Selamat datang, Admin!</h3>
+              <p class="muted">Kelola sistem Safenest dari sini</p>
+            </div>
+          </div>
 
           <!-- 1. Statistik -->
-          <div class="admin-block" style="margin-top:12px">
-            <h4>Statistik</h4>
-            <div id="stat-box" class="row" style="gap:14px">
+          <div class="admin-block">
+            <h4><i class="fa fa-bar-chart"></i> Statistik Sistem</h4>
+            <div id="stat-box" class="stats-grid">
               <div class="stat-card">
-                <div class="stat-num" id="stat-uploads">-</div>
-                <div class="stat-label">Total Uploads</div>
+                <div class="stat-icon uploads">
+                  <i class="fa fa-upload"></i>
+                </div>
+                <div class="stat-content">
+                  <div class="stat-num" id="stat-uploads">0</div>
+                  <div class="stat-label">Total Uploads</div>
+                </div>
               </div>
               <div class="stat-card">
-                <div class="stat-num" id="stat-downloads">-</div>
-                <div class="stat-label">Total Downloads</div>
+                <div class="stat-icon downloads">
+                  <i class="fa fa-download"></i>
+                </div>
+                <div class="stat-content">
+                  <div class="stat-num" id="stat-downloads">0</div>
+                  <div class="stat-label">Total Downloads</div>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon files">
+                  <i class="fa fa-files-o"></i>
+                </div>
+                <div class="stat-content">
+                  <div class="stat-num" id="stat-files">0</div>
+                  <div class="stat-label">File Aktif</div>
+                </div>
               </div>
             </div>
           </div>
 
-          <!-- 2. Manage file -->
-          <div class="admin-block" style="margin-top:18px">
-            <h4>Manage Files</h4>
-            <div id="files-list" class="files-list">
-              <!-- rows appended by JS -->
+          <!-- 2. Update Countdown Settings -->
+          <div class="admin-block">
+            <h4><i class="fa fa-rocket"></i> Update Countdown</h4>
+            <div class="admin-settings-card">
+              <p class="muted">Atur countdown untuk update berikutnya. Countdown akan ditampilkan ke semua pengguna.</p>
+              
+              <div class="setting-group">
+                <label class="setting-label">Jadwal Update Berikutnya</label>
+                <div class="time-inputs-grid">
+                  <div class="time-input">
+                    <input type="number" id="update-days" placeholder="0" min="0" />
+                    <label>Hari</label>
+                  </div>
+                  <div class="time-input">
+                    <input type="number" id="update-hours" placeholder="0" min="0" max="23" />
+                    <label>Jam</label>
+                  </div>
+                  <div class="time-input">
+                    <input type="number" id="update-minutes" placeholder="0" min="0" max="59" />
+                    <label>Menit</label>
+                  </div>
+                </div>
+                
+                <div class="datetime-input">
+                  <label>Atau tentukan waktu pasti:</label>
+                  <input type="datetime-local" id="update-ends" />
+                </div>
+              </div>
+
+              <div class="setting-group">
+                <label class="setting-label">Pesan Update</label>
+                <textarea 
+                  id="update-message" 
+                  placeholder="Jelaskan update yang akan datang..."
+                  rows="3"
+                >Pembaruan sistem untuk pengalaman yang lebih baik!</textarea>
+              </div>
+
+              <div class="setting-group">
+                <label class="setting-label">Tampilkan Banner</label>
+                <div class="toggle-group">
+                  <label class="toggle">
+                    <input type="checkbox" id="update-banner-toggle" checked />
+                    <span class="toggle-slider"></span>
+                  </label>
+                  <span class="toggle-label">Tampilkan banner countdown di bagian atas website</span>
+                </div>
+              </div>
+
+              <div class="preview-section">
+                <h5>Preview Countdown:</h5>
+                <div class="preview-card">
+                  <div class="preview-header">
+                    <i class="fa fa-rocket"></i>
+                    <span>Update Berikutnya</span>
+                  </div>
+                  <div class="preview-countdown" id="preview-update-countdown">00h 00m 00d</div>
+                  <div class="preview-message" id="preview-update-message">Pembaruan sistem untuk pengalaman yang lebih baik!</div>
+                </div>
+              </div>
+
+              <div class="setting-actions">
+                <button id="save-update-settings" class="btn primary">
+                  <i class="fa fa-floppy-o"></i> Simpan Pengaturan Update
+                </button>
+                <button id="clear-update" class="btn ghost">
+                  <i class="fa fa-times"></i> Hapus Countdown
+                </button>
+              </div>
+              
+              <div id="update-settings-msg" class="settings-message"></div>
             </div>
           </div>
 
-          <!-- 3. Settings -->
-          <div class="admin-block" style="margin-top:18px">
-            <h4>Setting</h4>
-            <div>
-              <label><input id="maintenance-toggle" type="checkbox"> Aktifkan Maintenance</label>
+          <!-- 3. Maintenance Settings -->
+          <div class="admin-block">
+            <h4><i class="fa fa-wrench"></i> Maintenance Settings</h4>
+            <div class="admin-settings-card">
+              <div class="setting-group">
+                <label class="toggle-group">
+                  <input type="checkbox" id="maintenance-toggle" />
+                  <span class="toggle-slider"></span>
+                  <span class="toggle-label">Aktifkan Maintenance Mode</span>
+                </label>
+              </div>
+
+              <div id="maintenance-settings" class="maintenance-settings">
+                <div class="setting-group">
+                  <label class="setting-label">Durasi Maintenance</label>
+                  <div class="time-inputs-grid">
+                    <div class="time-input">
+                      <input type="number" id="maintenance-days" placeholder="0" min="0" />
+                      <label>Hari</label>
+                    </div>
+                    <div class="time-input">
+                      <input type="number" id="maintenance-hours" placeholder="0" min="0" max="23" />
+                      <label>Jam</label>
+                    </div>
+                  </div>
+                  
+                  <div class="datetime-input">
+                    <label>Atau tentukan waktu akhir:</label>
+                    <input type="datetime-local" id="maintenance-ends" />
+                  </div>
+                </div>
+
+                <div class="setting-group">
+                  <label class="setting-label">Pesan Maintenance</label>
+                  <textarea 
+                    id="maintenance-message" 
+                    placeholder="Pesan yang akan ditampilkan kepada pengguna..."
+                    rows="3"
+                  >Sistem dalam perbaikan. Terima kasih atas pengertiannya.</textarea>
+                </div>
+
+                <div class="preview-section">
+                  <h5>Preview Maintenance:</h5>
+                  <div class="preview-card maintenance">
+                    <div class="preview-header">
+                      <i class="fa fa-wrench"></i>
+                      <span>Sedang Maintenance</span>
+                    </div>
+                    <div class="preview-countdown" id="preview-maintenance-countdown">00h 00m 00d</div>
+                    <div class="preview-message" id="preview-maintenance-message">Sistem dalam perbaikan. Terima kasih atas pengertiannya.</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="setting-actions">
+                <button id="save-maintenance-settings" class="btn primary">
+                  <i class="fa fa-floppy-o"></i> Simpan Pengaturan Maintenance
+                </button>
+              </div>
+              
+              <div id="maintenance-msg" class="settings-message"></div>
             </div>
-            <div style="margin-top:8px">
-              <label>Hingga jam (local) <input id="maintenance-ends" type="datetime-local" /></label>
-            </div>
-            <div style="margin-top:8px">
-              <button id="save-settings" class="btn primary"><i class="fa fa-floppy-o"></i> Simpan</button>
-            </div>
-            <div id="maintenance-msg" class="muted" style="margin-top:10px"></div>
           </div>
 
-          <!-- 4. logout -->
-          <div style="margin-top:18px">
-            <button id="admin-logout" class="btn ghost"><i class="fa fa-sign-out"></i> Logout Admin</button>
+          <!-- 4. Manage Files -->
+          <div class="admin-block">
+            <h4><i class="fa fa-files-o"></i> Manage Files</h4>
+            <div class="files-management">
+              <div class="files-header">
+                <span>Daftar File (<span id="files-count">0</span>)</span>
+                <button id="refresh-files" class="btn ghost small">
+                  <i class="fa fa-refresh"></i> Refresh
+                </button>
+              </div>
+              <div id="files-list" class="files-list">
+                <!-- File rows will be inserted here -->
+              </div>
+            </div>
+          </div>
+
+          <!-- 5. System Actions -->
+          <div class="admin-block">
+            <h4><i class="fa fa-cogs"></i> System Actions</h4>
+            <div class="system-actions">
+              <button id="cleanup-files" class="btn ghost">
+                <i class="fa fa-trash"></i> Bersihkan File Expired
+              </button>
+              <button id="clear-cache" class="btn ghost">
+                <i class="fa fa-eraser"></i> Clear Cache
+              </button>
+              <button id="admin-logout" class="btn ghost">
+                <i class="fa fa-sign-out"></i> Logout Admin
+              </button>
+            </div>
           </div>
         </div>
       </section>
@@ -212,6 +515,34 @@ Dirancang untuk penggunaan personal, platform ini menjaga setiap unggahan dengan
         </button>
       </div>
     </nav>
+  </div>
+
+  <!-- Global Maintenance Overlay -->
+  <div id="globalMaintenanceOverlay" class="global-maintenance-overlay hide">
+    <div class="maintenance-modal">
+      <div class="maintenance-icon">
+        <i class="fa fa-wrench"></i>
+      </div>
+      <div class="maintenance-content">
+        <h3>Sedang Maintenance</h3>
+        <p id="maintenance-modal-message">Sistem sedang dalam perbaikan untuk pengalaman yang lebih baik.</p>
+        <div class="maintenance-countdown">
+          <i class="fa fa-clock-o"></i>
+          <span>Selesai dalam: <strong id="maintenance-modal-countdown">--:--:--</strong></span>
+        </div>
+        <button class="btn primary maintenance-ok">
+          <i class="fa fa-check"></i> Mengerti
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Global Loader -->
+  <div id="globalLoader" class="global-loader">
+    <div class="loader-content">
+      <div class="loader-spinner"></div>
+      <div class="loader-text">Memuat Safenest...</div>
+    </div>
   </div>
 
   <script type="module" src="firebase.js"></script>
