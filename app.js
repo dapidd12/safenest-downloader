@@ -1,48 +1,67 @@
-// app.js — Safenest (space theme + folders + expiration)
-// WARNING: using SERVICE_ROLE_KEY in frontend is dangerous (you agreed)
+// app.js — Safenest (full) : Upload + Expiry + Admin + Maintenance
+// Disclaimer: menggunakan service key di frontend itu berbahaya — kamu sudah tahu.
 
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
 
-// ========== CONFIG - GANTI INI =============
+// ========== CONFIG (ganti sesuai project) ==========
 const SUPABASE_URL = 'https://rjsifamddfdhnlvrrwbb.supabase.co'
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJqc2lmYW1kZGZkaG5sdnJyd2JiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2Mjc2ODM5NiwiZXhwIjoyMDc4MzQ0Mzk2fQ.RwHToh53bF3iqWLomtBQczrkErqjXRxprIhvT4RB-1k'
 const BUCKET = 'piw-files'
 const BASE_LOGIN_LINK = 'https://example.com'
-// ============================================
+// admin secret "pintu rahasia"
+const ADMIN_CREDENTIALS = { user: 'arya', pass: 'dapid' }
+// ====================================================
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 
-// helpers
+// ----------------- helpers -----------------
 const $ = id => document.getElementById(id)
 const rand = (n=6) => [...Array(n)].map(()=> 'abcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random()*36)]).join('')
-const sha256 = async s => { const buf = new TextEncoder().encode(s); const h = await crypto.subtle.digest('SHA-256', buf); return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('') }
-const niceBytes = b => { if (!b && b !== 0) return '-'; const u=['B','KB','MB','GB']; let i=0,val=b; while(val>1024 && i<u.length-1){val/=1024;i++} return `${val.toFixed(1)} ${u[i]}` }
+const sha256 = async s => {
+  const buf = new TextEncoder().encode(s)
+  const h = await crypto.subtle.digest('SHA-256', buf)
+  return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('')
+}
+const niceBytes = b => {
+  if (!b && b !== 0) return '-'
+  const u=['B','KB','MB','GB']
+  let i=0, val=b
+  while(val>1024 && i<u.length-1){ val/=1024; i++ }
+  return `${val.toFixed(1)} ${u[i]}`
+}
 const log = (...a) => console.log('[safenest]',...a)
 
-// storage/db helpers
+function escapeHtml(s=''){ return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;') }
+
+// ----------------- Supabase helpers -----------------
 async function uploadFileToStorage(file, destName){
   const { data, error } = await supabase.storage.from(BUCKET).upload(destName, file)
   if (error) throw error
-  if (!data) throw new Error('No upload data returned')
   return data.path ?? data?.Key ?? data
 }
-async function insertFileRecord({ filename, storage_path, username, password_hash, size, folder_id, expires_at }){
-  const payload = { filename, storage_path, username, password_hash, folder_id, expires_at }
+
+// Insert file record. include expires_at optional (ISO string or null)
+async function insertFileRecord({ filename, storage_path, username, password_hash, size, expires_at = null }){
+  const payload = { filename, storage_path, username, password_hash }
   if(typeof size !== 'undefined') payload.size = size
+  if(expires_at) payload.expires_at = expires_at
   const { data, error } = await supabase.from('files').insert([payload]).select().maybeSingle()
   if (error) throw error
   return data
 }
+
 async function getRecordByUsername(username){
   const { data, error } = await supabase.from('files').select('*').eq('username', username).maybeSingle()
   if (error) throw error
   return data
 }
+
 async function createSignedUrl(path, expires=120){
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, expires)
   if (error) throw error
   return data?.signedUrl ?? data?.signedURL ?? null
 }
+
 async function forceDownloadUrl(url, filename){
   const res = await fetch(url)
   if (!res.ok) throw new Error('Failed to fetch file: '+res.status)
@@ -57,85 +76,145 @@ async function forceDownloadUrl(url, filename){
   URL.revokeObjectURL(u)
 }
 
-// Folder management
-async function createFolder(name, username, password_hash){
-  const { data, error } = await supabase.from('folders').insert([{ 
-    name, 
-    username, 
-    password_hash 
-  }]).select().maybeSingle()
-  if (error) throw error
-  return data
+// delete storage object + DB record
+async function deleteFile(file){
+  if(!file) throw new Error('file missing')
+  try {
+    await supabase.storage.from(BUCKET).remove([file.storage_path])
+  } catch(e) { console.warn('failed remove storage', e) }
+  const { error } = await supabase.from('files').delete().eq('id', file.id)
+  if(error) throw error
+  return true
 }
 
-async function getFolderByUsername(username){
-  const { data, error } = await supabase.from('folders').select('*').eq('username', username).maybeSingle()
-  if (error) throw error
-  return data
-}
-
-async function getFoldersByUser(userId){
-  const { data, error } = await supabase.from('folders').select('*').eq('user_id', userId)
-  if (error) throw error
+// get files list
+async function listFiles(){
+  const { data, error } = await supabase.from('files').select('*').order('created_at', { ascending:false }).limit(500)
+  if(error) throw error
   return data || []
 }
 
-async function getFilesInFolder(folderId){
-  const { data, error } = await supabase.from('files').select('*').eq('folder_id', folderId).order('created_at', { ascending: false })
-  if (error) throw error
-  return data || []
+// record download event for stats
+async function recordDownload({ file_id = null, filename = null, username = null } = {}){
+  try {
+    await supabase.from('downloads').insert([{ file_id, filename, username }])
+  } catch(e) {
+    console.warn('recordDownload failed', e)
+  }
 }
 
-// Expiration helpers
-function calculateExpiryDate(days){
-  if (days === 0) return null // Never expires
-  const date = new Date()
-  date.setDate(date.getDate() + days)
-  return date.toISOString()
+// settings table helpers (key/value json in 'settings' table)
+async function getSetting(key){
+  const { data, error } = await supabase.from('settings').select('*').eq('key', key).maybeSingle()
+  if(error) { console.warn('getSetting err', error); return null }
+  return data
+}
+async function upsertSetting(key, valueObj){
+  const payload = { key, value: valueObj }
+  const { data, error } = await supabase.from('settings').upsert([payload]).select().maybeSingle()
+  if(error) throw error
+  return data
 }
 
-function isExpired(expiryDate){
-  if (!expiryDate) return false
-  return new Date() > new Date(expiryDate)
+// stats loader (important: make sure this is defined)
+async function loadStats(){
+  try {
+    const up = await supabase.from('files').select('*', { count: 'exact', head: true })
+    const dl = await supabase.from('downloads').select('*', { count: 'exact', head: true })
+    return {
+      uploads: up?.count ?? 0,
+      downloads: dl?.count ?? 0
+    }
+  } catch(e) {
+    console.warn('loadStats error', e)
+    return { uploads: 0, downloads: 0 }
+  }
 }
 
-function getExpiryStatus(expiryDate){
-  if (!expiryDate) return { expired: false, status: 'ok', text: 'Tidak kadaluarsa' }
-  
+// ----------------- Admin session helpers -----------------
+function isAdminSession(){ return localStorage.getItem('sn_admin') === '1' }
+function setAdminSession(on=true){ if(on) localStorage.setItem('sn_admin','1'); else localStorage.removeItem('sn_admin') }
+
+// ----------------- Expiry helpers -----------------
+// Map select value -> milliseconds (or null)
+function expiryToIso(selectVal){
+  // selectVal expected: 'none' | '2h' | '1d' | '5d' | '1m'
+  if(!selectVal || selectVal === 'none') return null
   const now = new Date()
-  const expiry = new Date(expiryDate)
-  const diff = expiry - now
-  const days = Math.ceil(diff / (1000 * 60 * 60 * 24))
-  
-  if (diff <= 0) return { expired: true, status: 'expired', text: 'Kadaluarsa' }
-  if (days <= 1) return { expired: false, status: 'warning', text: `${days} hari lagi` }
-  if (days <= 7) return { expired: false, status: 'warning', text: `${days} hari lagi` }
-  return { expired: false, status: 'ok', text: `${days} hari lagi` }
+  let ms = null
+  switch(selectVal){
+    case '2h': ms = 1000 * 60 * 60 * 2; break
+    case '1d': ms = 1000 * 60 * 60 * 24; break
+    case '5d': ms = 1000 * 60 * 60 * 24 * 5; break
+    case '1m': ms = 1000 * 60 * 60 * 24 * 30; break
+    default: ms = null
+  }
+  return ms ? new Date(Date.now() + ms).toISOString() : null
 }
 
-// UI wiring + transitions
+// ----------------- Cleanup expired files (client-side safety) -----------------
+// Find files where expires_at is not null and less than now.
+// For each file: check downloads count. If downloads === 0 => delete file.
+async function cleanExpiredFiles(){
+  try {
+    // query expired (simple where using lt). Must match your DB column name 'expires_at' typed as timestamp
+    const nowIso = new Date().toISOString()
+    const { data: expiredFiles, error } = await supabase
+      .from('files')
+      .select('*')
+      .lt('expires_at', nowIso)
+      .not('expires_at', 'is', null)
+      .limit(500)
+    if(error) { /* not fatal */ console.warn('cleanExpiredFiles: select err', error); return }
+    if(!expiredFiles || expiredFiles.length === 0) return
+
+    for(const f of expiredFiles){
+      try {
+        // count downloads for this file
+        const { count } = await supabase.from('downloads').select('id', { count: 'exact', head: true }).eq('file_id', f.id)
+        const dlCount = count || 0
+        if(dlCount === 0){
+          log('[expired] removing', f.storage_path, 'id', f.id)
+          await deleteFile(f).catch(e => console.warn('expired delete failed', e))
+        } else {
+          log('[expired] file has downloads, skipping delete', f.id, 'downloads', dlCount)
+        }
+      } catch(e) {
+        console.warn('cleanExpiredFiles inner err', e)
+      }
+    }
+  } catch(e) {
+    console.warn('cleanExpiredFiles err', e)
+  }
+}
+
+// ----------------- UI wiring and logic -----------------
 document.addEventListener('DOMContentLoaded', ()=> {
   const pages = Array.from(document.querySelectorAll('.page'))
   const navButtons = Array.from(document.querySelectorAll('.nav-btn'))
 
   function showPage(id){
+    // protect admin page
+    if(id === 'page-admin' && !isAdminSession()) id = 'page-download'
+
     pages.forEach(p => {
       if(p.id === id){
         p.classList.add('active')
-        // nice reveal of children
         p.querySelectorAll('.glass-card, .page-title, .filebox, input, .row, .comments-box').forEach((el,i)=>{
           el.classList.add('fade-in')
-          el.style.animationDelay = `${i*50}ms`
+          el.style.animationDelay = `${i*40}ms`
           setTimeout(()=> el.style.animationDelay = '', 800)
         })
-      } else {
-        p.classList.remove('active')
-      }
+      } else p.classList.remove('active')
     })
     navButtons.forEach(b => b.classList.toggle('active', b.dataset.target === id))
+
+    // enforce maintenance UI each time user navigates
+    enforceMaintenanceUI()
+
+    if(id === 'page-admin') loadAdminDashboard()
   }
 
-  // wire nav
   navButtons.forEach(btn => {
     btn.addEventListener('click', ()=> {
       const tgt = btn.dataset.target
@@ -147,259 +226,304 @@ document.addEventListener('DOMContentLoaded', ()=> {
   // default
   showPage('page-download')
 
-  // element ref
-  const fileInput = $('fileInput'), btnUpload = $('btnUpload'), credsBox = $('creds'), outUser = $('outUser'), outPass = $('outPass'), outFolder = $('outFolder'), outLink = $('outLink'), copyCreds = $('copyCreds')
+  // element refs
+  const fileInput = $('fileInput'), btnUpload = $('btnUpload'), credsBox = $('creds'),
+        outUser = $('outUser'), outPass = $('outPass'), outLink = $('outLink'), copyCreds = $('copyCreds'),
+        expirySelect = $('expirySelect') // optional element; if not present fallback to none
+
   const dlUser = $('dlUser'), dlPass = $('dlPass'), btnVerify = $('btnVerify'), btnClear = $('btnClear'), dlInfo = $('dlInfo')
-  const fileNameEl = $('fileName'), fileSizeEl = $('fileSize'), fileTimeEl = $('fileTime'), fileExpiryEl = $('fileExpiry'), btnView = $('btnView'), btnDownload = $('btnDownload')
-  const commentsBox = $('commentsBox'), btnSend = $('cSend'), cName = $('cName'), cMsg = $('cMsg')
-  const folderSelect = $('folderSelect'), newFolder = $('newFolder'), expirySelect = $('expirySelect')
-  const btnNewFolder = $('btnNewFolder'), folderList = $('folderList'), folderFiles = $('folderFiles'), currentFolderName = $('currentFolderName'), fileList = $('fileList')
+  const fileNameEl = $('fileName'), fileSizeEl = $('fileSize'), fileTimeEl = $('fileTime'), btnView = $('btnView'), btnDownload = $('btnDownload')
 
-  // Folder management
-  let currentFolders = []
-  let currentFiles = []
-  
-  // Load folders for upload page
-  async function loadFoldersForUpload() {
-    // In a real app, you'd load user's folders here
-    // For demo, we'll just show an empty list
-    folderSelect.innerHTML = '<option value="">Buat folder baru</option>'
-  }
-  
-  // Load folders for folder management page
-  async function loadFoldersForManagement() {
-    // In a real app, you'd load user's folders here
-    // For demo, we'll create some sample folders
-    folderList.innerHTML = ''
-    
-    // Sample folders for demo
-    const sampleFolders = [
-      { id: '1', name: 'Dokumen Pribadi', file_count: 3, created_at: new Date().toISOString() },
-      { id: '2', name: 'Foto Liburan', file_count: 12, created_at: new Date().toISOString() },
-      { id: '3', name: 'File Kerja', file_count: 7, created_at: new Date().toISOString() }
-    ]
-    
-    currentFolders = sampleFolders
-    
-    sampleFolders.forEach(folder => {
-      const folderEl = document.createElement('div')
-      folderEl.className = 'folder-item'
-      folderEl.dataset.id = folder.id
-      folderEl.innerHTML = `
-        <div class="folder-icon"><i class="fa fa-folder"></i></div>
-        <div class="folder-name">${folder.name}</div>
-        <div class="folder-meta">${folder.file_count} file</div>
-      `
-      folderEl.addEventListener('click', () => selectFolder(folder.id))
-      folderList.appendChild(folderEl)
-    })
-  }
-  
-  function selectFolder(folderId) {
-    // Remove active class from all folders
-    document.querySelectorAll('.folder-item').forEach(item => {
-      item.classList.remove('active')
-    })
-    
-    // Add active class to selected folder
-    const selectedFolder = document.querySelector(`.folder-item[data-id="${folderId}"]`)
-    if (selectedFolder) {
-      selectedFolder.classList.add('active')
-    }
-    
-    // Load files for this folder
-    loadFilesForFolder(folderId)
-  }
-  
-  async function loadFilesForFolder(folderId) {
-    const folder = currentFolders.find(f => f.id === folderId)
-    if (!folder) return
-    
-    currentFolderName.textContent = folder.name
-    folderFiles.classList.remove('hide')
-    fileList.innerHTML = ''
-    
-    // Sample files for demo
-    const sampleFiles = [
-      { 
-        id: '1', 
-        filename: 'laporan-keuangan.pdf', 
-        size: 2450000, 
-        created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-        expires_at: calculateExpiryDate(5)
-      },
-      { 
-        id: '2', 
-        filename: 'foto-keluarga.jpg', 
-        size: 3450000, 
-        created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-        expires_at: calculateExpiryDate(2)
-      },
-      { 
-        id: '3', 
-        filename: 'presentasi.pptx', 
-        size: 12500000, 
-        created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-        expires_at: null
+  // admin refs
+  const maintenanceToggle = $('maintenance-toggle'), maintenanceEnds = $('maintenance-ends'), saveSettingsBtn = $('save-settings'), maintenanceMsg = $('maintenance-msg')
+  const adminLogoutBtn = $('admin-logout'), filesListEl = $('files-list'), statUploadsEl = $('stat-uploads'), statDownloadsEl = $('stat-downloads')
+
+  // Upload handler (blocked during maintenance)
+  if(btnUpload){
+    btnUpload.addEventListener('click', async ()=>{
+      // check maintenance
+      const setting = await getSetting('maintenance').catch(()=>null)
+      if(setting && setting.value && setting.value.enabled){
+        const ends = setting.value.ends_at ? new Date(setting.value.ends_at) : null
+        if(!ends || new Date() < ends){
+          return showMaintenanceToastAndBlock()
+        }
       }
-    ]
-    
-    currentFiles = sampleFiles
-    
-    sampleFiles.forEach(file => {
-      const fileEl = document.createElement('div')
-      const expiryStatus = getExpiryStatus(file.expires_at)
-      fileEl.className = `file-item ${expiryStatus.expired ? 'file-expired' : ''}`
-      fileEl.innerHTML = `
-        <div class="file-info-item">
-          <div class="file-name">${file.filename}</div>
-          <div class="file-meta">${niceBytes(file.size)} • ${new Date(file.created_at).toLocaleDateString()}</div>
-        </div>
-        <div class="expiry-badge ${expiryStatus.status}">${expiryStatus.text}</div>
-      `
-      fileList.appendChild(fileEl)
-    })
-  }
-  
-  // Initialize folder management
-  if (btnNewFolder) {
-    btnNewFolder.addEventListener('click', () => {
-      const folderName = prompt('Masukkan nama folder baru:')
-      if (folderName && folderName.trim()) {
-        // In a real app, you'd create the folder in the database
-        alert(`Folder "${folderName}" berhasil dibuat!`)
-        loadFoldersForManagement()
+
+      const f = fileInput?.files?.[0]
+      if(!f) return alert('Pilih file dulu.')
+
+      btnUpload.disabled = true; btnUpload.textContent = 'Uploading...'
+      try {
+        const dest = `${Date.now()}_${f.name.replace(/\s+/g,'_')}`
+        log('[upload] ->', dest)
+        const storage_path = await uploadFileToStorage(f, dest)
+
+        // expiry processing: read expirySelect (if present) or fallback 'none'
+        const sel = expirySelect ? expirySelect.value : 'none'
+        const expiresIso = expiryToIso(sel) // may be null
+
+        const username = 'sn-' + rand(6)
+        const password = 'sn-' + rand(10)
+        const hash = await sha256(password)
+        const rec = await insertFileRecord({ filename: f.name, storage_path, username, password_hash: hash, size: f.size, expires_at: expiresIso })
+        log('[db] inserted', rec)
+
+        if(outUser) outUser.textContent = username
+        if(outPass) outPass.textContent = password
+        if(outLink) outLink.textContent = `${BASE_LOGIN_LINK}/?user=${username}`
+        if(credsBox) credsBox.classList.remove('hide')
+
+        // show expiry in UI if you have an element - try to set data-expiry attribute
+        if(credsBox && expiresIso){
+          credsBox.dataset.expires = expiresIso
+        } else if(credsBox){
+          delete credsBox.dataset.expires
+        }
+
+        alert('Upload & record berhasil — simpan kredensial sekarang (password tampil sekali).')
+
+        // try cleaning expired files in background
+        cleanExpiredFiles().catch(()=>{})
+      } catch(err){
+        console.error(err)
+        alert('Upload gagal: '+(err.message||err))
+      } finally {
+        btnUpload.disabled = false; btnUpload.textContent = 'Upload & Generate Credentials'
       }
     })
   }
 
-  // Upload
-  if(btnUpload) btnUpload.addEventListener('click', async ()=>{
-    const f = fileInput?.files?.[0]
-    if(!f) return alert('Pilih file dulu.')
-    
-    const folderName = newFolder?.value?.trim()
-    const useExistingFolder = folderSelect?.value
-    
-    if (!folderName && !useExistingFolder) {
-      return alert('Pilih folder yang ada atau buat folder baru.')
-    }
-    
-    const expiryDays = parseInt(expirySelect?.value || '7')
-    const expiresAt = calculateExpiryDate(expiryDays)
-    
-    btnUpload.disabled = true; btnUpload.textContent = 'Uploading...'
-    try{
-      const dest = `${Date.now()}_${f.name.replace(/\s+/g,'_')}`
-      log('[upload] ->', dest)
-      const storage_path = await uploadFileToStorage(f, dest)
-      
-      // In a real app, you'd create or use existing folder
-      const folderUsername = 'folder-' + rand(6)
-      const folderPassword = 'folder-' + rand(10)
-      const folderHash = await sha256(folderPassword)
-      
-      // For demo, we'll just use the folder name
-      const folderId = folderName || useExistingFolder
-      
-      const username = 'sn-' + rand(6)
-      const password = 'sn-' + rand(10)
-      const hash = await sha256(password)
-      const rec = await insertFileRecord({ 
-        filename: f.name, 
-        storage_path, 
-        username, 
-        password_hash: hash, 
-        size: f.size,
-        folder_id: folderId,
-        expires_at: expiresAt
+  // copy credentials (now includes expiry line if available)
+  if(copyCreds){
+    copyCreds.addEventListener('click', ()=>{
+      const u = outUser?.textContent||'', p = outPass?.textContent||'', l = outLink?.textContent||''
+      const expiryText = credsBox?.dataset?.expires ? new Date(credsBox.dataset.expires).toLocaleString() : 'Tidak kedaluwarsa'
+      const txt = `username: ${u}\npassword: ${p}\nexpired: ${expiryText}\nlink: ${l}`
+      navigator.clipboard.writeText(txt).then(()=> {
+        copyCreds.animate([{ transform:'scale(1)' }, { transform:'scale(.96)' }, { transform:'scale(1)' }], { duration:280 })
+        alert('Kredensial disalin')
       })
-      log('[db] inserted', rec)
-      if(outUser) outUser.textContent = username
-      if(outPass) outPass.textContent = password
-      if(outFolder) outFolder.textContent = folderName || useExistingFolder
-      if(outLink) outLink.textContent = `${BASE_LOGIN_LINK}/?user=${username}`
-      if(credsBox) credsBox.classList.remove('hide')
-      // micro animation
-      credsBox.animate([{ transform: 'translateY(6px)', opacity:0 }, { transform:'translateY(0)', opacity:1 }], { duration:420, easing:'cubic-bezier(.2,.9,.3,1)' })
-      alert('Upload & record berhasil — simpan kredensial sekarang (password tampil sekali).')
-    }catch(err){ console.error(err); alert('Upload gagal: '+(err.message||err)) }
-    finally{ btnUpload.disabled=false; btnUpload.textContent='Upload & Generate Credentials' }
-  })
+    })
+  }
 
-  if(copyCreds) copyCreds.addEventListener('click', ()=>{
-    const u = outUser?.textContent||'', p = outPass?.textContent||'', f = outFolder?.textContent||'', l = outLink?.textContent||''
-    navigator.clipboard.writeText(`username: ${u}\npassword: ${p}\nfolder: ${f}\nlink: ${l}`).then(()=> {
-      copyCreds.animate([{ transform:'scale(1)' }, { transform:'scale(.96)' }, { transform:'scale(1)' }], { duration:280 })
-      alert('Kredensial disalin')})
-  })
-
-  // Verify
+  // Verify handler — includes admin secret
   if(btnVerify) btnVerify.addEventListener('click', async ()=>{
     const username = dlUser?.value?.trim()||'', pass = dlPass?.value?.trim()||''
     if(!username || !pass) return alert('Isi username & password.')
-    btnVerify.disabled = true
-    try{
+
+    // admin secret door
+    if(username === ADMIN_CREDENTIALS.user && pass === ADMIN_CREDENTIALS.pass){
+      setAdminSession(true)
+      alert('Admin login diterima — membuka dashboard')
+      showPage('page-admin')
+      return
+    }
+
+    try {
       const rec = await getRecordByUsername(username)
       if(!rec) return alert('Username tidak ditemukan.')
-      
-      // Check if file is expired
-      if (isExpired(rec.expires_at)) {
-        return alert('File ini telah kadaluarsa dan tidak dapat diakses.')
-      }
-      
       const hash = await sha256(pass)
       if(hash !== rec.password_hash) return alert('Password salah.')
+
+      // check if file expired already (safety)
+      if(rec.expires_at){
+        const ends = new Date(rec.expires_at)
+        if(new Date() > ends){
+          return alert('File sudah kadaluarsa.')
+        }
+      }
+
       let signed = null
       try { signed = await createSignedUrl(rec.storage_path, 300) } catch(e){ console.warn('signed failed', e) }
+
       if(fileNameEl) fileNameEl.textContent = rec.filename ?? rec.storage_path
       if(fileSizeEl) fileSizeEl.textContent = niceBytes(rec.size)
       if(fileTimeEl) fileTimeEl.textContent = rec.created_at ? new Date(rec.created_at).toLocaleString() : '-'
-      
-      // Show expiry info
-      const expiryStatus = getExpiryStatus(rec.expires_at)
-      if(fileExpiryEl) fileExpiryEl.textContent = expiryStatus.text
-      if(fileExpiryEl) fileExpiryEl.className = expiryStatus.expired ? 'muted small expired' : 'muted small'
-      
       if(dlInfo) dlInfo.classList.remove('hide')
+
       const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(rec.storage_path)}`
       const finalUrl = signed || publicUrl
+
       if(btnView) btnView.onclick = ()=> window.open(finalUrl, '_blank')
-      if(btnDownload) btnDownload.onclick = async ()=> {
-        try{ await forceDownloadUrl(finalUrl, rec.filename ?? 'download') } catch(e){ console.error(e); alert('Gagal unduh: '+(e.message||e)) }
+      if(btnDownload) btnDownload.onclick = async ()=>{
+        try{
+          await forceDownloadUrl(finalUrl, rec.filename ?? 'download')
+          await recordDownload({ file_id: rec.id || null, filename: rec.filename, username: rec.username })
+        } catch(e){ console.error(e); alert('Gagal unduh: '+(e.message||e)) }
       }
-      // small glow on download button
-      btnDownload.animate([{ boxShadow: '0 8px 20px rgba(110,144,255,0.12)' }, { boxShadow:'0 18px 40px rgba(110,144,255,0.18)' }], { duration:600, direction:'alternate', iterations:2 })
-    }catch(err){ console.error(err); alert('Verifikasi gagal: '+(err.message||err)) } finally { btnVerify.disabled=false }
+    } catch(err){
+      console.error(err)
+      alert('Verifikasi gagal: '+(err.message||err))
+    }
   })
 
   if(btnClear) btnClear.addEventListener('click', ()=> { if(dlUser) dlUser.value=''; if(dlPass) dlPass.value=''; if(dlInfo) dlInfo.classList.add('hide') })
 
-  // Comments send (firebase provides window.sendComment)
-  if(btnSend) btnSend.addEventListener('click', async ()=>{
-    if(!window.sendComment) return alert('Komentar service belum siap')
-    try{
-      btnSend.disabled = true
-      await window.sendComment({ name: cName.value || 'anon', message: cMsg.value || '' })
-      cMsg.value = ''
-      // tiny success animation
-      btnSend.animate([{ transform:'translateY(0)' }, { transform:'translateY(-6px)' }, { transform:'translateY(0)' }], { duration:360 })
-    }catch(e){ alert('Gagal kirim: '+(e.message||e)) } finally { btnSend.disabled = false }
+  // --- ADMIN: load dashboard ---
+  async function loadAdminDashboard(){
+    if(!isAdminSession()) return showPage('page-download')
+
+    // stats
+    try {
+      const stats = await loadStats()
+      if(statUploadsEl) statUploadsEl.textContent = stats.uploads ?? 0
+      if(statDownloadsEl) statDownloadsEl.textContent = stats.downloads ?? 0
+    } catch(e) { console.warn('stat load err', e) }
+
+    // files list
+    try {
+      const files = await listFiles()
+      if(!filesListEl) return
+      filesListEl.innerHTML = ''
+      files.forEach(f => {
+        const row = document.createElement('div')
+        row.className = 'file-row'
+
+        const meta = document.createElement('div')
+        meta.className = 'file-meta'
+        const expiresText = f.expires_at ? ` • Expires: ${new Date(f.expires_at).toLocaleString()}` : ''
+        meta.innerHTML = `<div class="name">${escapeHtml(f.filename || f.storage_path)}</div>
+                          <div class="sub">${niceBytes(f.size || 0)} • ${f.created_at ? new Date(f.created_at).toLocaleString() : '-'}${expiresText}</div>`
+
+        const actions = document.createElement('div')
+        actions.className = 'file-actions'
+
+        const btnView = document.createElement('button')
+        btnView.className = 'btn ghost'
+        btnView.innerHTML = '<i class="fa fa-eye"></i> View'
+        btnView.onclick = async ()=>{
+          const signed = await createSignedUrl(f.storage_path, 300).catch(()=>null)
+          const url = signed || `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(f.storage_path)}`
+          window.open(url, '_blank')
+        }
+
+        const btnDel = document.createElement('button')
+        btnDel.className = 'btn ghost'
+        btnDel.innerHTML = '<i class="fa fa-trash"></i> Hapus'
+        btnDel.onclick = async ()=>{
+          if(!confirm('Hapus file ini permanen?')) return
+          try {
+            await deleteFile(f)
+            row.animate([{ opacity:1 },{ opacity:0}], { duration:420 })
+            setTimeout(()=> row.remove(), 420)
+          } catch(e){ alert('Gagal hapus: '+(e.message||e)) }
+        }
+
+        actions.appendChild(btnView)
+        actions.appendChild(btnDel)
+        row.appendChild(meta)
+        row.appendChild(actions)
+        filesListEl.appendChild(row)
+      })
+    } catch(e){
+      console.error('files list err', e)
+      if(filesListEl) filesListEl.innerHTML = '<div class="muted">Gagal memuat file</div>'
+    }
+  }
+
+  // save settings
+  if(saveSettingsBtn) saveSettingsBtn.addEventListener('click', async ()=>{
+    const enabled = !!maintenanceToggle.checked
+    const endsVal = maintenanceEnds.value ? new Date(maintenanceEnds.value).toISOString() : null
+    const payload = { enabled, ends_at: endsVal }
+    try {
+      await upsertSetting('maintenance', payload)
+      alert('Setting disimpan')
+      updateMaintenanceMsgDisplay(payload)
+      enforceMaintenanceUI()
+    } catch(e) {
+      alert('Gagal simpan: '+(e.message||e))
+    }
   })
 
-  // Load folders when page loads
-  loadFoldersForUpload()
-  loadFoldersForManagement()
+  function updateMaintenanceMsgDisplay(val){
+    if(!val || !val.enabled){ maintenanceMsg.textContent = 'Maintenance tidak aktif' ; return }
+    const endsAt = val.ends_at ? new Date(val.ends_at) : null
+    if(endsAt) maintenanceMsg.textContent = `Maintenance aktif sampai ${endsAt.toLocaleString()}`
+    else maintenanceMsg.textContent = `Maintenance aktif (tanpa batas waktu)`
+  }
 
-  // allow keyboard nav: left/right switch pages
+  if(adminLogoutBtn) adminLogoutBtn.addEventListener('click', ()=> { setAdminSession(false); alert('Logout admin berhasil'); showPage('page-download') })
+
+  // small keyboard nav
   window.addEventListener('keydown', e=>{
-    const order = ['page-download','page-folders','page-upload','page-about']
+    const order = ['page-download','page-upload','page-about','page-admin']
     const cur = pages.findIndex(p=>p.classList.contains('active'))
     if(e.key === 'ArrowLeft') showPage(order[Math.max(0,cur-1)])
     if(e.key === 'ArrowRight') showPage(order[Math.min(order.length-1,cur+1)])
   })
 
-  // small initial micro animation on nav
+  /* ---------------- MAINTENANCE UI ---------------- */
+
+  function showMaintenanceToastAndBlock(){
+    alert('Sedang maintenance — fitur Upload & About dinonaktifkan. Kamu hanya bisa mendownload file yang sudah tersedia.')
+  }
+
+  function createMaintOverlayElement(text){
+    const wrapper = document.createElement('div')
+    wrapper.className = 'maint-overlay'
+    wrapper.innerHTML = `
+      <div class="maint-card">
+        <div class="maint-icon"><i class="fa fa-wrench"></i></div>
+        <div class="maint-body">
+          <div class="maint-title">maintenance</div>
+          <div class="maint-desc">${escapeHtml(text)}</div>
+          <div class="maint-actions">
+            <button class="maint-ok">Oke — kembali ke Download</button>
+          </div>
+        </div>
+      </div>`
+    wrapper.querySelector('.maint-ok').addEventListener('click', ()=> {
+      wrapper.animate([{ transform:'translateY(0)', opacity:1 }, { transform:'translateY(10px)', opacity:0 }], { duration:280, easing:'ease' })
+      setTimeout(()=> {
+        document.querySelectorAll('.maint-overlay').forEach(o=> o.remove())
+        document.querySelectorAll('#page-upload .card, #page-about .card').forEach(c=> c.classList.remove('muted-overlay'))
+        showPage('page-download')
+      }, 300)
+    })
+    return wrapper
+  }
+
+  async function enforceMaintenanceUI(){
+    try {
+      const s = await getSetting('maintenance')
+      const cards = document.querySelectorAll('#page-upload .card, #page-about .card')
+      // remove previous overlays
+      document.querySelectorAll('#page-upload .card .maint-overlay, #page-about .card .maint-overlay').forEach(n => n.remove())
+
+      if(s && s.value && s.value.enabled){
+        const ends = s.value.ends_at ? new Date(s.value.ends_at) : null
+        if(!ends || new Date() < ends){
+          const message = `Sedang ada perbaikan atau update website, jadi pengunjung tidak dapat meng-upload dan membuka menu About. Pengunjung hanya bisa mendownload file yang sudah diunggah sebelumnya. Terimakasih.`
+          cards.forEach(card => {
+            card.classList.add('muted-overlay')
+            const ov = createMaintOverlayElement(message)
+            if(getComputedStyle(card).position === 'static') card.style.position = 'relative'
+            card.appendChild(ov)
+          })
+          return
+        }
+      }
+      // not in maintenance: clean UI
+      cards.forEach(card=>{
+        card.classList.remove('muted-overlay')
+        const exist = card.querySelector('.maint-overlay')
+        if(exist) exist.remove()
+      })
+    } catch(e) { console.warn('enforce maintenance err', e) }
+  }
+
+  // run once at start
+  enforceMaintenanceUI()
+  // periodic checks
+  setInterval(enforceMaintenanceUI, 60 * 1000)
+  // periodic expired cleanup (every 5 minutes)
+  setInterval(cleanExpiredFiles, 5 * 60 * 1000)
+  // run a cleanup once on start
+  cleanExpiredFiles().catch(()=>{})
+
+  // nav animation micro
   document.querySelectorAll('.nav-btn').forEach((b,i)=> b.animate([{opacity:0, transform:'translateY(8px)'}, {opacity:1, transform:'translateY(0)'}], { duration: 420, delay: i*80, easing:'cubic-bezier(.2,.9,.3,1)' }))
 
 }) // DOMContentLoaded end
