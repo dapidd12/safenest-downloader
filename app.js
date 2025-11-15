@@ -231,7 +231,7 @@ async function initializeUpdateCountdown() {
   }
 }
 
-// ----------------- Maintenance System -----------------
+// ----------------- Enhanced Maintenance System -----------------
 async function getMaintenanceStatus() {
   const cacheKey = 'maintenance_status'
   const cached = cache.get(cacheKey)
@@ -284,14 +284,24 @@ function startMaintenanceCountdown(endsAt) {
   }, 1000)
 }
 
-function showMaintenanceOverlay(message) {
+function showMaintenanceOverlay(message, endsAt = null) {
   const overlay = $('globalMaintenanceOverlay')
   const messageEl = $('maintenance-modal-message')
+  const countdownEl = $('maintenance-modal-countdown')
   
   if (overlay && messageEl) {
     messageEl.textContent = message
+    
+    if (endsAt) {
+      const diff = new Date(endsAt) - new Date()
+      countdownEl.textContent = formatTime(diff)
+      startMaintenanceCountdown(endsAt)
+    } else {
+      countdownEl.textContent = '--:--:--'
+    }
+    
     overlay.classList.remove('hide')
-    overlay.classList.add('active')
+    setTimeout(() => overlay.classList.add('active'), 10)
   }
 }
 
@@ -663,6 +673,22 @@ async function verifyFileAccess(fileRecord) {
   return { valid: true }
 }
 
+// ----------------- Enhanced Maintenance Check -----------------
+async function checkMaintenanceForUpload() {
+  try {
+    const maintenance = await getMaintenanceStatus()
+    
+    if (maintenance.enabled) {
+      showMaintenanceOverlay(maintenance.message, maintenance.ends_at)
+      return true
+    }
+    return false
+  } catch (error) {
+    console.warn('Maintenance check failed:', error)
+    return false
+  }
+}
+
 // ----------------- UI Manager -----------------
 class UIManager {
   constructor() {
@@ -681,8 +707,15 @@ class UIManager {
 
   setupNavigation() {
     this.navButtons.forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const target = btn.dataset.target
+        
+        // Check maintenance before navigating to upload page
+        if (target === 'page-upload') {
+          const isMaintenance = await checkMaintenanceForUpload()
+          if (isMaintenance) return
+        }
+        
         this.showPage(target)
         
         btn.animate([
@@ -696,16 +729,26 @@ class UIManager {
       })
     })
 
-    window.addEventListener('keydown', e => {
+    window.addEventListener('keydown', async e => {
       if (e.altKey || e.ctrlKey) return
       
       const order = ['page-download', 'page-upload', 'page-about', 'page-admin']
       const currentIndex = order.indexOf(this.currentPage)
       
       if (e.key === 'ArrowLeft' && currentIndex > 0) {
-        this.showPage(order[currentIndex - 1])
+        const target = order[currentIndex - 1]
+        if (target === 'page-upload') {
+          const isMaintenance = await checkMaintenanceForUpload()
+          if (isMaintenance) return
+        }
+        this.showPage(target)
       } else if (e.key === 'ArrowRight' && currentIndex < order.length - 1) {
-        this.showPage(order[currentIndex + 1])
+        const target = order[currentIndex + 1]
+        if (target === 'page-upload') {
+          const isMaintenance = await checkMaintenanceForUpload()
+          if (isMaintenance) return
+        }
+        this.showPage(target)
       }
     })
   }
@@ -725,7 +768,6 @@ class UIManager {
       btn.classList.toggle('active', btn.dataset.target === id)
     })
 
-    this.checkMaintenance()
     this.animatePageEntrance(id)
 
     if (id === 'page-admin') {
@@ -743,56 +785,6 @@ class UIManager {
       el.style.animationDelay = `${i * 40}ms`
       setTimeout(() => el.style.animationDelay = '', 800)
     })
-  }
-
-  async checkMaintenance() {
-    try {
-      const maintenance = await getMaintenanceStatus()
-      
-      if (maintenance.enabled && maintenance.ends_at && new Date(maintenance.ends_at) > new Date()) {
-        if (this.currentPage === 'page-upload' || this.currentPage === 'page-about') {
-          this.showMaintenanceBlock(maintenance)
-        }
-        
-        if (this.currentPage === 'page-download') {
-          showMaintenanceOverlay(maintenance.message)
-          startMaintenanceCountdown(maintenance.ends_at)
-        }
-      } else {
-        hideMaintenanceOverlay()
-      }
-    } catch (error) {
-      console.warn('Maintenance check failed:', error)
-    }
-  }
-
-  showMaintenanceBlock(maintenance) {
-    const currentPage = $(this.currentPage)
-    if (!currentPage) return
-
-    let overlay = currentPage.querySelector('.maintenance-page-overlay')
-    if (!overlay) {
-      overlay = document.createElement('div')
-      overlay.className = 'maintenance-page-overlay'
-      overlay.innerHTML = `
-        <div class="maintenance-page-content">
-          <div class="maintenance-page-icon">
-            <i class="fa fa-wrench"></i>
-          </div>
-          <div class="maintenance-page-text">
-            <h4>Fitur Sedang Tidak Tersedia</h4>
-            <p>${maintenance.message}</p>
-            <div class="maintenance-page-countdown">
-              <i class="fa fa-clock-o"></i>
-              <span>Tersedia dalam: <strong>${formatTime(new Date(maintenance.ends_at) - new Date())}</strong></span>
-            </div>
-          </div>
-        </div>
-      `
-      currentPage.appendChild(overlay)
-    }
-    
-    startMaintenanceCountdown(maintenance.ends_at)
   }
 
   async loadAdminDashboard() {
@@ -1018,7 +1010,7 @@ class UIManager {
       $('btnUpload').addEventListener('click', this.handleUpload.bind(this))
     }
 
-    // Verify handler - FIXED EXPIRY CHECK
+    // Verify handler
     if ($('btnVerify')) {
       $('btnVerify').addEventListener('click', this.handleVerify.bind(this))
     }
@@ -1044,7 +1036,7 @@ class UIManager {
       })
     }
 
-    // Cleanup files - FIXED
+    // Cleanup files
     if ($('cleanup-files')) {
       $('cleanup-files').addEventListener('click', async () => {
         const btn = $('cleanup-files')
@@ -1063,7 +1055,7 @@ class UIManager {
             )
           }
           this.loadFilesList()
-          this.loadAdminDashboard() // Refresh stats
+          this.loadAdminDashboard()
         } catch (e) {
           this.showMessage('cleanup-result', 'Gagal membersihkan file: ' + e.message, 'error')
         } finally {
@@ -1127,7 +1119,6 @@ class UIManager {
       maintenanceToggle.addEventListener('change', () => {
         maintenanceSettings.style.display = maintenanceToggle.checked ? 'block' : 'none'
       })
-      // Set initial state
       maintenanceSettings.style.display = maintenanceToggle.checked ? 'block' : 'none'
     }
 
@@ -1153,19 +1144,16 @@ class UIManager {
   }
 
   async handleUpload() {
+    // Check maintenance before upload
+    const isMaintenance = await checkMaintenanceForUpload()
+    if (isMaintenance) return
+
     const btnUpload = $('btnUpload')
     const fileInput = $('fileInput')
     const file = fileInput?.files?.[0]
 
     if (!file) {
       alert('Pilih file terlebih dahulu.')
-      return
-    }
-
-    // Check maintenance
-    const maintenance = await getMaintenanceStatus()
-    if (maintenance.enabled) {
-      this.showMaintenanceBlock(maintenance)
       return
     }
 
@@ -1238,7 +1226,6 @@ class UIManager {
     try {
       const record = await getRecordByUsername(username)
       
-      // Enhanced file verification
       const verification = await verifyFileAccess(record)
       if (!verification.valid) {
         alert(verification.reason)
@@ -1333,7 +1320,6 @@ class UIManager {
     let endsAt = null
 
     if (enabled) {
-      // Calculate ends_at from days/hours or use datetime input
       if (endsInput?.value) {
         endsAt = new Date(endsInput.value).toISOString()
       } else {
@@ -1359,10 +1345,8 @@ class UIManager {
 
       this.showMessage('maintenance-msg', 'Pengaturan maintenance berhasil disimpan!', 'success')
       
-      // Update display
       const maintenance = await getMaintenanceStatus()
       this.updateMaintenanceDisplay(maintenance)
-      this.checkMaintenance()
 
     } catch (e) {
       this.showMessage('maintenance-msg', 'Gagal menyimpan pengaturan: ' + e.message, 'error')
@@ -1379,7 +1363,6 @@ class UIManager {
 
     let endsAt = null
 
-    // Calculate ends_at from days/hours/minutes or use datetime input
     if (endsInput?.value) {
       endsAt = new Date(endsInput.value).toISOString()
     } else {
@@ -1411,10 +1394,8 @@ class UIManager {
 
       this.showMessage('update-settings-msg', 'Update countdown berhasil diatur!', 'success')
       
-      // Reinitialize update countdown
       await initializeUpdateCountdown()
       
-      // Update display
       const updateStatus = await getUpdateStatus()
       this.updateUpdateDisplay(updateStatus)
 
@@ -1434,7 +1415,6 @@ class UIManager {
 
       this.showMessage('update-settings-msg', 'Update countdown berhasil dihapus!', 'success')
       
-      // Clear current countdown
       if (updateCountdownInterval) {
         clearInterval(updateCountdownInterval)
         updateCountdownInterval = null
@@ -1442,7 +1422,6 @@ class UIManager {
       
       hideUpdateBanner()
       
-      // Hide badges
       const headerBadge = $('headerUpdateBadge')
       if (headerBadge) headerBadge.classList.add('hide')
       
@@ -1452,7 +1431,6 @@ class UIManager {
         if (badge) badge.classList.add('hide')
       })
       
-      // Update display
       const updateStatus = await getUpdateStatus()
       this.updateUpdateDisplay(updateStatus)
 
@@ -1476,11 +1454,9 @@ class UIManager {
         message: message
       })
 
-      // Clear form
       if ($('cMsg')) $('cMsg').value = ''
       if ($('cName')) $('cName').value = ''
 
-      // Show success feedback
       const btn = $('cSend')
       const originalText = btn.innerHTML
       btn.innerHTML = '<i class="fa fa-check"></i> Terkirim!'
@@ -1503,7 +1479,6 @@ class UIManager {
     element.innerHTML = message
     element.className = `settings-message ${type}`
     
-    // Auto-hide success messages
     if (type === 'success') {
       setTimeout(() => {
         element.innerHTML = ''
@@ -1515,20 +1490,14 @@ class UIManager {
 
 // ----------------- Initialization -----------------
 document.addEventListener('DOMContentLoaded', () => {
-  // Initialize UI Manager
   const uiManager = new UIManager()
 
-  // Initialize update countdown
   initializeUpdateCountdown()
 
-  // Start background tasks - FIXED: Run cleanup more frequently
-  setInterval(cleanExpiredFiles, 2 * 60 * 1000) // Cleanup every 2 minutes
-  setInterval(() => uiManager.checkMaintenance(), 30 * 1000) // Check maintenance every 30 seconds
+  setInterval(cleanExpiredFiles, 2 * 60 * 1000)
 
-  // Initial cleanup
   cleanExpiredFiles().catch(() => {})
   
-  // Nav entrance animations
   $$('.nav-btn').forEach((btn, i) => {
     btn.animate([
       { opacity: 0, transform: 'translateY(8px)' },
@@ -1540,7 +1509,6 @@ document.addEventListener('DOMContentLoaded', () => {
     })
   })
 
-  // Hide global loader
   window.addEventListener('load', () => {
     setTimeout(() => {
       const loader = $('globalLoader')
@@ -1552,5 +1520,5 @@ document.addEventListener('DOMContentLoaded', () => {
   })
 })
 
-// Global function to hide update banner
 window.hideUpdateBanner = hideUpdateBanner
+window.checkMaintenanceForUpload = checkMaintenanceForUpload
