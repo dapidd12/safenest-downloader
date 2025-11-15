@@ -9,7 +9,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const BUCKET = 'piw-files'
 const BASE_LOGIN_LINK = 'https://example.com'
 // admin secret "pintu rahasia"
-const ADMIN_CREDENTIALS = { user: 'arya', pass: 'dapid' }
+const ADMIN_CREDENTIALS = { user: 'aryapiw.pages.dev', pass: 'dapid.my.id' }
 // ====================================================
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
