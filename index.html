@@ -6,12 +6,17 @@
   <title>Safenest — Private file sharing</title>
 
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-  <!-- FontAwesome v4 (icons yang kamu minta) -->
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
 
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <div class="space-bg">
+    <div class="stars"></div>
+    <div class="twinkling"></div>
+    <div class="clouds"></div>
+  </div>
+  
   <div class="app-shell">
     <header class="top-header glass">
       <div class="brand">
@@ -21,7 +26,6 @@
           <div class="site-sub">Setiap unggahan mendapat rumah. Setiap rahasia mendapat penjaga.</div>
         </div>
       </div>
-     
     </header>
 
     <main class="main-area">
@@ -32,7 +36,7 @@
           <p class="muted">Masukkan username & password yang diberikan uploader.</p>
 
           <div class="grid-2">
-            <input id="dlUser" placeholder="username (piw-xxxx)" />
+            <input id="dlUser" placeholder="username (sn-xxxx)" />
             <input id="dlPass" placeholder="password" type="password" />
           </div>
 
@@ -44,6 +48,7 @@
           <div id="dlInfo" class="file-info hide">
             <h3 id="fileName">-</h3>
             <p class="muted small">Ukuran: <span id="fileSize">-</span> • Diunggah: <span id="fileTime">-</span></p>
+            <p class="muted small">Kadaluarsa: <span id="fileExpiry">-</span></p>
 
             <div class="row" style="margin-top:12px">
               <button id="btnView" class="btn ghost"><i class="fa fa-eye"></i> Lihat File</button>
@@ -61,6 +66,16 @@
           <h2 class="page-title"><i class="fa fa-cloud-upload"></i> Upload</h2>
           <p class="muted">Upload file. Kamu akan menerima username & password sekali tampil.</p>
 
+          <div class="folder-section">
+            <h3><i class="fa fa-folder"></i> Folder</h3>
+            <div class="row">
+              <select id="folderSelect" class="folder-select">
+                <option value="">Buat folder baru</option>
+              </select>
+              <input id="newFolder" placeholder="Nama folder baru" />
+            </div>
+          </div>
+
           <label class="filebox">
             <input id="fileInput" type="file" />
             <div class="filebox-inner">
@@ -69,6 +84,20 @@
             </div>
           </label>
 
+          <div class="expiry-section">
+            <h3><i class="fa fa-clock-o"></i> Masa Berlaku</h3>
+            <div class="row">
+              <select id="expirySelect">
+                <option value="1">1 Hari</option>
+                <option value="3">3 Hari</option>
+                <option value="7" selected>1 Minggu</option>
+                <option value="30">1 Bulan</option>
+                <option value="365">1 Tahun</option>
+                <option value="0">Tidak pernah</option>
+              </select>
+            </div>
+          </div>
+
           <div class="row" style="margin-top:12px">
             <button id="btnUpload" class="btn primary"><i class="fa fa-upload"></i> Upload & Generate Credentials</button>
           </div>
@@ -76,10 +105,39 @@
           <div id="creds" class="creds-box hide">
             <p><strong>Username:</strong> <code id="outUser"></code></p>
             <p><strong>Password:</strong> <code id="outPass"></code></p>
+            <p><strong>Folder:</strong> <code id="outFolder"></code></p>
             <div class="row" style="margin-top:8px">
               <button id="copyCreds" class="btn ghost"><i class="fa fa-clipboard"></i> Salin Kredensial</button>
             </div>
             <small class="muted">Link login: <code id="outLink">-</code></small>
+          </div>
+        </div>
+
+        <footer class="page-footer">copyright by safenest © 2025-2026</footer>
+      </section>
+
+      <!-- FOLDERS -->
+      <section id="page-folders" class="page">
+        <div class="card glass-card">
+          <h2 class="page-title"><i class="fa fa-folder-open"></i> Folder Saya</h2>
+          <p class="muted">Kelola folder dan file Anda.</p>
+
+          <div class="folder-manager">
+            <div class="folder-header">
+              <h3>Folder Aktif</h3>
+              <button id="btnNewFolder" class="btn ghost small"><i class="fa fa-plus"></i> Folder Baru</button>
+            </div>
+            
+            <div id="folderList" class="folder-list">
+              <!-- Folder items will be populated here -->
+            </div>
+            
+            <div id="folderFiles" class="folder-files hide">
+              <h4>File dalam folder: <span id="currentFolderName"></span></h4>
+              <div id="fileList" class="file-list">
+                <!-- File items will be populated here -->
+              </div>
+            </div>
           </div>
         </div>
 
@@ -103,13 +161,13 @@ Dirancang untuk penggunaan personal, platform ini menjaga setiap unggahan dengan
           <p><strong>5.</strong>Menciptakan pengalaman modern dengan tampilan lembut, bersih, dan intuitif.</p>
           
           <p>
-  <h4>
-    pembuat:
-    <a href="https://aryapiw.pages.dev" target="_blank">Aryapiw</a>
-    &
-    <a href="https://dapid.my.id" target="_blank">Dapid</a>
-  </h4>
-</p>
+            <h4>
+              pembuat:
+              <a href="https://aryapiw.pages.dev" target="_blank">Aryapiw</a>
+              &
+              <a href="https://dapid.my.id" target="_blank">Dapid</a>
+            </h4>
+          </p>
 
           <hr/>
 
@@ -135,6 +193,11 @@ Dirancang untuk penggunaan personal, platform ini menjaga setiap unggahan dengan
         <button class="nav-btn" data-target="page-download" id="nav-download" aria-label="Download">
           <div class="icon-wrap"><i class="fa fa-download"></i></div>
           <div class="label">Download</div>
+        </button>
+
+        <button class="nav-btn" data-target="page-folders" id="nav-folders" aria-label="Folders">
+          <div class="icon-wrap"><i class="fa fa-folder-open"></i></div>
+          <div class="label">Folder</div>
         </button>
 
         <button class="nav-btn center" data-target="page-upload" id="nav-upload" aria-label="Upload">
