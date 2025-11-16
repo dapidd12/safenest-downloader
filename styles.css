@@ -189,7 +189,7 @@ html,body{
   font-size: 10px;
 }
 
-/* HEADER */
+/* ==================== HEADER LAYOUT UPDATE ==================== */
 .top-header{
   width:100%;
   max-width:1200px;
@@ -212,7 +212,13 @@ html,body{
   to{ opacity:1; transform:translateY(0) scale(1) } 
 }
 
-.brand{ display:flex; align-items:center; gap:16px }
+.brand{ 
+  display:flex; 
+  align-items:center; 
+  gap:16px;
+  flex: 1;
+}
+
 .brand-logo{ 
   width:60px; 
   height:60px; 
@@ -227,6 +233,7 @@ html,body{
   position: relative;
   overflow: hidden;
   font-size: 24px;
+  flex-shrink: 0;
 }
 
 .brand-logo::after {
@@ -245,8 +252,31 @@ html,body{
   transform: rotate(30deg);
 }
 
-.site-title{ font-weight:700; font-size:20px; background: linear-gradient(135deg, var(--accent1), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-.site-sub{ font-size:14px; color:var(--muted); line-height: 1.4; }
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.site-title{ 
+  font-weight:700; 
+  font-size:20px; 
+  background: linear-gradient(135deg, var(--accent1), var(--accent2)); 
+  -webkit-background-clip: text; 
+  -webkit-text-fill-color: transparent; 
+  margin-bottom: 4px;
+}
+
+.site-sub{ 
+  font-size:14px; 
+  color:var(--muted); 
+  line-height: 1.4;
+}
+
+/* Update badge positioning */
+#headerUpdateBadge {
+  margin-left: auto;
+}
 
 /* MAIN AREA */
 .main-area{ width:100%; max-width:1200px; margin-top:24px; display:grid; gap:24px; }
@@ -350,18 +380,34 @@ input::placeholder, textarea::placeholder, select::placeholder{
   color:var(--muted); 
 }
 
-/* FILE BOX */
+/* UPLOAD AREA - FIXED */
+.upload-area {
+  position: relative;
+  margin-top: 16px;
+}
+
+/* HIDDEN FILE INPUT - COMPLETELY HIDDEN */
+.hidden-file-input {
+  position: absolute;
+  width: 0.1px;
+  height: 0.1px;
+  opacity: 0;
+  overflow: hidden;
+  z-index: -1;
+}
+
+/* FILE BOX - CLEAN DESIGN */
 .filebox{ 
   display:block; 
   border-radius:14px; 
-  padding:20px; 
-  border:2px dashed rgba(255,255,255,0.1); 
-  margin-top:16px; 
+  padding:40px 20px; 
+  border:2px dashed rgba(255,255,255,0.15); 
   background:rgba(255,255,255,0.03); 
   transition: all 0.3s ease;
   cursor: pointer;
   position: relative;
   overflow: hidden;
+  text-align: center;
 }
 
 .filebox::before {
@@ -383,37 +429,101 @@ input::placeholder, textarea::placeholder, select::placeholder{
   border-color: var(--accent1);
   background: rgba(255,255,255,0.05);
   transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+}
+
+.filebox.file-selected {
+  border-color: var(--success);
+  background: rgba(16, 185, 129, 0.05);
 }
 
 .filebox-inner {
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 16px;
+  position: relative;
+  z-index: 2;
 }
 
 .filebox-icon {
-  width: 48px;
-  height: 48px;
+  width: 70px;
+  height: 70px;
   background: linear-gradient(135deg, var(--accent1), var(--accent2));
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  font-size: 20px;
+  font-size: 28px;
+  transition: all 0.3s ease;
+}
+
+.filebox:hover .filebox-icon {
+  transform: scale(1.08);
+  box-shadow: 0 10px 25px rgba(107, 142, 252, 0.4);
 }
 
 .filebox-text strong{ 
   display:block; 
-  margin-bottom:4px; 
+  margin-bottom:6px; 
   color: var(--text);
+  font-size: 18px;
+  font-weight: 600;
 }
 
 .filebox-text small{ 
   color:var(--muted); 
-  font-size:13px;
+  font-size:14px;
 }
 
+/* FILE NAME DISPLAY - SEPARATE ELEMENT */
+.file-name-display {
+  margin-top: 16px;
+  padding: 16px;
+  background: rgba(107, 142, 252, 0.1);
+  border: 1px solid rgba(107, 142, 252, 0.2);
+  border-radius: 12px;
+  text-align: center;
+  animation: fadeInUp 0.4s ease;
+}
+
+.file-name-display.show {
+  display: block;
+}
+
+.file-name-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 15px;
+  color: var(--accent1);
+  font-weight: 500;
+}
+
+.file-name-content i {
+  color: var(--success);
+  font-size: 18px;
+}
+
+.file-size {
+  color: var(--muted);
+  font-size: 13px;
+  margin-left: 8px;
+  font-weight: normal;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 /* BUTTONS */
 .row{ display:flex; gap:12px; align-items:center; flex-wrap: wrap; }
 .btn{ 
@@ -1809,8 +1919,15 @@ select:focus {
   }
   
   .brand {
-    flex-direction: column;
-    text-align: center;
+    flex-direction: row;
+    text-align: left;
+    justify-content: center;
+    width: 100%;
+  }
+  
+  #headerUpdateBadge {
+    margin-left: 0;
+    margin-top: 8px;
   }
   
   .card {

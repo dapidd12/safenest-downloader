@@ -1,4 +1,4 @@
-// app.js — Safenest dengan Fitur Expired Files yang Diperbaiki
+// app.js — Safenest dengan Tampilan Upload yang Lebih Clean
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
 
 // ========== CONFIG ==========
@@ -366,7 +366,7 @@ async function getRecordByUsername(username){
   if (data) {
     // Check if file is expired
     if (data.expires_at && new Date(data.expires_at) < new Date()) {
-      // File is expired, delete it and return null
+      // File is expired, try to delete it
       try {
         await deleteFile(data)
         cache.clear(cacheKey)
@@ -590,24 +590,21 @@ function expiryToIso(selectVal){
   return expiryDate.toISOString()
 }
 
-// ----------------- Fixed Cleanup System -----------------
+// ----------------- Fixed Cleanup System - DIPERBAIKI -----------------
 async function cleanExpiredFiles(){
   try {
     const now = new Date().toISOString()
     
-    // Find expired files that haven't been downloaded
+    // Find expired files - QUERY YANG LEBIH AMAN
     const { data: expiredFiles, error } = await supabase
       .from('files')
-      .select(`
-        *,
-        downloads:downloads(count)
-      `)
+      .select('*')
       .lt('expires_at', now)
       .not('expires_at', 'is', null)
 
     if (error) {
-      console.warn('Cleanup query error:', error)
-      return { cleaned: 0, total: 0 }
+      console.warn('Cleanup query error:', error.message || error)
+      return { cleaned: 0, total: 0, error: error.message }
     }
 
     if (!expiredFiles?.length) {
@@ -619,8 +616,19 @@ async function cleanExpiredFiles(){
 
     for (const file of expiredFiles) {
       try {
-        // Check if file has any downloads
-        const downloadCount = file.downloads?.[0]?.count || 0
+        // Check if file has any downloads - QUERY TERPISAH YANG LEBIH AMAN
+        const { data: downloads, error: downloadError } = await supabase
+          .from('downloads')
+          .select('id')
+          .eq('file_id', file.id)
+          .limit(1)
+
+        if (downloadError) {
+          console.warn(`Download check error for file ${file.id}:`, downloadError)
+          continue
+        }
+        
+        const downloadCount = downloads?.length || 0
         
         if (downloadCount === 0) {
           // File has never been downloaded, safe to delete
@@ -631,7 +639,7 @@ async function cleanExpiredFiles(){
           log(`Skipping expired file with downloads: ${file.filename} (Downloads: ${downloadCount})`)
         }
       } catch (e) {
-        console.warn(`Error processing file ${file.id}:`, e)
+        console.warn(`Error processing file ${file.id}:`, e.message || e)
       }
     }
     
@@ -645,7 +653,7 @@ async function cleanExpiredFiles(){
     return { cleaned: cleanedCount, total: totalExpired }
     
   } catch (e) {
-    console.warn('Cleanup system error:', e)
+    console.warn('Cleanup system error:', e.message || e)
     return { cleaned: 0, total: 0, error: e.message }
   }
 }
@@ -1015,6 +1023,11 @@ class UIManager {
       $('btnVerify').addEventListener('click', this.handleVerify.bind(this))
     }
 
+    // File input change handler untuk clean display
+    if ($('fileInput')) {
+      $('fileInput').addEventListener('change', this.handleFileSelect.bind(this));
+    }
+
     // Copy credentials
     if ($('copyCreds')) {
       $('copyCreds').addEventListener('click', this.handleCopyCreds.bind(this))
@@ -1036,7 +1049,7 @@ class UIManager {
       })
     }
 
-    // Cleanup files
+    // Cleanup files - DIPERBAIKI DENGAN ERROR HANDLING
     if ($('cleanup-files')) {
       $('cleanup-files').addEventListener('click', async () => {
         const btn = $('cleanup-files')
@@ -1049,15 +1062,15 @@ class UIManager {
           if (result.error) {
             this.showMessage('cleanup-result', `Gagal membersihkan: ${result.error}`, 'error')
           } else {
-            this.showMessage('cleanup-result', 
-              `Pembersihan selesai! ${result.cleaned}/${result.total} file expired dihapus.`, 
-              'success'
-            )
+            const message = result.cleaned > 0 
+              ? `Pembersihan selesai! ${result.cleaned}/${result.total} file expired dihapus.`
+              : `Tidak ada file expired yang perlu dihapus. ${result.total} file expired ditemukan, tetapi sudah pernah didownload.`
+            this.showMessage('cleanup-result', message, 'success')
           }
           this.loadFilesList()
           this.loadAdminDashboard()
         } catch (e) {
-          this.showMessage('cleanup-result', 'Gagal membersihkan file: ' + e.message, 'error')
+          this.showMessage('cleanup-result', 'Gagal membersihkan file: ' + (e.message || e), 'error')
         } finally {
           btn.innerHTML = originalText
           btn.disabled = false
@@ -1070,7 +1083,7 @@ class UIManager {
       $('clear-cache').addEventListener('click', () => {
         const keys = Object.keys(localStorage).filter(key => key.startsWith('sn_'))
         keys.forEach(key => localStorage.removeItem(key))
-        alert('Cache berhasil dibersihkan!')
+        this.showMessage('cleanup-result', 'Cache berhasil dibersihkan!', 'success')
       })
     }
 
@@ -1093,8 +1106,8 @@ class UIManager {
     if ($('admin-logout')) {
       $('admin-logout').addEventListener('click', () => {
         setAdminSession(false)
-        alert('Logout admin berhasil')
-        this.showPage('page-download')
+        this.showMessage('cleanup-result', 'Logout admin berhasil', 'success')
+        setTimeout(() => this.showPage('page-download'), 1000)
       })
     }
 
@@ -1107,6 +1120,38 @@ class UIManager {
     const maintenanceOk = $('globalMaintenanceOverlay')?.querySelector('.maintenance-ok')
     if (maintenanceOk) {
       maintenanceOk.addEventListener('click', hideMaintenanceOverlay)
+    }
+  }
+
+  // NEW METHOD: Handle file selection for clean display
+  handleFileSelect(event) {
+    const file = event.target.files[0];
+    const filebox = $('fileInput').closest('.filebox');
+    
+    // Hapus display nama file sebelumnya jika ada
+    const existingDisplay = filebox.querySelector('.file-name-display');
+    if (existingDisplay) {
+      existingDisplay.remove();
+    }
+    
+    if (file) {
+      // Tampilkan nama file yang dipilih
+      const fileNameDisplay = document.createElement('div');
+      fileNameDisplay.className = 'file-name-display';
+      fileNameDisplay.innerHTML = `
+        <i class="fa fa-check-circle"></i> 
+        ${escapeHtml(file.name)} 
+        <small>(${niceBytes(file.size)})</small>
+      `;
+      filebox.appendChild(fileNameDisplay);
+      
+      // Update style filebox untuk menunjukkan file dipilih
+      filebox.style.borderColor = 'var(--accent1)';
+      filebox.style.background = 'rgba(107, 142, 252, 0.05)';
+    } else {
+      // Reset style filebox jika tidak ada file
+      filebox.style.borderColor = '';
+      filebox.style.background = '';
     }
   }
 
@@ -1153,7 +1198,7 @@ class UIManager {
     const file = fileInput?.files?.[0]
 
     if (!file) {
-      alert('Pilih file terlebih dahulu.')
+      this.showMessage('cleanup-result', 'Pilih file terlebih dahulu.', 'error')
       return
     }
 
@@ -1180,26 +1225,40 @@ class UIManager {
         expires_at: expiresIso
       })
 
-      // Show credentials
+      // Show credentials - PERBAIKAN: Pastikan elemen creds ditampilkan
       if ($('outUser')) $('outUser').textContent = username
       if ($('outPass')) $('outPass').textContent = password
       if ($('outLink')) $('outLink').textContent = `${BASE_LOGIN_LINK}/?user=${username}`
       if ($('outExpire')) {
         $('outExpire').textContent = expiresIso ? new Date(expiresIso).toLocaleString() : 'Tidak expired'
       }
-      if ($('creds')) $('creds').classList.remove('hide')
+      
+      // PERBAIKAN PENTING: Tampilkan section kredensial
+      const credsSection = $('creds')
+      if (credsSection) {
+        credsSection.classList.remove('hide')
+        // Scroll ke section kredensial untuk memastikan user melihatnya
+        credsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      }
 
-      alert('Upload berhasil! Simpan kredensial Anda - password hanya ditampilkan sekali.')
+      this.showMessage('cleanup-result', 'Upload berhasil! Simpan kredensial Anda - password hanya ditampilkan sekali.', 'success')
 
-      // Reset form
+      // Reset form dan file display
       fileInput.value = ''
+      const filebox = $('fileInput').closest('.filebox');
+      const fileNameDisplay = filebox.querySelector('.file-name-display');
+      if (fileNameDisplay) {
+        fileNameDisplay.remove();
+      }
+      filebox.style.borderColor = '';
+      filebox.style.background = '';
 
       // Cleanup expired files in background
       cleanExpiredFiles().catch(() => {})
 
     } catch (err) {
       console.error('Upload error:', err)
-      alert('Upload gagal: ' + (err.message || err))
+      this.showMessage('cleanup-result', 'Upload gagal: ' + (err.message || err), 'error')
     } finally {
       btnUpload.disabled = false
       btnUpload.innerHTML = '<i class="fa fa-upload"></i> Upload & Generate Credentials'
@@ -1211,15 +1270,15 @@ class UIManager {
     const password = ($('dlPass')?.value || '').trim()
 
     if (!username || !password) {
-      alert('Harap isi username dan password.')
+      this.showMessage('cleanup-result', 'Harap isi username dan password.', 'error')
       return
     }
 
     // Admin secret access
     if (username === ADMIN_CREDENTIALS.user && password === ADMIN_CREDENTIALS.pass) {
       setAdminSession(true)
-      alert('Admin login berhasil - membuka dashboard')
-      this.showPage('page-admin')
+      this.showMessage('cleanup-result', 'Admin login berhasil - membuka dashboard', 'success')
+      setTimeout(() => this.showPage('page-admin'), 1000)
       return
     }
 
@@ -1228,13 +1287,13 @@ class UIManager {
       
       const verification = await verifyFileAccess(record)
       if (!verification.valid) {
-        alert(verification.reason)
+        this.showMessage('cleanup-result', verification.reason, 'error')
         return
       }
 
       const hash = await sha256(password)
       if (hash !== record.password_hash) {
-        alert('Password salah.')
+        this.showMessage('cleanup-result', 'Password salah.', 'error')
         return
       }
 
@@ -1266,9 +1325,10 @@ class UIManager {
               filename: record.filename,
               username: record.username
             })
+            this.showMessage('cleanup-result', 'Download berhasil!', 'success')
           } catch (e) {
             console.error('Download error:', e)
-            alert('Gagal mengunduh: ' + e.message)
+            this.showMessage('cleanup-result', 'Gagal mengunduh: ' + e.message, 'error')
           }
         }
       }
@@ -1281,9 +1341,9 @@ class UIManager {
     } catch (err) {
       console.error('Verification error:', err)
       if (err.message.includes('PGRST116')) {
-        alert('Username tidak ditemukan.')
+        this.showMessage('cleanup-result', 'Username tidak ditemukan.', 'error')
       } else {
-        alert('Verifikasi gagal: ' + (err.message || err))
+        this.showMessage('cleanup-result', 'Verifikasi gagal: ' + (err.message || err), 'error')
       }
     }
   }
@@ -1303,9 +1363,9 @@ class UIManager {
         { transform: 'scale(1)' }
       ], { duration: 200 })
       
-      alert('Kredensial berhasil disalin ke clipboard!')
+      this.showMessage('cleanup-result', 'Kredensial berhasil disalin ke clipboard!', 'success')
     }).catch(() => {
-      alert('Gagal menyalin kredensial.')
+      this.showMessage('cleanup-result', 'Gagal menyalin kredensial.', 'error')
     })
   }
 
@@ -1444,7 +1504,7 @@ class UIManager {
     const message = ($('cMsg')?.value || '').trim()
 
     if (!message) {
-      alert('Tulis komentar terlebih dahulu.')
+      this.showMessage('cleanup-result', 'Tulis komentar terlebih dahulu.', 'error')
       return
     }
 
@@ -1468,7 +1528,7 @@ class UIManager {
       }, 2000)
 
     } catch (e) {
-      alert('Gagal mengirim komentar: ' + e.message)
+      this.showMessage('cleanup-result', 'Gagal mengirim komentar: ' + e.message, 'error')
     }
   }
 
@@ -1494,9 +1554,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   initializeUpdateCountdown()
 
-  setInterval(cleanExpiredFiles, 2 * 60 * 1000)
+  // Background cleanup dengan error handling
+  setInterval(async () => {
+    try {
+      await cleanExpiredFiles()
+    } catch (e) {
+      console.warn('Background cleanup failed:', e.message || e)
+    }
+  }, 2 * 60 * 1000)
 
-  cleanExpiredFiles().catch(() => {})
+  // Initial cleanup dengan error handling
+  cleanExpiredFiles().catch(e => {
+    console.warn('Initial cleanup failed:', e.message || e)
+  })
   
   $$('.nav-btn').forEach((btn, i) => {
     btn.animate([

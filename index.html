@@ -89,81 +89,97 @@
         <footer class="page-footer">copyright by safenest © 2025-2026</footer>
       </section>
 
-      <!-- UPLOAD -->
-      <section id="page-upload" class="page">
-        <div class="card glass-card">
-          <div class="card-header">
-            <h2 class="page-title"><i class="fa fa-cloud-upload"></i> Upload</h2>
-            <div id="uploadUpdateBadge" class="page-update-badge hide">
-              <i class="fa fa-rocket"></i>
-              <span>Update dalam: <span id="uploadUpdateCountdown">--:--:--</span></span>
-            </div>
+    <!-- UPLOAD -->
+<!-- UPLOAD -->
+<section id="page-upload" class="page">
+  <div class="card glass-card">
+    <div class="card-header">
+      <h2 class="page-title"><i class="fa fa-cloud-upload"></i> Upload</h2>
+      <div id="uploadUpdateBadge" class="page-update-badge hide">
+        <i class="fa fa-rocket"></i>
+        <span>Update dalam: <span id="uploadUpdateCountdown">--:--:--</span></span>
+      </div>
+    </div>
+    
+    <p class="muted">Upload file. Kamu akan menerima username & password sekali tampil.</p>
+
+    <!-- AREA UPLOAD YANG SUDAH DIPERBAIKI -->
+    <div class="upload-area">
+      <label class="filebox">
+        <input id="fileInput" type="file" class="hidden-file-input" />
+        <div class="filebox-inner">
+          <div class="filebox-icon">
+            <i class="fa fa-cloud-upload"></i>
           </div>
-          
-          <p class="muted">Upload file. Kamu akan menerima username & password sekali tampil.</p>
-
-          <label class="filebox">
-            <input id="fileInput" type="file" />
-            <div class="filebox-inner">
-              <div class="filebox-icon">
-                <i class="fa fa-cloud-upload"></i>
-              </div>
-              <div class="filebox-text">
-                <strong>Pilih file</strong>
-                <small>pdf, png, jpg, mp3, mp4, zip, html, dll</small>
-              </div>
-            </div>
-          </label>
-
-          <!-- EXPIRE SELECT -->
-          <div style="margin-top:16px">
-            <label for="expireSelect" class="form-label">Pilih masa expired</label>
-            <select id="expireSelect" class="select-expire">
-              <option value="never">Tidak expired</option>
-              <option value="2h">2 jam</option>
-              <option value="1d">1 hari</option>
-              <option value="5d">5 hari</option>
-              <option value="1m">1 bulan</option>
-            </select>
-          </div>
-
-          <div class="row" style="margin-top:16px">
-            <button id="btnUpload" class="btn primary"><i class="fa fa-upload"></i> Upload & Generate Credentials</button>
-          </div>
-
-          <div id="creds" class="creds-box hide">
-            <div class="creds-header">
-              <h4><i class="fa fa-key"></i> Kredensial File</h4>
-              <small class="muted">Simpan informasi ini dengan aman</small>
-            </div>
-            
-            <div class="creds-grid">
-              <div class="cred-item">
-                <label>Username:</label>
-                <code id="outUser" class="cred-value"></code>
-              </div>
-              <div class="cred-item">
-                <label>Password:</label>
-                <code id="outPass" class="cred-value"></code>
-              </div>
-              <div class="cred-item">
-                <label>Expired:</label>
-                <code id="outExpire" class="cred-value">-</code>
-              </div>
-              <div class="cred-item">
-                <label>Link:</label>
-                <code id="outLink" class="cred-value">-</code>
-              </div>
-            </div>
-            
-            <div class="row" style="margin-top:16px">
-              <button id="copyCreds" class="btn ghost"><i class="fa fa-clipboard"></i> Salin Semua Kredensial</button>
-            </div>
+          <div class="filebox-text">
+            <strong>Upload File</strong>
+            <small>pdf, png, jpg, mp3, mp4, zip, html, dll</small>
           </div>
         </div>
+      </label>
+      <!-- Tempat untuk menampilkan nama file yang dipilih -->
+      <div id="fileNameDisplay" class="file-name-display hide"></div>
+    </div>
 
-        <footer class="page-footer">copyright by safenest © 2025-2026</footer>
-      </section>
+    <!-- EXPIRE SELECT -->
+    <div style="margin-top:16px">
+      <label for="expireSelect" class="form-label">Pilih masa expired</label>
+      <select id="expireSelect" class="select-expire">
+        <option value="never">Tidak expired</option>
+        <option value="2h">2 jam</option>
+        <option value="1d">1 hari</option>
+        <option value="5d">5 hari</option>
+        <option value="1m">1 bulan</option>
+      </select>
+    </div>
+
+    <div class="row" style="margin-top:16px">
+      <button id="btnUpload" class="btn primary"><i class="fa fa-upload"></i> Upload & Generate Credentials</button>
+    </div>
+
+    <!-- BAGIAN KREDENSIAL YANG DIPERBAIKI -->
+    <div id="creds" class="creds-box hide">
+      <div class="creds-header">
+        <h4><i class="fa fa-key"></i> Kredensial File</h4>
+        <small class="muted">Simpan informasi ini dengan aman - password hanya ditampilkan sekali!</small>
+      </div>
+      
+      <div class="creds-grid">
+        <div class="cred-item">
+          <label><i class="fa fa-user"></i> Username:</label>
+          <code id="outUser" class="cred-value">-</code>
+        </div>
+        <div class="cred-item">
+          <label><i class="fa fa-lock"></i> Password:</label>
+          <code id="outPass" class="cred-value">-</code>
+        </div>
+        <div class="cred-item">
+          <label><i class="fa fa-clock-o"></i> Expired:</label>
+          <code id="outExpire" class="cred-value">-</code>
+        </div>
+        <div class="cred-item">
+          <label><i class="fa fa-link"></i> Link:</label>
+          <code id="outLink" class="cred-value">-</code>
+        </div>
+      </div>
+      
+      <div class="row" style="margin-top:20px; justify-content: center;">
+        <button id="copyCreds" class="btn primary">
+          <i class="fa fa-clipboard"></i> Salin Semua Kredensial
+        </button>
+      </div>
+
+      <div style="margin-top:16px; text-align: center;">
+        <small class="muted">
+          <i class="fa fa-exclamation-triangle"></i>
+          Simpan informasi ini di tempat yang aman. Password tidak dapat dipulihkan!
+        </small>
+      </div>
+    </div>
+  </div>
+
+  <footer class="page-footer">copyright by safenest © 2025-2026</footer>
+</section>
 
       <!-- ABOUT -->
       <section id="page-about" class="page">
