@@ -89,99 +89,98 @@
         <footer class="page-footer">copyright by safenest © 2025-2026</footer>
       </section>
 
-    <!-- UPLOAD -->
-<!-- UPLOAD -->
-<section id="page-upload" class="page">
-  <div class="card glass-card">
-    <div class="card-header">
-      <h2 class="page-title"><i class="fa fa-cloud-upload"></i> Upload</h2>
-      <div id="uploadUpdateBadge" class="page-update-badge hide">
-        <i class="fa fa-rocket"></i>
-        <span>Update dalam: <span id="uploadUpdateCountdown">--:--:--</span></span>
-      </div>
-    </div>
-    
-    <p class="muted">Upload file. Kamu akan menerima username & password sekali tampil.</p>
-
-    <!-- AREA UPLOAD YANG SUDAH DIPERBAIKI -->
-    <div class="upload-area">
-      <label class="filebox">
-        <input id="fileInput" type="file" class="hidden-file-input" />
-        <div class="filebox-inner">
-          <div class="filebox-icon">
-            <i class="fa fa-cloud-upload"></i>
+      <!-- UPLOAD -->
+      <section id="page-upload" class="page">
+        <div class="card glass-card">
+          <div class="card-header">
+            <h2 class="page-title"><i class="fa fa-cloud-upload"></i> Upload</h2>
+            <div id="uploadUpdateBadge" class="page-update-badge hide">
+              <i class="fa fa-rocket"></i>
+              <span>Update dalam: <span id="uploadUpdateCountdown">--:--:--</span></span>
+            </div>
           </div>
-          <div class="filebox-text">
-            <strong>Upload File</strong>
-            <small>pdf, png, jpg, mp3, mp4, zip, html, dll</small>
+          
+          <p class="muted">Upload file. Kamu akan menerima username & password sekali tampil.</p>
+
+          <!-- AREA UPLOAD YANG SUDAH DIPERBAIKI -->
+          <div class="upload-area">
+            <label class="filebox">
+              <input id="fileInput" type="file" class="hidden-file-input" />
+              <div class="filebox-inner">
+                <div class="filebox-icon">
+                  <i class="fa fa-cloud-upload"></i>
+                </div>
+                <div class="filebox-text">
+                  <strong>Upload File</strong>
+                  <small>pdf, png, jpg, mp3, mp4, zip, html, dll</small>
+                </div>
+              </div>
+            </label>
+            <!-- Tempat untuk menampilkan nama file yang dipilih -->
+            <div id="fileNameDisplay" class="file-name-display hide"></div>
+          </div>
+
+          <!-- EXPIRE SELECT -->
+          <div style="margin-top:16px">
+            <label for="expireSelect" class="form-label">Pilih masa expired</label>
+            <select id="expireSelect" class="select-expire">
+              <option value="never">Tidak expired</option>
+              <option value="2h">2 jam</option>
+              <option value="1d">1 hari</option>
+              <option value="5d">5 hari</option>
+              <option value="1m">1 bulan</option>
+            </select>
+          </div>
+
+          <div class="row" style="margin-top:16px">
+            <button id="btnUpload" class="btn primary"><i class="fa fa-upload"></i> Upload & Generate Credentials</button>
+          </div>
+
+          <!-- BAGIAN KREDENSIAL YANG DIPERBAIKI -->
+          <div id="creds" class="creds-box hide">
+            <div class="creds-header">
+              <h4><i class="fa fa-key"></i> Kredensial File</h4>
+              <small class="muted">Simpan informasi ini dengan aman - password hanya ditampilkan sekali!</small>
+            </div>
+            
+            <div class="creds-grid">
+              <div class="cred-item">
+                <label><i class="fa fa-user"></i> Username:</label>
+                <code id="outUser" class="cred-value">-</code>
+              </div>
+              <div class="cred-item">
+                <label><i class="fa fa-lock"></i> Password:</label>
+                <code id="outPass" class="cred-value">-</code>
+              </div>
+              <div class="cred-item">
+                <label><i class="fa fa-clock-o"></i> Expired:</label>
+                <code id="outExpire" class="cred-value">-</code>
+              </div>
+              <div class="cred-item">
+                <label><i class="fa fa-link"></i> Link:</label>
+                <code id="outLink" class="cred-value">-</code>
+              </div>
+            </div>
+            
+            <div class="row" style="margin-top:20px; justify-content: center;">
+              <button id="copyCreds" class="btn primary">
+                <i class="fa fa-clipboard"></i> Salin Semua Kredensial
+              </button>
+            </div>
+
+            <div style="margin-top:16px; text-align: center;">
+              <small class="muted">
+                <i class="fa fa-exclamation-triangle"></i>
+                Simpan informasi ini di tempat yang aman. Password tidak dapat dipulihkan!
+              </small>
+            </div>
           </div>
         </div>
-      </label>
-      <!-- Tempat untuk menampilkan nama file yang dipilih -->
-      <div id="fileNameDisplay" class="file-name-display hide"></div>
-    </div>
 
-    <!-- EXPIRE SELECT -->
-    <div style="margin-top:16px">
-      <label for="expireSelect" class="form-label">Pilih masa expired</label>
-      <select id="expireSelect" class="select-expire">
-        <option value="never">Tidak expired</option>
-        <option value="2h">2 jam</option>
-        <option value="1d">1 hari</option>
-        <option value="5d">5 hari</option>
-        <option value="1m">1 bulan</option>
-      </select>
-    </div>
+        <footer class="page-footer">copyright by safenest © 2025-2026</footer>
+      </section>
 
-    <div class="row" style="margin-top:16px">
-      <button id="btnUpload" class="btn primary"><i class="fa fa-upload"></i> Upload & Generate Credentials</button>
-    </div>
-
-    <!-- BAGIAN KREDENSIAL YANG DIPERBAIKI -->
-    <div id="creds" class="creds-box hide">
-      <div class="creds-header">
-        <h4><i class="fa fa-key"></i> Kredensial File</h4>
-        <small class="muted">Simpan informasi ini dengan aman - password hanya ditampilkan sekali!</small>
-      </div>
-      
-      <div class="creds-grid">
-        <div class="cred-item">
-          <label><i class="fa fa-user"></i> Username:</label>
-          <code id="outUser" class="cred-value">-</code>
-        </div>
-        <div class="cred-item">
-          <label><i class="fa fa-lock"></i> Password:</label>
-          <code id="outPass" class="cred-value">-</code>
-        </div>
-        <div class="cred-item">
-          <label><i class="fa fa-clock-o"></i> Expired:</label>
-          <code id="outExpire" class="cred-value">-</code>
-        </div>
-        <div class="cred-item">
-          <label><i class="fa fa-link"></i> Link:</label>
-          <code id="outLink" class="cred-value">-</code>
-        </div>
-      </div>
-      
-      <div class="row" style="margin-top:20px; justify-content: center;">
-        <button id="copyCreds" class="btn primary">
-          <i class="fa fa-clipboard"></i> Salin Semua Kredensial
-        </button>
-      </div>
-
-      <div style="margin-top:16px; text-align: center;">
-        <small class="muted">
-          <i class="fa fa-exclamation-triangle"></i>
-          Simpan informasi ini di tempat yang aman. Password tidak dapat dipulihkan!
-        </small>
-      </div>
-    </div>
-  </div>
-
-  <footer class="page-footer">copyright by safenest © 2025-2026</footer>
-</section>
-
-      <!-- ABOUT -->
+      <!-- ABOUT - LAYOUT DIPERBAIKI -->
       <section id="page-about" class="page">
         <div class="card glass-card">
           <div class="card-header">
@@ -193,88 +192,146 @@
           </div>
           
           <div class="about-content">
+            <div class="about-hero">
+              <div class="hero-icon">
+                <i class="fa fa-shield"></i>
+              </div>
+              <div class="hero-text">
+                <h1>Safenest</h1>
+                <p class="hero-subtitle">Setiap unggahan mendapat rumah. Setiap rahasia mendapat penjaga.</p>
+              </div>
+            </div>
+
             <div class="about-section">
               <h3>Tentang Safenest</h3>
               <p><strong>Safenest</strong> adalah ruang privat untuk berbagi file dengan cara yang sederhana, tenang, dan aman. Dirancang untuk penggunaan personal, platform ini menjaga setiap unggahan dengan kredensial unik dan akses yang sepenuhnya berada dalam kendali pengguna.</p>
             </div>
 
-            <div class="about-grid">
-              <div class="about-card">
-                <div class="about-card-icon">
+            <div class="features-grid">
+              <div class="feature-card">
+                <div class="feature-icon privacy">
                   <i class="fa fa-eye-slash"></i>
                 </div>
-                <h4>Privasi</h4>
-                <p>Setiap file dilindungi dengan kredensial unik yang hanya diketahui oleh Anda</p>
+                <div class="feature-content">
+                  <h4>Privasi Terjamin</h4>
+                  <p>Setiap file dilindungi dengan kredensial unik yang hanya diketahui oleh Anda dan penerima file.</p>
+                </div>
               </div>
               
-              <div class="about-card">
-                <div class="about-card-icon">
+              <div class="feature-card">
+                <div class="feature-icon expiry">
                   <i class="fa fa-clock-o"></i>
                 </div>
-                <h4>Expired</h4>
-                <p>Atur waktu kadaluarsa file sesuai kebutuhan Anda</p>
+                <div class="feature-content">
+                  <h4>Kontrol Masa Aktif</h4>
+                  <p>Atur waktu kadaluarsa file sesuai kebutuhan, dari 2 jam hingga 1 bulan atau tanpa batas waktu.</p>
+                </div>
               </div>
               
-              <div class="about-card">
-                <div class="about-card-icon">
+              <div class="feature-card">
+                <div class="feature-icon speed">
                   <i class="fa fa-bolt"></i>
                 </div>
-                <h4>Cepat</h4>
-                <p>Upload dan download yang cepat dengan infrastruktur modern</p>
+                <div class="feature-content">
+                  <h4>Kecepatan Optimal</h4>
+                  <p>Upload dan download yang cepat dengan infrastruktur modern dan optimisasi performa.</p>
+                </div>
+              </div>
+
+              <div class="feature-card">
+                <div class="feature-icon security">
+                  <i class="fa fa-lock"></i>
+                </div>
+                <div class="feature-content">
+                  <h4>Keamanan Berlapis</h4>
+                  <p>File Anda dilindungi dengan enkripsi dan sistem autentikasi yang kuat.</p>
+                </div>
               </div>
             </div>
 
-            <div class="about-section">
-              <h4>Visi & Misi</h4>
-              <p><em>Visi:</em> Mewujudkan ruang berbagi file yang aman, pribadi, dan minimalis.</p>
-              
-              <div class="mission-list">
-                <div class="mission-item">
-                  <span class="mission-number">1</span>
-                  <span>Sistem berbagi file yang cepat dan bebas distraksi</span>
+            <div class="about-section vision-mission">
+              <div class="vm-grid">
+                <div class="vm-card">
+                  <div class="vm-icon">
+                    <i class="fa fa-eye"></i>
+                  </div>
+                  <h4>Visi Kami</h4>
+                  <p>Mewujudkan ruang berbagi file yang aman, pribadi, dan minimalis tanpa kompromi terhadap keamanan data pengguna.</p>
                 </div>
-                <div class="mission-item">
-                  <span class="mission-number">2</span>
-                  <span>Privasi melalui kredensial unik per-file</span>
-                </div>
-                <div class="mission-item">
-                  <span class="mission-number">3</span>
-                  <span>Lingkungan yang aman dan nyaman</span>
+                
+                <div class="vm-card">
+                  <div class="vm-icon">
+                    <i class="fa fa-target"></i>
+                  </div>
+                  <h4>Misi Kami</h4>
+                  <div class="mission-list">
+                    <div class="mission-item">
+                      <span class="mission-number">1</span>
+                      <span>Sistem berbagi file yang cepat dan bebas distraksi</span>
+                    </div>
+                    <div class="mission-item">
+                      <span class="mission-number">2</span>
+                      <span>Privasi melalui kredensial unik per-file</span>
+                    </div>
+                    <div class="mission-item">
+                      <span class="mission-number">3</span>
+                      <span>Lingkungan yang aman dan nyaman bagi semua pengguna</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
             <div class="creators-section">
-              <h4>Dibuat dengan ❤️ oleh:</h4>
+              <h3>Dibuat dengan ❤️ oleh:</h3>
               <div class="creators-grid">
                 <a href="https://aryapiw.pages.dev" target="_blank" class="creator-card">
-                  <div class="creator-avatar">A</div>
+                  <div class="creator-avatar">
+                    <span>A</span>
+                  </div>
                   <div class="creator-info">
-                    <strong>Aryapiw</strong>
-                    <span>aryapiw.pages.dev</span>
+                    <h4>Aryapiw</h4>
+                    <p>Full Stack Developer</p>
+                    <span class="creator-link">aryapiw.pages.dev</span>
+                  </div>
+                  <div class="creator-arrow">
+                    <i class="fa fa-external-link"></i>
                   </div>
                 </a>
+                
                 <a href="https://dapid.my.id" target="_blank" class="creator-card">
-                  <div class="creator-avatar">D</div>
+                  <div class="creator-avatar">
+                    <span>D</span>
+                  </div>
                   <div class="creator-info">
-                    <strong>Dapid</strong>
-                    <span>dapid.my.id</span>
+                    <h4>Dapid</h4>
+                    <p>System Architect</p>
+                    <span class="creator-link">dapid.my.id</span>
+                  </div>
+                  <div class="creator-arrow">
+                    <i class="fa fa-external-link"></i>
                   </div>
                 </a>
               </div>
             </div>
 
-            <hr/>
-
             <div class="comments-section">
-              <h4><i class="fa fa-comments"></i> Komentar & Feedback</h4>
-              <p class="muted">Bagikan pendapat Anda tentang Safenest</p>
+              <div class="section-header">
+                <h3><i class="fa fa-comments"></i> Komentar & Feedback</h3>
+                <p class="section-subtitle">Bagikan pendapat Anda tentang Safenest</p>
+              </div>
 
               <div class="comment-form">
-                <input id="cName" placeholder="Nama Anda (opsional)" />
-                <textarea id="cMsg" placeholder="Tulis komentar atau saran Anda..." rows="3"></textarea>
-                <div class="row" style="margin-top:12px">
-                  <button id="cSend" class="btn primary"><i class="fa fa-paper-plane"></i> Kirim Komentar</button>
+                <div class="form-group">
+                  <input id="cName" placeholder="Nama Anda (opsional)" />
+                </div>
+                <div class="form-group">
+                  <textarea id="cMsg" placeholder="Tulis komentar atau saran Anda..." rows="4"></textarea>
+                </div>
+                <div class="form-actions">
+                  <button id="cSend" class="btn primary">
+                    <i class="fa fa-paper-plane"></i> Kirim Komentar
+                  </button>
                 </div>
               </div>
 
@@ -283,10 +340,19 @@
           </div>
         </div>
 
-        <footer class="page-footer">copyright by safenest © 2025-2026</footer>
+        <footer class="page-footer">
+          <div class="footer-content">
+            <p>copyright by safenest © 2025-2026</p>
+            <div class="footer-links">
+              <a href="#privacy">Privacy Policy</a>
+              <a href="#terms">Terms of Service</a>
+              <a href="#contact">Contact</a>
+            </div>
+          </div>
+        </footer>
       </section>
 
-      <!-- ADMIN dashboard -->
+      <!-- ADMIN dashboard - MAINTENANCE SETTINGS DIPERBAIKI -->
       <section id="page-admin" class="page">
         <div class="card glass-card">
           <div class="card-header">
@@ -379,7 +445,6 @@
               </div>
 
               <div class="setting-group">
-                <label class="setting-label">Tampilkan Banner</label>
                 <div class="toggle-group">
                   <label class="toggle">
                     <input type="checkbox" id="update-banner-toggle" checked />
@@ -414,16 +479,18 @@
             </div>
           </div>
 
-          <!-- 3. Maintenance Settings -->
+          <!-- 3. Maintenance Settings - DIPERBAIKI -->
           <div class="admin-block">
             <h4><i class="fa fa-wrench"></i> Maintenance Settings</h4>
             <div class="admin-settings-card">
               <div class="setting-group">
-                <label class="toggle-group">
-                  <input type="checkbox" id="maintenance-toggle" />
-                  <span class="toggle-slider"></span>
+                <div class="toggle-group">
+                  <label class="toggle">
+                    <input type="checkbox" id="maintenance-toggle" />
+                    <span class="toggle-slider"></span>
+                  </label>
                   <span class="toggle-label">Aktifkan Maintenance Mode</span>
-                </label>
+                </div>
               </div>
 
               <div id="maintenance-settings" class="maintenance-settings">
