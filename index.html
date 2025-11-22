@@ -65,10 +65,17 @@
           
           <p class="muted">Masukkan username & password yang diberikan uploader.</p>
 
-          <div class="grid-2">
-            <input id="dlUser" placeholder="username (sn-xxxx)" />
-            <input id="dlPass" placeholder="password" type="password" />
-          </div>
+        <!-- Di dalam section download, modifikasi bagian input password -->
+<div class="grid-2">
+  <input id="dlUser" placeholder="username (sn-xxxx)" />
+  <div class="password-input-wrapper">
+    <input id="dlPass" placeholder="password" type="password" />
+    <button type="button" class="password-toggle" id="togglePassword">
+      <i class="fa fa-eye-slash"></i>
+      <span class="toggle-text">Show</span>
+    </button>
+  </div>
+</div>
 
           <div class="row" style="margin-top:12px">
             <button id="btnVerify" class="btn primary"><i class="fa fa-check-circle"></i> Verify & Show</button>
@@ -86,7 +93,12 @@
           </div>
         </div>
 
-        <footer class="page-footer">copyright by safenest © 2025-2026</footer>
+        <!-- Footer Download yang Diperbaiki -->
+        <footer class="page-footer">
+          <div class="footer-content">
+            <p>copyright by safenest © 2025-2026</p>
+          </div>
+        </footer>
       </section>
 
       <!-- UPLOAD -->
@@ -177,7 +189,12 @@
           </div>
         </div>
 
-        <footer class="page-footer">copyright by safenest © 2025-2026</footer>
+        <!-- Footer Upload yang Diperbaiki -->
+        <footer class="page-footer">
+          <div class="footer-content">
+            <p>copyright by safenest © 2025-2026</p>
+          </div>
+        </footer>
       </section>
 
       <!-- ABOUT - LAYOUT DIPERBAIKI -->
@@ -340,14 +357,10 @@
           </div>
         </div>
 
+        <!-- Footer About yang Diperbaiki -->
         <footer class="page-footer">
           <div class="footer-content">
             <p>copyright by safenest © 2025-2026</p>
-            <div class="footer-links">
-              <a href="#privacy">Privacy Policy</a>
-              <a href="#terms">Terms of Service</a>
-              <a href="#contact">Contact</a>
-            </div>
           </div>
         </footer>
       </section>

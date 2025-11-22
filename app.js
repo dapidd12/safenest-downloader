@@ -6,7 +6,6 @@ const SUPABASE_URL = 'https://rjsifamddfdhnlvrrwbb.supabase.co'
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJqc2lmYW1kZGZkaG5sdnJyd2JiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2Mjc2ODM5NiwiZXhwIjoyMDc4MzQ0Mzk2fQ.RwHToh53bF3iqWLomtBQczrkErqjXRxprIhvT4RB-1k'
 const BUCKET = 'piw-files'
 const BASE_LOGIN_LINK = window.location.origin
-const ADMIN_CREDENTIALS = { user: 'aryapiw.pages.dev', pass: 'dapid.my.id' }
 // ============================
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
@@ -531,36 +530,76 @@ async function loadStats(){
   }
 }
 
-// ----------------- Admin Session -----------------
-function isAdminSession(){ 
-  const session = localStorage.getItem('sn_admin_session')
-  if (!session) return false
-  
+// ----------------- Admin Session dengan Supabase Auth - DIPERBAIKI -----------------
+async function isAdminSession(){ 
   try {
-    const { expiry } = JSON.parse(session)
-    if (expiry && Date.now() > expiry) {
-      localStorage.removeItem('sn_admin_session')
+    const { data: { session }, error } = await supabase.auth.getSession()
+    if (error) {
+      console.warn('Session check error:', error)
       return false
     }
-    return true
-  } catch {
-    localStorage.removeItem('sn_admin_session')
+    
+    if (!session) {
+      return false
+    }
+    
+    // Cek metadata user langsung dari session (lebih sederhana)
+    const user = session.user
+    const userEmail = user.email
+    
+    // Daftar email admin yang diizinkan (bisa disesuaikan)
+    const adminEmails = [
+      'admin@safenest.dev',
+      'aryapiw@safenest.dev',
+      'dapid@safenest.dev'
+      // Tambahkan email admin lain di sini
+    ]
+    
+    return adminEmails.includes(userEmail)
+    
+  } catch (error) {
+    console.warn('Admin session check failed:', error)
     return false
   }
 }
 
-function setAdminSession(on = true, ttl = 24 * 60 * 60 * 1000){
-  if (on) {
-    const session = {
-      created: Date.now(),
-      expiry: Date.now() + ttl
+async function setAdminSession(email, password) {
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email,
+      password: password
+    })
+    
+    if (error) {
+      throw error
     }
-    localStorage.setItem('sn_admin_session', JSON.stringify(session))
-  } else {
-    localStorage.removeItem('sn_admin_session')
+    
+    // Verifikasi email termasuk dalam daftar admin
+    const userEmail = data.user.email
+    const adminEmails = [
+      'admin@safenest.dev',
+      'aryapiw@safenest.dev',
+      'dapid@safenest.dev'
+    ]
+    
+    if (!adminEmails.includes(userEmail)) {
+      await supabase.auth.signOut()
+      throw new Error('Email tidak terdaftar sebagai admin')
+    }
+    
     cache.clear('stats')
     cache.clear('files_list')
+    return true
+  } catch (error) {
+    console.error('Admin login failed:', error)
+    throw error
   }
+}
+
+function clearAdminSession() {
+  supabase.auth.signOut()
+  cache.clear('stats')
+  cache.clear('files_list')
 }
 
 // ----------------- Fixed Expiry System -----------------
@@ -711,6 +750,14 @@ class UIManager {
     this.setupEventListeners()
     this.showPage('page-download')
     this.initializeAdminSettings()
+    this.checkExistingSession()
+  }
+
+  async checkExistingSession() {
+    const isAdmin = await isAdminSession()
+    if (isAdmin && this.currentPage === 'page-admin') {
+      this.loadAdminDashboard()
+    }
   }
 
   setupNavigation() {
@@ -761,9 +808,13 @@ class UIManager {
     })
   }
 
-  showPage(id) {
-    if (id === 'page-admin' && !isAdminSession()) {
-      id = 'page-download'
+  async showPage(id) {
+    if (id === 'page-admin') {
+      const isAdmin = await isAdminSession()
+      if (!isAdmin) {
+        id = 'page-download'
+        this.showMessage('cleanup-result', 'Anda harus login sebagai admin untuk mengakses dashboard.', 'error')
+      }
     }
 
     this.currentPage = id
@@ -796,7 +847,7 @@ class UIManager {
   }
 
   async loadAdminDashboard() {
-    if (!isAdminSession()) return
+    if (!(await isAdminSession())) return
 
     try {
       const stats = await loadStats()
@@ -1042,6 +1093,11 @@ class UIManager {
       })
     }
 
+    // Password toggle handler
+    if ($('togglePassword')) {
+      $('togglePassword').addEventListener('click', this.togglePasswordVisibility.bind(this));
+    }
+
     // Refresh files
     if ($('refresh-files')) {
       $('refresh-files').addEventListener('click', () => {
@@ -1104,8 +1160,8 @@ class UIManager {
 
     // Admin logout
     if ($('admin-logout')) {
-      $('admin-logout').addEventListener('click', () => {
-        setAdminSession(false)
+      $('admin-logout').addEventListener('click', async () => {
+        clearAdminSession()
         this.showMessage('cleanup-result', 'Logout admin berhasil', 'success')
         setTimeout(() => this.showPage('page-download'), 1000)
       })
@@ -1121,6 +1177,53 @@ class UIManager {
     if (maintenanceOk) {
       maintenanceOk.addEventListener('click', hideMaintenanceOverlay)
     }
+  }
+
+  // NEW METHOD: Toggle Password Visibility
+  togglePasswordVisibility() {
+    const passwordInput = $('dlPass');
+    const toggleButton = $('togglePassword');
+    const icon = toggleButton.querySelector('i');
+    const text = toggleButton.querySelector('.toggle-text');
+    
+    if (!passwordInput || !toggleButton) return;
+
+    // Add multiple animation classes
+    toggleButton.classList.add('animating', 'pulse');
+    
+    // Toggle dengan delay untuk efek yang lebih smooth
+    setTimeout(() => {
+      if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        icon.className = 'fa fa-eye';
+        text.textContent = 'Hide';
+        
+        // Success state styling
+        toggleButton.style.color = 'var(--success)';
+        toggleButton.style.borderColor = 'var(--success)';
+        toggleButton.style.background = 'rgba(16, 185, 129, 0.1)';
+        
+      } else {
+        passwordInput.type = 'password';
+        icon.className = 'fa fa-eye-slash';
+        text.textContent = 'Show';
+        
+        // Reset to default
+        toggleButton.style.color = '';
+        toggleButton.style.borderColor = '';
+        toggleButton.style.background = '';
+      }
+    }, 150);
+    
+    // Clean up animation classes
+    setTimeout(() => {
+      toggleButton.classList.remove('animating', 'pulse');
+    }, 600);
+    
+    // Maintain focus for better UX
+    setTimeout(() => {
+      passwordInput.focus();
+    }, 200);
   }
 
   // NEW METHOD: Handle file selection for clean display
@@ -1274,12 +1377,18 @@ class UIManager {
       return
     }
 
-    // Admin secret access
-    if (username === ADMIN_CREDENTIALS.user && password === ADMIN_CREDENTIALS.pass) {
-      setAdminSession(true)
-      this.showMessage('cleanup-result', 'Admin login berhasil - membuka dashboard', 'success')
-      setTimeout(() => this.showPage('page-admin'), 1000)
-      return
+    // Admin login dengan Supabase Auth
+    if (username.includes('@')) {
+      // Assume this is an email login attempt for admin
+      try {
+        await setAdminSession(username, password)
+        this.showMessage('cleanup-result', 'Admin login berhasil - membuka dashboard', 'success')
+        setTimeout(() => this.showPage('page-admin'), 1000)
+        return
+      } catch (err) {
+        this.showMessage('cleanup-result', 'Login admin gagal: ' + err.message, 'error')
+        return
+      }
     }
 
     try {

@@ -380,6 +380,107 @@ input::placeholder, textarea::placeholder, select::placeholder{
   color:var(--muted); 
 }
 
+/* Password Toggle Styles */
+.password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-input-wrapper input {
+  padding-right: 100px;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: var(--muted);
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.3s cubic-bezier(0.2, 0.9, 0.3, 1);
+  backdrop-filter: blur(10px);
+  z-index: 2;
+}
+
+.password-toggle:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--accent1);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.password-toggle:active {
+  transform: translateY(0);
+}
+
+.password-toggle i {
+  font-size: 14px;
+  transition: all 0.3s ease;
+  width: 16px;
+  text-align: center;
+}
+
+.password-toggle .toggle-text {
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+/* Animation for toggle */
+.password-toggle.animating i {
+  animation: eyeBlink 0.4s ease;
+}
+
+@keyframes eyeBlink {
+  0% { transform: scale(1); }
+  50% { transform: scale(0.8) rotate(-5deg); }
+  100% { transform: scale(1); }
+}
+
+/* Enhanced animation for password reveal */
+.password-input-wrapper input {
+  transition: all 0.3s ease;
+}
+
+.password-toggle {
+  animation: fadeInScale 0.3s ease;
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.8) translateX(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateX(0);
+  }
+}
+
+/* Pulse effect when toggling */
+.password-toggle.pulse {
+  animation: pulseGlow 0.6s ease;
+}
+
+@keyframes pulseGlow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(107, 142, 252, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(107, 142, 252, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(107, 142, 252, 0);
+  }
+}
+
 /* UPLOAD AREA - FIXED */
 .upload-area {
   position: relative;
@@ -524,6 +625,7 @@ input::placeholder, textarea::placeholder, select::placeholder{
     transform: translateY(0);
   }
 }
+
 /* BUTTONS */
 .row{ display:flex; gap:12px; align-items:center; flex-wrap: wrap; }
 .btn{ 
@@ -1097,35 +1199,33 @@ input::placeholder, textarea::placeholder, select::placeholder{
   color: var(--text);
 }
 
-/* Footer */
+/* ==================== FIXED FOOTER STYLES ==================== */
 .page-footer {
   margin-top: 40px;
   padding-top: 24px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
+  width: 100%;
 }
 
 .footer-content {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 16px;
+  text-align: center;
+  width: 100%;
 }
 
-.footer-links {
-  display: flex;
-  gap: 20px;
-}
-
-.footer-links a {
+.footer-content p {
   color: var(--muted);
-  text-decoration: none;
   font-size: 14px;
-  transition: color 0.3s ease;
+  margin: 0;
+  font-weight: 500;
+  letter-spacing: 0.5px;
 }
 
-.footer-links a:hover {
-  color: var(--accent1);
+/* Remove footer links from about page */
+#page-about .footer-links {
+  display: none;
 }
 
 /* ==================== FIXED MAINTENANCE SETTINGS ==================== */
@@ -2278,13 +2378,15 @@ select:focus {
     justify-content: flex-end;
   }
   
+  /* Footer Responsive */
   .footer-content {
     flex-direction: column;
     text-align: center;
+    gap: 8px;
   }
   
-  .footer-links {
-    justify-content: center;
+  .footer-content p {
+    font-size: 13px;
   }
   
   .creator-card {
@@ -2326,6 +2428,20 @@ select:focus {
     position: absolute;
     top: 8px;
     right: 8px;
+  }
+
+  /* Password Toggle Responsive */
+  .password-input-wrapper input {
+    padding-right: 85px;
+  }
+  
+  .password-toggle {
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+  
+  .password-toggle i {
+    font-size: 13px;
   }
 
   /* Enhanced Maintenance Responsive */
@@ -2446,6 +2562,22 @@ select:focus {
   
   .preview-countdown {
     font-size: 18px;
+  }
+
+  /* Password Toggle Small Screens */
+  .password-toggle .toggle-text {
+    display: none;
+  }
+  
+  .password-toggle {
+    padding: 8px;
+    width: 36px;
+    height: 36px;
+    justify-content: center;
+  }
+  
+  .password-input-wrapper input {
+    padding-right: 50px;
   }
 }
 
