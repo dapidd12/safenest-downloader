@@ -6,7 +6,6 @@ const SUPABASE_URL = 'https://rjsifamddfdhnlvrrwbb.supabase.co'
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJqc2lmYW1kZGZkaG5sdnJyd2JiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2Mjc2ODM5NiwiZXhwIjoyMDc4MzQ0Mzk2fQ.RwHToh53bF3iqWLomtBQczrkErqjXRxprIhvT4RB-1k'
 const BUCKET = 'piw-files'
 const BASE_LOGIN_LINK = window.location.origin
-const ADMIN_CREDENTIALS = { user: 'aryapiw.pages.dev', pass: 'dapid.my.id' }
 // ============================
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
@@ -51,6 +50,63 @@ const log = (...a) => console.log('[safenest]',...a)
 
 function escapeHtml(s=''){ 
   return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;') 
+}
+
+// ----------------- Admin Authentication System -----------------
+async function verifyAdminCredentials(username, password) {
+  try {
+    const { data, error } = await supabase
+      .from('admin_users')
+      .select('*')
+      .eq('username', username)
+      .eq('is_active', true)
+      .single()
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return { valid: false, reason: 'Admin tidak ditemukan' }
+      }
+      throw error
+    }
+
+    if (!data) {
+      return { valid: false, reason: 'Admin tidak ditemukan' }
+    }
+
+    // Verify password
+    const hash = await sha256(password)
+    if (hash !== data.password_hash) {
+      return { valid: false, reason: 'Password salah' }
+    }
+
+    return { valid: true, admin: data }
+  } catch (error) {
+    console.error('Admin verification error:', error)
+    return { valid: false, reason: 'Terjadi kesalahan sistem' }
+  }
+}
+
+async function createAdminUser(username, password) {
+  try {
+    const hash = await sha256(password)
+    
+    const { data, error } = await supabase
+      .from('admin_users')
+      .insert([{
+        username: username,
+        password_hash: hash,
+        is_active: true,
+        created_at: new Date().toISOString()
+      }])
+      .select()
+      .single()
+
+    if (error) throw error
+    return { success: true, data }
+  } catch (error) {
+    console.error('Create admin error:', error)
+    return { success: false, error: error.message }
+  }
 }
 
 // ----------------- Lazy Loading System -----------------
@@ -741,30 +797,31 @@ function isAdminSession(){
   if (!session) return false
   
   try {
-    const { expiry } = JSON.parse(session)
+    const { expiry, username } = JSON.parse(session)
     if (expiry && Date.now() > expiry) {
       localStorage.removeItem('sn_admin_session')
       return false
     }
-    return true
+    return { valid: true, username }
   } catch {
     localStorage.removeItem('sn_admin_session')
     return false
   }
 }
 
-function setAdminSession(on = true, ttl = 24 * 60 * 60 * 1000){
-  if (on) {
-    const session = {
-      created: Date.now(),
-      expiry: Date.now() + ttl
-    }
-    localStorage.setItem('sn_admin_session', JSON.stringify(session))
-  } else {
-    localStorage.removeItem('sn_admin_session')
-    cache.clear('stats')
-    cache.clear('files_list')
+function setAdminSession(username, ttl = 24 * 60 * 60 * 1000){
+  const session = {
+    username: username,
+    created: Date.now(),
+    expiry: Date.now() + ttl
   }
+  localStorage.setItem('sn_admin_session', JSON.stringify(session))
+}
+
+function clearAdminSession(){
+  localStorage.removeItem('sn_admin_session')
+  cache.clear('stats')
+  cache.clear('files_list')
 }
 
 // ----------------- Fixed Expiry System -----------------
@@ -975,8 +1032,11 @@ class UIManager {
   }
 
   showPage(id) {
-    if (id === 'page-admin' && !isAdminSession()) {
+    const session = isAdminSession()
+    
+    if (id === 'page-admin' && !session) {
       id = 'page-download'
+      this.showMessage('admin-message', 'Silakan login sebagai admin terlebih dahulu', 'error')
     }
 
     this.currentPage = id
@@ -1009,7 +1069,8 @@ class UIManager {
   }
 
   async loadAdminDashboard() {
-    if (!isAdminSession()) return
+    const session = isAdminSession()
+    if (!session) return
 
     try {
       const stats = await loadStats()
@@ -1021,6 +1082,12 @@ class UIManager {
       await this.loadMaintenanceSettings()
       await this.loadUpdateSettings()
       await this.loadChangelogSettings()
+
+      // Update welcome message dengan username admin
+      const welcomeText = $('admin-welcome-text')
+      if (welcomeText) {
+        welcomeText.textContent = `Selamat datang, ${session.username}!`
+      }
 
     } catch (e) {
       console.error('Admin dashboard error:', e)
@@ -1236,7 +1303,7 @@ class UIManager {
       $('btnUpload').addEventListener('click', this.handleUpload.bind(this))
     }
 
-    // Verify handler
+    // Verify handler - UPDATED: Sekarang support login admin dari database
     if ($('btnVerify')) {
       $('btnVerify').addEventListener('click', this.handleVerify.bind(this))
     }
@@ -1325,10 +1392,10 @@ class UIManager {
       $('save-changelog-settings').addEventListener('click', this.handleSaveChangelogSettings.bind(this))
     }
 
-    // Admin logout
+    // Admin logout - UPDATED: Gunakan clearAdminSession
     if ($('admin-logout')) {
       $('admin-logout').addEventListener('click', () => {
-        setAdminSession(false)
+        clearAdminSession()
         this.showMessage('admin-message', 'Logout admin berhasil', 'success')
         setTimeout(() => this.showPage('page-download'), 1000)
       })
@@ -1510,14 +1577,16 @@ class UIManager {
       return
     }
 
-    // Admin secret access - FIXED: Pastikan admin bisa login
-    if (username === ADMIN_CREDENTIALS.user && password === ADMIN_CREDENTIALS.pass) {
-      setAdminSession(true)
-      this.showMessage('admin-message', 'Admin login berhasil - membuka dashboard', 'success')
+    // Coba login sebagai admin terlebih dahulu
+    const adminResult = await verifyAdminCredentials(username, password)
+    if (adminResult.valid) {
+      setAdminSession(username)
+      this.showMessage('admin-message', `Login admin berhasil! Selamat datang, ${username}`, 'success')
       setTimeout(() => this.showPage('page-admin'), 1000)
       return
     }
 
+    // Jika bukan admin, coba sebagai user biasa
     try {
       const record = await getRecordByUsername(username)
       
@@ -1831,3 +1900,5 @@ window.getChangelog = getChangelog
 window.getAppVersion = getAppVersion
 window.showChangelogPopup = showChangelogPopup
 window.hideChangelogPopup = hideChangelogPopup
+window.createAdminUser = createAdminUser
+window.verifyAdminCredentials = verifyAdminCredentials
