@@ -1755,6 +1755,87 @@ input::placeholder, textarea::placeholder, select::placeholder{
   to{ opacity:1; transform:translateY(0) scale(1) } 
 }
 
+
+/* ==================== LAZY LOADING STYLES ==================== */
+
+/* Lazy loading untuk images */
+img.lazy {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+img.lazy.loaded {
+  opacity: 1;
+}
+
+/* Lazy loading untuk background images */
+.lazy-bg {
+  background-color: rgba(255, 255, 255, 0.05);
+  transition: background-image 0.3s ease;
+}
+
+/* Lazy loading untuk komponen */
+.lazy-component {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.5s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+.lazy-component.loaded {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Skeleton loading untuk placeholder */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 25%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.05) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+  border-radius: 8px;
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Lazy loading untuk file list */
+.file-row.lazy-component {
+  min-height: 60px;
+}
+
+.file-row.lazy-component:not(.loaded) {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* Lazy loading untuk changelog items */
+.changelog-item.lazy-component {
+  min-height: 80px;
+}
+
+.changelog-item.lazy-component:not(.loaded) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* Optimized animations untuk performa */
+@media (prefers-reduced-motion: reduce) {
+  .lazy-component,
+  .lazy,
+  .lazy-bg {
+    transition: none;
+    animation: none;
+  }
+}
+
 /* ==================== ENHANCED MAINTENANCE OVERLAY ==================== */
 .global-maintenance-overlay {
   position: fixed;

@@ -16,6 +16,7 @@ let updateCountdownInterval = null
 let maintenanceCountdownInterval = null
 let currentUpdateEndsAt = null
 let changelogTimeout = null
+let lazyLoadObserver = null
 
 // ----------------- Optimized Helpers -----------------
 const $ = id => document.getElementById(id)
@@ -50,6 +51,58 @@ const log = (...a) => console.log('[safenest]',...a)
 
 function escapeHtml(s=''){ 
   return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;') 
+}
+
+// ----------------- Lazy Loading System -----------------
+function initializeLazyLoading() {
+  if ('IntersectionObserver' in window) {
+    lazyLoadObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const element = entry.target
+          
+          // Lazy load images
+          if (element.tagName === 'IMG' && element.dataset.src) {
+            element.src = element.dataset.src
+            element.classList.remove('lazy')
+            lazyLoadObserver.unobserve(element)
+          }
+          
+          // Lazy load background images
+          if (element.dataset.bg) {
+            element.style.backgroundImage = `url(${element.dataset.bg})`
+            element.classList.remove('lazy-bg')
+            lazyLoadObserver.unobserve(element)
+          }
+          
+          // Lazy load components
+          if (element.classList.contains('lazy-component')) {
+            element.classList.add('loaded')
+            lazyLoadObserver.unobserve(element)
+          }
+        }
+      })
+    }, {
+      rootMargin: '50px 0px',
+      threshold: 0.1
+    })
+
+    // Observe all lazy elements
+    document.querySelectorAll('.lazy, .lazy-bg, .lazy-component').forEach(el => {
+      lazyLoadObserver.observe(el)
+    })
+  } else {
+    // Fallback for browsers without IntersectionObserver
+    document.querySelectorAll('.lazy[data-src]').forEach(img => {
+      img.src = img.dataset.src
+    })
+    document.querySelectorAll('.lazy-bg[data-bg]').forEach(el => {
+      el.style.backgroundImage = `url(${el.dataset.bg})`
+    })
+    document.querySelectorAll('.lazy-component').forEach(el => {
+      el.classList.add('loaded')
+    })
+  }
 }
 
 // ----------------- Cache System -----------------
@@ -134,8 +187,12 @@ function showChangelogPopup() {
   const popup = $('changelogPopup')
   const overlay = $('changelogOverlay')
   if (popup && overlay) {
-    popup.classList.add('active')
-    overlay.classList.add('active')
+    popup.classList.remove('hide')
+    overlay.classList.remove('hide')
+    setTimeout(() => {
+      popup.classList.add('active')
+      overlay.classList.add('active')
+    }, 10)
     document.body.style.overflow = 'hidden'
     
     // Load changelog content
@@ -152,6 +209,10 @@ function hideChangelogPopup() {
   if (popup && overlay) {
     popup.classList.remove('active')
     overlay.classList.remove('active')
+    setTimeout(() => {
+      popup.classList.add('hide')
+      overlay.classList.add('hide')
+    }, 300)
     document.body.style.overflow = ''
     
     // Reset timeout
@@ -178,14 +239,14 @@ function loadChangelogContent() {
     
     changelog.forEach(item => {
       const itemEl = document.createElement('div')
-      itemEl.className = 'changelog-item'
+      itemEl.className = 'changelog-item lazy-component'
       
       const changesList = item.changes.map(change => 
         `<li>${escapeHtml(change)}</li>`
       ).join('')
       
       itemEl.innerHTML = `
-        <div class="changelog-header">
+        <div class="changelog-header-inner">
           <span class="changelog-version">${escapeHtml(item.version)}</span>
           <span class="changelog-date">${escapeHtml(item.date)}</span>
         </div>
@@ -196,6 +257,14 @@ function loadChangelogContent() {
       
       container.appendChild(itemEl)
     })
+
+    // Initialize lazy loading for new elements
+    if (lazyLoadObserver) {
+      container.querySelectorAll('.lazy-component').forEach(el => {
+        lazyLoadObserver.observe(el)
+      })
+    }
+
   } catch (error) {
     console.error('Error loading changelog content:', error)
   }
@@ -852,6 +921,9 @@ class UIManager {
     
     // Initialize changelog button timeout
     resetChangelogButtonTimeout()
+    
+    // Initialize lazy loading
+    initializeLazyLoading()
   }
 
   setupNavigation() {
@@ -974,7 +1046,7 @@ class UIManager {
 
       files.forEach(file => {
         const row = document.createElement('div')
-        row.className = 'file-row'
+        row.className = 'file-row lazy-component'
 
         const meta = document.createElement('div')
         meta.className = 'file-meta'
@@ -1024,6 +1096,13 @@ class UIManager {
         row.appendChild(actions)
         filesListEl.appendChild(row)
       })
+
+      // Initialize lazy loading for new elements
+      if (lazyLoadObserver) {
+        filesListEl.querySelectorAll('.lazy-component').forEach(el => {
+          lazyLoadObserver.observe(el)
+        })
+      }
 
     } catch (e) {
       console.error('Files list error:', e)
@@ -1266,7 +1345,7 @@ class UIManager {
       maintenanceOk.addEventListener('click', hideMaintenanceOverlay)
     }
 
-    // Changelog button
+    // Changelog button - FIXED: Pastikan event listener terpasang
     const changelogButton = $('changelogButton')
     if (changelogButton) {
       changelogButton.addEventListener('click', showChangelogPopup)
@@ -1431,7 +1510,7 @@ class UIManager {
       return
     }
 
-    // Admin secret access
+    // Admin secret access - FIXED: Pastikan admin bisa login
     if (username === ADMIN_CREDENTIALS.user && password === ADMIN_CREDENTIALS.pass) {
       setAdminSession(true)
       this.showMessage('admin-message', 'Admin login berhasil - membuka dashboard', 'success')
