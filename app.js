@@ -156,17 +156,20 @@ async function initializeChangelog() {
     const changelog = await getChangelog()
     const lastSeenVersion = localStorage.getItem('sn_last_seen_version')
     
-    if (changelog.enabled && changelog.show_on_startup && changelog.version !== lastSeenVersion) {
-      // Update UI elements
-      if ($('changelogTitle')) $('changelogTitle').textContent = changelog.title
-      if ($('changelogContent')) $('changelogContent').innerHTML = changelog.content.replace(/\n/g, '<br>')
-      if ($('changelogVersion')) $('changelogVersion').textContent = `v${changelog.version}`
-      
-      // Show changelog after a short delay
-      setTimeout(() => {
-        showChangelog()
-        localStorage.setItem('sn_last_seen_version', changelog.version)
-      }, 1000)
+    // FIXED: Show changelog only if enabled, show_on_startup is true, and version is different
+    if (changelog.enabled && changelog.show_on_startup) {
+      if (changelog.version !== lastSeenVersion) {
+        // Update UI elements
+        if ($('changelogTitle')) $('changelogTitle').textContent = changelog.title
+        if ($('changelogContent')) $('changelogContent').innerHTML = changelog.content.replace(/\n/g, '<br>')
+        if ($('changelogVersion')) $('changelogVersion').textContent = `v${changelog.version}`
+        
+        // Show changelog after a short delay
+        setTimeout(() => {
+          showChangelog()
+          localStorage.setItem('sn_last_seen_version', changelog.version)
+        }, 1500)
+      }
     }
   } catch (error) {
     console.warn('Failed to initialize changelog:', error)
@@ -486,14 +489,14 @@ function setAdminSession(session) {
       expiry: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
     }))
     
-    // Show welcome popup
+    // FIXED: Show welcome popup immediately after setting session
     setTimeout(() => {
       const welcomePopup = $('adminWelcomePopup')
       if (welcomePopup) {
         welcomePopup.classList.remove('hide')
         setTimeout(() => welcomePopup.classList.add('active'), 10)
       }
-    }, 500)
+    }, 800)
   } else {
     localStorage.removeItem('sn_admin_session')
     cache.clear('stats')
