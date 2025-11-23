@@ -52,14 +52,49 @@
     </header>
 
     <main class="main-area">
-      <!-- DOWNLOAD - DIPERBAIKI DENGAN DASHBOARD FILE -->
+      <!-- DOWNLOAD - HALAMAN LOGIN -->
       <section id="page-download" class="page active">
         <div class="card glass-card">
           <div class="card-header">
-            <h2 class="page-title"><i class="fa fa-download"></i> Dashboard File Saya</h2>
+            <h2 class="page-title"><i class="fa fa-key"></i> Login ke Safenest</h2>
             <div id="downloadUpdateBadge" class="page-update-badge hide">
               <i class="fa fa-rocket"></i>
               <span>Update dalam: <span id="downloadUpdateCountdown">--:--:--</span></span>
+            </div>
+          </div>
+          
+          <p class="muted">Masukkan username & password yang diberikan saat upload file untuk mengakses dashboard file Anda.</p>
+
+          <div class="grid-2">
+            <input id="dlUser" placeholder="username (sn-xxxx)" />
+            <input id="dlPass" placeholder="password" type="password" />
+          </div>
+
+          <div class="row" style="margin-top:12px">
+            <button id="btnVerify" class="btn primary"><i class="fa fa-check-circle"></i> Login & Akses Dashboard</button>
+            <button id="btnClear" class="btn ghost"><i class="fa fa-refresh"></i> Bersihkan</button>
+          </div>
+
+          <div class="row" style="margin-top:20px; justify-content: center;">
+            <small class="muted">
+              <i class="fa fa-info-circle"></i>
+              Belum punya akun? Upload file terlebih dahulu untuk mendapatkan kredensial.
+            </small>
+          </div>
+        </div>
+
+        <footer class="page-footer">copyright by safenest © 2025-2026</footer>
+      </section>
+
+      <!-- DASHBOARD USER -->
+      <section id="page-dashboard" class="page">
+        <div class="card glass-card">
+          <div class="card-header">
+            <h2 class="page-title"><i class="fa fa-dashboard"></i> Dashboard File Saya</h2>
+            <div class="admin-status">
+              <button id="user-logout" class="btn ghost small">
+                <i class="fa fa-sign-out"></i> Logout
+              </button>
             </div>
           </div>
           
@@ -77,34 +112,6 @@
           </div>
 
           <div id="user-files-message" class="settings-message"></div>
-        </div>
-
-        <div class="card glass-card" style="margin-top: 20px;">
-          <div class="card-header">
-            <h3 class="page-title"><i class="fa fa-key"></i> Akses File dengan Kredensial</h3>
-          </div>
-          
-          <p class="muted">Masukkan username & password yang diberikan uploader.</p>
-
-          <div class="grid-2">
-            <input id="dlUser" placeholder="username (sn-xxxx)" />
-            <input id="dlPass" placeholder="password" type="password" />
-          </div>
-
-          <div class="row" style="margin-top:12px">
-            <button id="btnVerify" class="btn primary"><i class="fa fa-check-circle"></i> Verify & Show</button>
-            <button id="btnClear" class="btn ghost"><i class="fa fa-refresh"></i> Bersihkan</button>
-          </div>
-
-          <div id="dlInfo" class="file-info hide">
-            <h3 id="fileName">-</h3>
-            <p class="muted small">Ukuran: <span id="fileSize">-</span> • Diunggah: <span id="fileTime">-</span></p>
-
-            <div class="row" style="margin-top:12px">
-              <button id="btnView" class="btn ghost"><i class="fa fa-eye"></i> Lihat File</button>
-              <button id="btnDownload" class="btn primary"><i class="fa fa-download"></i> Download</button>
-            </div>
-          </div>
         </div>
 
         <footer class="page-footer">copyright by safenest © 2025-2026</footer>
@@ -588,8 +595,13 @@
     <!-- Bottom floating navbar -->
     <nav class="bottom-nav glass-nav" role="navigation" aria-label="Main navigation">
       <div class="nav-inner">
-        <button class="nav-btn" data-target="page-download" id="nav-download" aria-label="Download">
-          <div class="icon-wrap"><i class="fa fa-download"></i></div>
+        <button class="nav-btn" data-target="page-download" id="nav-download" aria-label="Login">
+          <div class="icon-wrap"><i class="fa fa-sign-in"></i></div>
+          <div class="label">Login</div>
+        </button>
+
+        <button class="nav-btn" data-target="page-dashboard" id="nav-dashboard" aria-label="Dashboard">
+          <div class="icon-wrap"><i class="fa fa-dashboard"></i></div>
           <div class="label">Dashboard</div>
         </button>
 
@@ -601,6 +613,11 @@
         <button class="nav-btn" data-target="page-about" id="nav-about" aria-label="About">
           <div class="icon-wrap"><i class="fa fa-info-circle"></i></div>
           <div class="label">About</div>
+        </button>
+
+        <button class="nav-btn" data-target="page-admin" id="nav-admin" aria-label="Admin">
+          <div class="icon-wrap"><i class="fa fa-lock"></i></div>
+          <div class="label">Admin</div>
         </button>
       </div>
     </nav>
@@ -614,15 +631,15 @@
           <i class="fa fa-newspaper-o"></i>
         </div>
         <div class="changelog-title-content">
-          <h3 id="changelog-title">Pembaruan Terbaru</h3>
-          <span class="changelog-version" id="changelog-version">v1.0.0</span>
+          <h3 id="changelogModalTitle">Pembaruan Terbaru</h3>
+          <span class="changelog-version" id="changelogModalVersion">v1.0.0</span>
         </div>
         <button class="changelog-close" onclick="hideChangelogModal()">
           <i class="fa fa-times"></i>
         </button>
       </div>
       <div class="changelog-content">
-        <div id="changelog-content" class="changelog-text">
+        <div id="changelogModalContent" class="changelog-text">
           <!-- Konten changelog akan dimuat di sini -->
         </div>
       </div>
