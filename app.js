@@ -1,4 +1,4 @@
-// app.js — Safenest COMPLETE Version
+// app.js — Safenest COMPLETE & ERROR-FREE Version
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
 
 // ========== CONFIG ==========
@@ -671,8 +671,10 @@ class UIManager {
   }
 
   async checkAdminSession() {
-    try { const session = await getCurrentAdmin(); if (session) setAdminSession(session) } 
-    catch (error) { console.warn('Admin session check failed:', error) }
+    try { 
+      const session = await getCurrentAdmin(); 
+      if (session) setAdminSession(session) 
+    } catch (error) { console.warn('Admin session check failed:', error) }
   }
 
   checkUserSession() {
@@ -699,11 +701,17 @@ class UIManager {
       const currentIndex = order.indexOf(this.currentPage)
       if (e.key === 'ArrowLeft' && currentIndex > 0) {
         const target = order[currentIndex - 1]
-        if (target === 'page-upload') { const isMaintenance = await checkMaintenanceForUpload(); if (isMaintenance) return }
+        if (target === 'page-upload') { 
+          const isMaintenance = await checkMaintenanceForUpload(); 
+          if (isMaintenance) return 
+        }
         this.showPage(target)
       } else if (e.key === 'ArrowRight' && currentIndex < order.length - 1) {
         const target = order[currentIndex + 1]
-        if (target === 'page-upload') { const isMaintenance = await checkMaintenanceForUpload(); if (isMaintenance) return }
+        if (target === 'page-upload') { 
+          const isMaintenance = await checkMaintenanceForUpload(); 
+          if (isMaintenance) return 
+        }
         this.showPage(target)
       }
     })
@@ -715,7 +723,10 @@ class UIManager {
     this.pages.forEach(page => page.classList.toggle('active', page.id === id))
     this.navButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.target === id))
     this.animatePageEntrance(id)
-    if (id === 'page-admin') { this.loadAdminDashboard(); if (isAdminSession() && !hasShownAdminWelcome) setTimeout(() => showAdminWelcome(), 500) }
+    if (id === 'page-admin') { 
+      this.loadAdminDashboard(); 
+      if (isAdminSession() && !hasShownAdminWelcome) setTimeout(() => showAdminWelcome(), 500) 
+    }
   }
 
   animatePageEntrance(pageId) {
@@ -751,7 +762,10 @@ class UIManager {
       if (!filesListEl) return
       filesListEl.innerHTML = ''
       if (filesCountEl) filesCountEl.textContent = files.length
-      if (files.length === 0) { filesListEl.innerHTML = '<div class="muted text-center" style="padding: 40px;">Tidak ada file</div>'; return }
+      if (files.length === 0) { 
+        filesListEl.innerHTML = '<div class="muted text-center" style="padding: 40px;">Tidak ada file</div>'; 
+        return 
+      }
       // Files list rendering would go here...
     } catch (e) { console.error('Files list error:', e) }
   }
@@ -803,9 +817,14 @@ class UIManager {
         const diff = endsAt - now
         msgEl.innerHTML = `<div class="settings-message success"><i class="fa fa-check-circle"></i> Maintenance aktif - Selesai dalam: <strong>${formatTime(diff)}</strong></div>`
         startMaintenanceCountdown(maintenance.ends_at)
-      } else { msgEl.innerHTML = '<div class="settings-message error">Maintenance sudah berakhir</div>' }
-    } else if (maintenance.enabled) { msgEl.innerHTML = '<div class="settings-message success">Maintenance aktif (tanpa batas waktu)</div>' }
-    else { msgEl.innerHTML = '<div class="settings-message">Maintenance tidak aktif</div>' }
+      } else { 
+        msgEl.innerHTML = '<div class="settings-message error">Maintenance sudah berakhir</div>' 
+      }
+    } else if (maintenance.enabled) { 
+      msgEl.innerHTML = '<div class="settings-message success">Maintenance aktif (tanpa batas waktu)</div>' 
+    } else { 
+      msgEl.innerHTML = '<div class="settings-message">Maintenance tidak aktif</div>' 
+    }
   }
 
   updateUpdateDisplay(updateStatus) {
@@ -817,15 +836,22 @@ class UIManager {
       if (endsAt > now) {
         const diff = endsAt - now
         msgEl.innerHTML = `<div class="settings-message success"><i class="fa fa-check-circle"></i> Update countdown aktif - Selesai dalam: <strong>${formatTime(diff)}</strong></div>`
-      } else { msgEl.innerHTML = '<div class="settings-message error">Update countdown sudah berakhir</div>' }
-    } else { msgEl.innerHTML = '<div class="settings-message">Update countdown tidak aktif</div>' }
+      } else { 
+        msgEl.innerHTML = '<div class="settings-message error">Update countdown sudah berakhir</div>' 
+      }
+    } else { 
+      msgEl.innerHTML = '<div class="settings-message">Update countdown tidak aktif</div>' 
+    }
   }
 
   updateChangelogDisplay(changelog) {
     const msgEl = $('changelog-msg')
     if (!msgEl) return
-    if (changelog.enabled) { msgEl.innerHTML = `<div class="settings-message success"><i class="fa fa-check-circle"></i> Changelog aktif - Versi: <strong>${changelog.version}</strong></div>` }
-    else { msgEl.innerHTML = '<div class="settings-message">Changelog tidak aktif</div>' }
+    if (changelog.enabled) { 
+      msgEl.innerHTML = `<div class="settings-message success"><i class="fa fa-check-circle"></i> Changelog aktif - Versi: <strong>${changelog.version}</strong></div>` 
+    } else { 
+      msgEl.innerHTML = '<div class="settings-message">Changelog tidak aktif</div>' 
+    }
   }
 
   setupEventListeners() {
@@ -837,29 +863,42 @@ class UIManager {
     if ($('fileInput')) $('fileInput').addEventListener('change', this.handleMultiFileSelect.bind(this))
     // Clear form
     if ($('btnClear')) $('btnClear').addEventListener('click', () => {
-      if ($('dlUser')) $('dlUser').value = ''; if ($('dlPass')) $('dlPass').value = ''
-      if ($('dlInfo')) $('dlInfo').classList.add('hide'); if ($('userDashboard')) $('userDashboard').classList.add('hide')
+      if ($('dlUser')) $('dlUser').value = ''; 
+      if ($('dlPass')) $('dlPass').value = ''
+      if ($('dlInfo')) $('dlInfo').classList.add('hide'); 
+      if ($('userDashboard')) $('userDashboard').classList.add('hide')
     })
     // Refresh files
     if ($('refresh-files')) $('refresh-files').addEventListener('click', () => this.loadFilesList())
     // Cleanup files
     if ($('cleanup-files')) $('cleanup-files').addEventListener('click', async () => {
-      const btn = $('cleanup-files'); const originalText = btn.innerHTML
-      btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Cleaning...'; btn.disabled = true
+      const btn = $('cleanup-files'); 
+      const originalText = btn.innerHTML
+      btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Cleaning...'; 
+      btn.disabled = true
       try {
         const result = await cleanExpiredFiles()
-        if (result.error) this.showMessage('cleanup-result', `Gagal membersihkan: ${result.error}`, 'error')
-        else {
-          const message = result.cleaned > 0 ? `Pembersihan selesai! ${result.cleaned}/${result.total} file expired dihapus.` : `Tidak ada file expired yang perlu dihapus. ${result.total} file expired ditemukan, tetapi sudah pernah didownload.`
+        if (result.error) {
+          this.showMessage('cleanup-result', `Gagal membersihkan: ${result.error}`, 'error')
+        } else {
+          const message = result.cleaned > 0 
+            ? `Pembersihan selesai! ${result.cleaned}/${result.total} file expired dihapus.`
+            : `Tidak ada file expired yang perlu dihapus. ${result.total} file expired ditemukan, tetapi sudah pernah didownload.`
           this.showMessage('cleanup-result', message, 'success')
         }
-        this.loadFilesList(); this.loadAdminDashboard()
-      } catch (e) { this.showMessage('cleanup-result', 'Gagal membersihkan file: ' + (e.message || e), 'error') }
-      finally { btn.innerHTML = originalText; btn.disabled = false }
+        this.loadFilesList(); 
+        this.loadAdminDashboard()
+      } catch (e) { 
+        this.showMessage('cleanup-result', 'Gagal membersihkan file: ' + (e.message || e), 'error') 
+      } finally { 
+        btn.innerHTML = originalText; 
+        btn.disabled = false 
+      }
     })
     // Clear cache
     if ($('clear-cache')) $('clear-cache').addEventListener('click', () => {
-      const keys = Object.keys(localStorage).filter(key => key.startsWith('sn_')); keys.forEach(key => localStorage.removeItem(key))
+      const keys = Object.keys(localStorage).filter(key => key.startsWith('sn_'))
+      keys.forEach(key => localStorage.removeItem(key))
       this.showMessage('cleanup-result', 'Cache berhasil dibersihkan!', 'success')
     })
     // Maintenance settings
@@ -872,7 +911,8 @@ class UIManager {
     if ($('clear-update')) $('clear-update').addEventListener('click', this.handleClearUpdate.bind(this))
     // Admin logout
     if ($('admin-logout')) $('admin-logout').addEventListener('click', async () => {
-      await adminLogout(); this.showMessage('cleanup-result', 'Logout admin berhasil', 'success')
+      await adminLogout(); 
+      this.showMessage('cleanup-result', 'Logout admin berhasil', 'success')
       setTimeout(() => this.showPage('page-download'), 1000)
     })
     // Comment system
@@ -897,30 +937,50 @@ class UIManager {
   setupDragAndDrop() {
     const filebox = $('fileInput')?.closest('.filebox')
     if (!filebox) return
-    filebox.addEventListener('dragover', (e) => { e.preventDefault(); filebox.style.borderColor = 'var(--accent1)'; filebox.style.background = 'rgba(107, 142, 252, 0.1)' })
-    filebox.addEventListener('dragleave', (e) => { e.preventDefault(); filebox.style.borderColor = ''; filebox.style.background = '' })
+    filebox.addEventListener('dragover', (e) => { 
+      e.preventDefault(); 
+      filebox.style.borderColor = 'var(--accent1)'; 
+      filebox.style.background = 'rgba(107, 142, 252, 0.1)' 
+    })
+    filebox.addEventListener('dragleave', (e) => { 
+      e.preventDefault(); 
+      filebox.style.borderColor = ''; 
+      filebox.style.background = '' 
+    })
     filebox.addEventListener('drop', (e) => {
-      e.preventDefault(); filebox.style.borderColor = 'var(--accent1)'; filebox.style.background = 'rgba(107, 142, 252, 0.05)'
+      e.preventDefault(); 
+      filebox.style.borderColor = 'var(--accent1)'; 
+      filebox.style.background = 'rgba(107, 142, 252, 0.05)'
       const files = Array.from(e.dataTransfer.files)
       if (files.length > 0) {
-        const fileInput = $('fileInput'); const dataTransfer = new DataTransfer()
-        files.forEach(file => dataTransfer.items.add(file)); fileInput.files = dataTransfer.files
+        const fileInput = $('fileInput'); 
+        const dataTransfer = new DataTransfer()
+        files.forEach(file => dataTransfer.items.add(file)); 
+        fileInput.files = dataTransfer.files
         this.handleMultiFileSelect({ target: fileInput })
       }
     })
   }
 
-  handleMultiFileSelect(event) { handleMultiFileSelect(event) }
+  handleMultiFileSelect(event) { 
+    handleMultiFileSelect(event) 
+  }
 
   initializeAdminSettings() {
-    const maintenanceToggle = $('maintenance-toggle'); const maintenanceSettings = $('maintenance-settings')
+    const maintenanceToggle = $('maintenance-toggle'); 
+    const maintenanceSettings = $('maintenance-settings')
     if (maintenanceToggle && maintenanceSettings) {
-      maintenanceToggle.addEventListener('change', () => { maintenanceSettings.style.display = maintenanceToggle.checked ? 'block' : 'none' })
+      maintenanceToggle.addEventListener('change', () => { 
+        maintenanceSettings.style.display = maintenanceToggle.checked ? 'block' : 'none' 
+      })
       maintenanceSettings.style.display = maintenanceToggle.checked ? 'block' : 'none'
     }
-    const changelogToggle = $('changelog-toggle'); const changelogSettings = $('changelog-settings')
+    const changelogToggle = $('changelog-toggle'); 
+    const changelogSettings = $('changelog-settings')
     if (changelogToggle && changelogSettings) {
-      changelogToggle.addEventListener('change', () => { changelogSettings.style.display = changelogToggle.checked ? 'block' : 'none' })
+      changelogToggle.addEventListener('change', () => { 
+        changelogSettings.style.display = changelogToggle.checked ? 'block' : 'none' 
+      })
       changelogSettings.style.display = changelogToggle.checked ? 'block' : 'none'
     }
   }
@@ -928,118 +988,213 @@ class UIManager {
   async handleUpload() {
     const isMaintenance = await checkMaintenanceForUpload()
     if (isMaintenance) return
-    const btnUpload = $('btnUpload'); const fileInput = $('fileInput'); const files = Array.from(fileInput?.files || [])
-    if (files.length === 0) { this.showMessage('cleanup-result', 'Pilih file terlebih dahulu.', 'error'); return }
-    btnUpload.disabled = true; btnUpload.innerHTML = `<i class="fa fa-spinner fa-spin"></i> Uploading ${files.length} file...`
+    const btnUpload = $('btnUpload'); 
+    const fileInput = $('fileInput'); 
+    const files = Array.from(fileInput?.files || [])
+    if (files.length === 0) { 
+      this.showMessage('cleanup-result', 'Pilih file terlebih dahulu.', 'error'); 
+      return 
+    }
+    btnUpload.disabled = true; 
+    btnUpload.innerHTML = `<i class="fa fa-spinner fa-spin"></i> Uploading ${files.length} file...`
     try {
       const results = []
       for (const file of files) {
         try {
           const dest = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${file.name.replace(/\s+/g, '_')}`
           const storage_path = await uploadFileToStorage(file, dest)
-          const expirySelect = $('expireSelect'); const expiresIso = expirySelect ? expiryToIso(expirySelect.value) : null
-          const username = 'sn-' + rand(6); const password = 'sn-' + rand(10); const hash = await sha256(password)
-          const record = await insertFileRecord({ filename: file.name, storage_path, username, password_hash: hash, size: file.size, expires_at: expiresIso })
+          const expirySelect = $('expireSelect'); 
+          const expiresIso = expirySelect ? expiryToIso(expirySelect.value) : null
+          const username = 'sn-' + rand(6); 
+          const password = 'sn-' + rand(10); 
+          const hash = await sha256(password)
+          const record = await insertFileRecord({ 
+            filename: file.name, 
+            storage_path, 
+            username, 
+            password_hash: hash, 
+            size: file.size, 
+            expires_at: expiresIso 
+          })
           results.push({ username, password, filename: file.name, expiresIso })
-        } catch (error) { console.error(`Failed to upload ${file.name}:`, error) }
+        } catch (error) { 
+          console.error(`Failed to upload ${file.name}:`, error) 
+        }
       }
-      if (results.length > 0) { this.showMultiUploadResults(results); this.showMessage('cleanup-result', `Berhasil mengupload ${results.length} file!`, 'success') }
-      else { this.showMessage('cleanup-result', 'Gagal mengupload semua file.', 'error') }
-      fileInput.value = ''; const filebox = $('fileInput').closest('.filebox'); const fileNameDisplay = filebox.querySelector('.file-name-display')
+      if (results.length > 0) { 
+        this.showMultiUploadResults(results); 
+        this.showMessage('cleanup-result', `Berhasil mengupload ${results.length} file!`, 'success') 
+      } else { 
+        this.showMessage('cleanup-result', 'Gagal mengupload semua file.', 'error') 
+      }
+      fileInput.value = ''; 
+      const filebox = $('fileInput').closest('.filebox'); 
+      const fileNameDisplay = filebox.querySelector('.file-name-display')
       if (fileNameDisplay) fileNameDisplay.remove()
-      filebox.style.borderColor = ''; filebox.style.background = ''
+      filebox.style.borderColor = ''; 
+      filebox.style.background = ''
       cleanExpiredFiles().catch(() => {})
-    } catch (err) { console.error('Upload error:', err); this.showMessage('cleanup-result', 'Upload gagal: ' + (err.message || err), 'error') }
-    finally { btnUpload.disabled = false; btnUpload.innerHTML = '<i class="fa fa-upload"></i> Upload & Generate Credentials' }
+    } catch (err) { 
+      console.error('Upload error:', err); 
+      this.showMessage('cleanup-result', 'Upload gagal: ' + (err.message || err), 'error') 
+    } finally { 
+      btnUpload.disabled = false; 
+      btnUpload.innerHTML = '<i class="fa fa-upload"></i> Upload & Generate Credentials' 
+    }
   }
 
   async handleVerify() {
-    const username = ($('dlUser')?.value || '').trim(); const password = ($('dlPass')?.value || '').trim()
-    if (!username || !password) { this.showMessage('cleanup-result', 'Harap isi username dan password.', 'error'); return }
+    const username = ($('dlUser')?.value || '').trim(); 
+    const password = ($('dlPass')?.value || '').trim()
+    if (!username || !password) { 
+      this.showMessage('cleanup-result', 'Harap isi username dan password.', 'error'); 
+      return 
+    }
     // Admin login
     if (username.includes('@')) {
       try {
-        const adminData = await signInAdmin(username, password); setAdminSession(adminData.session)
-        this.showMessage('cleanup-result', 'Login berhasil - membuka dashboard', 'success'); setTimeout(() => this.showPage('page-admin'), 1000); return
-      } catch (err) { console.error('Admin login error:', err); this.showMessage('cleanup-result', 'Login gagal: Username atau password salah', 'error'); return }
+        const adminData = await signInAdmin(username, password); 
+        setAdminSession(adminData.session)
+        this.showMessage('cleanup-result', 'Login berhasil - membuka dashboard', 'success'); 
+        setTimeout(() => this.showPage('page-admin'), 1000); 
+        return
+      } catch (err) { 
+        console.error('Admin login error:', err); 
+        this.showMessage('cleanup-result', 'Login gagal: Username atau password salah', 'error'); 
+        return 
+      }
     }
     // Regular file verification
     try {
       const record = await getRecordByUsername(username)
       const verification = await verifyFileAccess(record)
-      if (!verification.valid) { this.showMessage('cleanup-result', verification.reason, 'error'); return }
+      if (!verification.valid) { 
+        this.showMessage('cleanup-result', verification.reason, 'error'); 
+        return 
+      }
       const hash = await sha256(password)
-      if (hash !== record.password_hash) { this.showMessage('cleanup-result', 'Password salah.', 'error'); return }
-      setUserSession(username, record); this.showUserDashboard(record, username)
+      if (hash !== record.password_hash) { 
+        this.showMessage('cleanup-result', 'Password salah.', 'error'); 
+        return 
+      }
+      setUserSession(username, record); 
+      this.showUserDashboard(record, username)
     } catch (err) {
       console.error('Verification error:', err)
-      if (err.message.includes('PGRST116')) this.showMessage('cleanup-result', 'Username tidak ditemukan.', 'error')
-      else this.showMessage('cleanup-result', 'Verifikasi gagal: ' + (err.message || err), 'error')
+      if (err.message.includes('PGRST116')) {
+        this.showMessage('cleanup-result', 'Username tidak ditemukan.', 'error')
+      } else {
+        this.showMessage('cleanup-result', 'Verifikasi gagal: ' + (err.message || err), 'error')
+      }
     }
   }
 
   showUserDashboard(fileRecord, username) {
-    const userDashboard = $('userDashboard'); const dlInfo = $('dlInfo')
+    const userDashboard = $('userDashboard'); 
+    const dlInfo = $('dlInfo')
     if (!userDashboard || !dlInfo) return
+    
+    // Update file info
     if ($('fileName')) $('fileName').textContent = fileRecord.filename || fileRecord.storage_path
     if ($('fileSize')) $('fileSize').textContent = niceBytes(fileRecord.size)
     if ($('fileTime')) $('fileTime').textContent = fileRecord.created_at ? new Date(fileRecord.created_at).toLocaleString() : '-'
-    if ($('fileExpiry')) $('fileExpiry').textContent = fileRecord.expires_at ? new Date(fileRecord.expires_at).toLocaleString() : 'Tidak expired'
-    if ($('fileUsername')) $('fileUsername').textContent = username
-    dlInfo.classList.remove('hide'); userDashboard.classList.remove('hide')
-    if ($('btnDownload')) $('btnDownload').onclick = async () => {
-      try {
-        const signedUrl = await createSignedUrl(fileRecord.storage_path, 300)
-        const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(fileRecord.storage_path)}`
-        const finalUrl = signedUrl || publicUrl
-        await forceDownloadUrl(finalUrl, fileRecord.filename || 'download')
-        await recordDownload({ file_id: fileRecord.id, filename: fileRecord.filename, username: fileRecord.username })
-        this.showMessage('cleanup-result', 'Download berhasil!', 'success')
-      } catch (e) { console.error('Download error:', e); this.showMessage('cleanup-result', 'Gagal mengunduh: ' + e.message, 'error') }
+    if ($('fileExpiry')) {
+      $('fileExpiry').textContent = fileRecord.expires_at ? new Date(fileRecord.expires_at).toLocaleString() : 'Tidak expired'
     }
-    if ($('btnView')) $('btnView').onclick = async () => {
-      try {
-        const signedUrl = await createSignedUrl(fileRecord.storage_path, 300)
-        const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(fileRecord.storage_path)}`
-        const finalUrl = signedUrl || publicUrl; window.open(finalUrl, '_blank')
-      } catch (e) { alert('Gagal membuka file: ' + e.message) }
+    if ($('fileUsername')) $('fileUsername').textContent = username
+
+    // Show dashboard sections
+    dlInfo.classList.remove('hide'); 
+    userDashboard.classList.remove('hide')
+
+    // Setup download handler
+    if ($('btnDownload')) {
+      $('btnDownload').onclick = async () => {
+        try {
+          const signedUrl = await createSignedUrl(fileRecord.storage_path, 300)
+          const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(fileRecord.storage_path)}`
+          const finalUrl = signedUrl || publicUrl
+          await forceDownloadUrl(finalUrl, fileRecord.filename || 'download')
+          await recordDownload({
+            file_id: fileRecord.id,
+            filename: fileRecord.filename,
+            username: fileRecord.username
+          })
+          this.showMessage('cleanup-result', 'Download berhasil!', 'success')
+        } catch (e) {
+          console.error('Download error:', e)
+          this.showMessage('cleanup-result', 'Gagal mengunduh: ' + e.message, 'error')
+        }
+      }
+    }
+
+    // Setup view handler
+    if ($('btnView')) {
+      $('btnView').onclick = async () => {
+        try {
+          const signedUrl = await createSignedUrl(fileRecord.storage_path, 300)
+          const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(fileRecord.storage_path)}`
+          const finalUrl = signedUrl || publicUrl
+          window.open(finalUrl, '_blank')
+        } catch (e) {
+          alert('Gagal membuka file: ' + e.message)
+        }
+      }
     }
   }
 
   handleUserLogout() {
-    clearUserSession(); const userDashboard = $('userDashboard'); const dlInfo = $('dlInfo')
-    if (userDashboard) userDashboard.classList.add('hide'); if (dlInfo) dlInfo.classList.add('hide')
-    if ($('dlUser')) $('dlUser').value = ''; if ($('dlPass')) $('dlPass').value = ''
+    clearUserSession(); 
+    const userDashboard = $('userDashboard'); 
+    const dlInfo = $('dlInfo')
+    if (userDashboard) userDashboard.classList.add('hide'); 
+    if (dlInfo) dlInfo.classList.add('hide')
+    if ($('dlUser')) $('dlUser').value = ''; 
+    if ($('dlPass')) $('dlPass').value = ''
     this.showMessage('cleanup-result', 'Logout berhasil', 'success')
   }
 
   async handleUserDeleteFile() {
-    const userSession = getUserSession(); if (!userSession) return
+    const userSession = getUserSession(); 
+    if (!userSession) return
     if (!confirm('Apakah Anda yakin ingin menghapus file ini? Tindakan ini tidak dapat dibatalkan.')) return
-    try { await deleteFile(userSession.fileRecord); this.handleUserLogout(); this.showMessage('cleanup-result', 'File berhasil dihapus', 'success') }
-    catch (e) { this.showMessage('cleanup-result', 'Gagal menghapus file: ' + e.message, 'error') }
+    try { 
+      await deleteFile(userSession.fileRecord); 
+      this.handleUserLogout(); 
+      this.showMessage('cleanup-result', 'File berhasil dihapus', 'success') 
+    } catch (e) { 
+      this.showMessage('cleanup-result', 'Gagal menghapus file: ' + e.message, 'error') 
+    }
   }
 
   async handleUserRenameFile() {
-    const userSession = getUserSession(); if (!userSession) return
+    const userSession = getUserSession(); 
+    if (!userSession) return
     const newName = prompt('Masukkan nama baru untuk file:', userSession.fileRecord.filename)
     if (!newName || newName.trim() === '') return
     try {
       const { error } = await supabase.from('files').update({ filename: newName.trim() }).eq('id', userSession.fileRecord.id)
       if (error) throw error
-      userSession.fileRecord.filename = newName.trim(); setUserSession(userSession.username, userSession.fileRecord)
-      this.showUserDashboard(userSession.fileRecord, userSession.username); this.showMessage('cleanup-result', 'Nama file berhasil diubah', 'success')
-    } catch (e) { this.showMessage('cleanup-result', 'Gagal mengubah nama file: ' + e.message, 'error') }
+      userSession.fileRecord.filename = newName.trim()
+      setUserSession(userSession.username, userSession.fileRecord)
+      this.showUserDashboard(userSession.fileRecord, userSession.username)
+      this.showMessage('cleanup-result', 'Nama file berhasil diubah', 'success')
+    } catch (e) { 
+      this.showMessage('cleanup-result', 'Gagal mengubah nama file: ' + e.message, 'error') 
+    }
   }
 
   showMultiUploadResults(results) {
-    const credsSection = $('creds'); if (!credsSection) return
+    const credsSection = $('creds'); 
+    if (!credsSection) return
+    
     let credentialsHTML = `
       <div class="creds-header">
         <h4><i class="fa fa-key"></i> Kredensial File</h4>
         <small class="muted">${results.length} file berhasil diupload - Simpan informasi ini dengan aman!</small>
       </div>
     `
+
     results.forEach((result, index) => {
       credentialsHTML += `
         <div class="file-credential-item">
@@ -1069,22 +1224,37 @@ class UIManager {
         </div>
       `
     })
+
     credentialsHTML += `
       <div class="row" style="margin-top:20px; justify-content: center;">
-        <button id="copyAllCreds" class="btn primary"><i class="fa fa-clipboard"></i> Salin Semua Kredensial</button>
+        <button id="copyAllCreds" class="btn primary">
+          <i class="fa fa-clipboard"></i> Salin Semua Kredensial
+        </button>
       </div>
       <div style="margin-top:16px; text-align: center;">
-        <small class="muted"><i class="fa fa-exclamation-triangle"></i> Simpan informasi ini di tempat yang aman. Password tidak dapat dipulihkan!</small>
+        <small class="muted">
+          <i class="fa fa-exclamation-triangle"></i>
+          Simpan informasi ini di tempat yang aman. Password tidak dapat dipulihkan!
+        </small>
       </div>
     `
-    credsSection.innerHTML = credentialsHTML; credsSection.classList.remove('hide')
+
+    credsSection.innerHTML = credentialsHTML
+    credsSection.classList.remove('hide')
+
+    // Add event listener for copy all button
     const copyAllBtn = $('copyAllCreds')
-    if (copyAllBtn) copyAllBtn.addEventListener('click', () => this.handleCopyAllCreds(results))
+    if (copyAllBtn) {
+      copyAllBtn.addEventListener('click', () => this.handleCopyAllCreds(results))
+    }
+
+    // Scroll to credentials section
     credsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }
 
   handleCopyAllCreds(results) {
     let text = `SAFENEST CREDENTIALS - ${results.length} FILE\n====================\n\n`
+    
     results.forEach((result, index) => {
       text += `FILE ${index + 1}: ${result.filename}\n`
       text += `Username: ${result.username}\n`
@@ -1093,115 +1263,306 @@ class UIManager {
       text += `Expired: ${result.expiresIso ? new Date(result.expiresIso).toLocaleString() : 'Tidak expired'}\n`
       text += `====================\n\n`
     })
+    
     text += `Simpan informasi ini dengan aman!`
-    navigator.clipboard.writeText(text).then(() => this.showMessage('cleanup-result', `Kredensial ${results.length} file berhasil disalin!`, 'success'))
-    .catch(() => this.showMessage('cleanup-result', 'Gagal menyalin kredensial.', 'error'))
+
+    navigator.clipboard.writeText(text).then(() => {
+      this.showMessage('cleanup-result', `Kredensial ${results.length} file berhasil disalin!`, 'success')
+    }).catch(() => {
+      this.showMessage('cleanup-result', 'Gagal menyalin kredensial.', 'error')
+    })
   }
 
   async handleSaveMaintenanceSettings() {
-    const toggle = $('maintenance-toggle'); const daysInput = $('maintenance-days'); const hoursInput = $('maintenance-hours')
-    const endsInput = $('maintenance-ends'); const messageInput = $('maintenance-message')
-    const enabled = toggle?.checked || false; let endsAt = null
+    const toggle = $('maintenance-toggle')
+    const daysInput = $('maintenance-days')
+    const hoursInput = $('maintenance-hours')
+    const endsInput = $('maintenance-ends')
+    const messageInput = $('maintenance-message')
+
+    const enabled = toggle?.checked || false
+    let endsAt = null
+
     if (enabled) {
-      if (endsInput?.value) endsAt = new Date(endsInput.value).toISOString()
-      else {
-        const days = parseInt(daysInput?.value || '0'); const hours = parseInt(hoursInput?.value || '0')
+      if (endsInput?.value) {
+        endsAt = new Date(endsInput.value).toISOString()
+      } else {
+        const days = parseInt(daysInput?.value || '0')
+        const hours = parseInt(hoursInput?.value || '0')
         const totalMs = (days * 24 * 60 * 60 * 1000) + (hours * 60 * 60 * 1000)
-        if (totalMs > 0) endsAt = new Date(Date.now() + totalMs).toISOString()
+        
+        if (totalMs > 0) {
+          endsAt = new Date(Date.now() + totalMs).toISOString()
+        }
       }
     }
+
     const message = messageInput?.value || 'Sistem dalam perbaikan. Terima kasih atas pengertiannya.'
+
     try {
-      await upsertSetting('maintenance', { enabled, ends_at: endsAt, message, updated_by: 'admin' })
+      await upsertSetting('maintenance', {
+        enabled,
+        ends_at: endsAt,
+        message,
+        updated_by: 'admin'
+      })
+
       this.showMessage('maintenance-msg', 'Pengaturan maintenance berhasil disimpan!', 'success')
-      const maintenance = await getMaintenanceStatus(); this.updateMaintenanceDisplay(maintenance)
-    } catch (e) { this.showMessage('maintenance-msg', 'Gagal menyimpan pengaturan: ' + e.message, 'error') }
+      
+      const maintenance = await getMaintenanceStatus()
+      this.updateMaintenanceDisplay(maintenance)
+
+    } catch (e) {
+      this.showMessage('maintenance-msg', 'Gagal menyimpan pengaturan: ' + e.message, 'error')
+    }
   }
 
   async handleSaveUpdateSettings() {
-    const daysInput = $('update-days'); const hoursInput = $('update-hours'); const minutesInput = $('update-minutes')
-    const endsInput = $('update-ends'); const messageInput = $('update-message'); const bannerToggle = $('update-banner-toggle')
+    const daysInput = $('update-days')
+    const hoursInput = $('update-hours')
+    const minutesInput = $('update-minutes')
+    const endsInput = $('update-ends')
+    const messageInput = $('update-message')
+    const bannerToggle = $('update-banner-toggle')
+
     let endsAt = null
-    if (endsInput?.value) endsAt = new Date(endsInput.value).toISOString()
-    else {
-      const days = parseInt(daysInput?.value || '0'); const hours = parseInt(hoursInput?.value || '0'); const minutes = parseInt(minutesInput?.value || '0')
+
+    if (endsInput?.value) {
+      endsAt = new Date(endsInput.value).toISOString()
+    } else {
+      const days = parseInt(daysInput?.value || '0')
+      const hours = parseInt(hoursInput?.value || '0')
+      const minutes = parseInt(minutesInput?.value || '0')
       const totalMs = (days * 24 * 60 * 60 * 1000) + (hours * 60 * 60 * 1000) + (minutes * 60 * 1000)
-      if (totalMs > 0) endsAt = new Date(Date.now() + totalMs).toISOString()
+      
+      if (totalMs > 0) {
+        endsAt = new Date(Date.now() + totalMs).toISOString()
+      }
     }
-    if (!endsAt) { this.showMessage('update-settings-msg', 'Harap tentukan waktu update!', 'error'); return }
-    const message = messageInput?.value || 'Pembaruan sistem untuk pengalaman yang lebih baik!'; const showBanner = bannerToggle?.checked !== false
+
+    if (!endsAt) {
+      this.showMessage('update-settings-msg', 'Harap tentukan waktu update!', 'error')
+      return
+    }
+
+    const message = messageInput?.value || 'Pembaruan sistem untuk pengalaman yang lebih baik!'
+    const showBanner = bannerToggle?.checked !== false
+
     try {
-      await upsertUpdateSettings({ enabled: true, ends_at: endsAt, message, show_banner: showBanner })
+      await upsertUpdateSettings({
+        enabled: true,
+        ends_at: endsAt,
+        message,
+        show_banner: showBanner
+      })
+
       this.showMessage('update-settings-msg', 'Update countdown berhasil diatur!', 'success')
-      await initializeUpdateCountdown(); const updateStatus = await getUpdateStatus(); this.updateUpdateDisplay(updateStatus)
-    } catch (e) { this.showMessage('update-settings-msg', 'Gagal menyimpan pengaturan: ' + e.message, 'error') }
+      
+      await initializeUpdateCountdown()
+      
+      const updateStatus = await getUpdateStatus()
+      this.updateUpdateDisplay(updateStatus)
+
+    } catch (e) {
+      this.showMessage('update-settings-msg', 'Gagal menyimpan pengaturan: ' + e.message, 'error')
+    }
   }
 
   async handleSaveChangelogSettings() {
-    const toggle = $('changelog-toggle'); const titleInput = $('changelog-title'); const contentInput = $('changelog-content')
-    const versionInput = $('changelog-version'); const startupToggle = $('changelog-startup-toggle')
-    const enabled = toggle?.checked || false; const title = titleInput?.value || 'Pembaruan Terbaru'
-    const content = contentInput?.value || 'Tidak ada pembaruan untuk saat ini.'; const version = versionInput?.value || '1.0.0'
+    const toggle = $('changelog-toggle')
+    const titleInput = $('changelog-title')
+    const contentInput = $('changelog-content')
+    const versionInput = $('changelog-version')
+    const startupToggle = $('changelog-startup-toggle')
+
+    const enabled = toggle?.checked || false
+    const title = titleInput?.value || 'Pembaruan Terbaru'
+    const content = contentInput?.value || 'Tidak ada pembaruan untuk saat ini.'
+    const version = versionInput?.value || '1.0.0'
     const show_on_startup = startupToggle?.checked !== false
-    if (!title || !content || !version) { this.showMessage('changelog-msg', 'Harap isi semua field!', 'error'); return }
+
+    if (!title || !content || !version) {
+      this.showMessage('changelog-msg', 'Harap isi semua field!', 'error')
+      return
+    }
+
     try {
-      await upsertChangelog({ enabled, title, content, version, show_on_startup })
+      await upsertChangelog({
+        enabled,
+        title,
+        content,
+        version,
+        show_on_startup
+      })
+
       this.showMessage('changelog-msg', 'Pengaturan changelog berhasil disimpan!', 'success')
-      const changelog = await getChangelog(); this.updateChangelogDisplay(changelog)
-    } catch (e) { this.showMessage('changelog-msg', 'Gagal menyimpan pengaturan: ' + e.message, 'error') }
+      
+      const changelog = await getChangelog()
+      this.updateChangelogDisplay(changelog)
+
+    } catch (e) {
+      this.showMessage('changelog-msg', 'Gagal menyimpan pengaturan: ' + e.message, 'error')
+    }
   }
 
   async handleClearUpdate() {
     try {
-      await upsertUpdateSettings({ enabled: false, ends_at: null, message: 'Pembaruan sistem untuk pengalaman yang lebih baik!', show_banner: true })
+      await upsertUpdateSettings({
+        enabled: false,
+        ends_at: null,
+        message: 'Pembaruan sistem untuk pengalaman yang lebih baik!',
+        show_banner: true
+      })
+
       this.showMessage('update-settings-msg', 'Update countdown berhasil dihapus!', 'success')
-      if (updateCountdownInterval) { clearInterval(updateCountdownInterval); updateCountdownInterval = null }
-      hideUpdateBanner(); const headerBadge = $('headerUpdateBadge'); if (headerBadge) headerBadge.classList.add('hide')
-      const pages = ['download', 'upload', 'about']; pages.forEach(page => { const badge = $(`${page}UpdateBadge`); if (badge) badge.classList.add('hide') })
-      const updateStatus = await getUpdateStatus(); this.updateUpdateDisplay(updateStatus)
-    } catch (e) { this.showMessage('update-settings-msg', 'Gagal menghapus countdown: ' + e.message, 'error') }
+      
+      if (updateCountdownInterval) {
+        clearInterval(updateCountdownInterval)
+        updateCountdownInterval = null
+      }
+      
+      hideUpdateBanner()
+      
+      const headerBadge = $('headerUpdateBadge')
+      if (headerBadge) headerBadge.classList.add('hide')
+      
+      const pages = ['download', 'upload', 'about']
+      pages.forEach(page => {
+        const badge = $(`${page}UpdateBadge`)
+        if (badge) badge.classList.add('hide')
+      })
+      
+      const updateStatus = await getUpdateStatus()
+      this.updateUpdateDisplay(updateStatus)
+
+    } catch (e) {
+      this.showMessage('update-settings-msg', 'Gagal menghapus countdown: ' + e.message, 'error')
+    }
   }
 
   async handleCommentSubmit() {
-    const name = ($('cName')?.value || '').trim(); const message = ($('cMsg')?.value || '').trim()
-    if (!message) { this.showMessage('cleanup-result', 'Tulis komentar terlebih dahulu.', 'error'); return }
+    const name = ($('cName')?.value || '').trim()
+    const message = ($('cMsg')?.value || '').trim()
+
+    if (!message) {
+      this.showMessage('cleanup-result', 'Tulis komentar terlebih dahulu.', 'error')
+      return
+    }
+
     try {
-      await window.sendComment({ name: name || 'anon', message: message })
-      if ($('cMsg')) $('cMsg').value = ''; if ($('cName')) $('cName').value = ''
-      const btn = $('cSend'); const originalText = btn.innerHTML
-      btn.innerHTML = '<i class="fa fa-check"></i> Terkirim!'; btn.disabled = true
-      setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false }, 2000)
-    } catch (e) { this.showMessage('cleanup-result', 'Gagal mengirim komentar: ' + e.message, 'error') }
+      await window.sendComment({
+        name: name || 'anon',
+        message: message
+      })
+
+      if ($('cMsg')) $('cMsg').value = ''
+      if ($('cName')) $('cName').value = ''
+
+      const btn = $('cSend')
+      const originalText = btn.innerHTML
+      btn.innerHTML = '<i class="fa fa-check"></i> Terkirim!'
+      btn.disabled = true
+      
+      setTimeout(() => {
+        btn.innerHTML = originalText
+        btn.disabled = false
+      }, 2000)
+
+    } catch (e) {
+      this.showMessage('cleanup-result', 'Gagal mengirim komentar: ' + e.message, 'error')
+    }
   }
 
   showMessage(elementId, message, type = 'info') {
-    const element = $(elementId); if (!element) return
-    element.innerHTML = message; element.className = `settings-message ${type}`
-    if (type === 'success') setTimeout(() => { element.innerHTML = ''; element.className = 'settings-message' }, 5000)
+    const element = $(elementId)
+    if (!element) return
+
+    element.innerHTML = message
+    element.className = `settings-message ${type}`
+    
+    if (type === 'success') {
+      setTimeout(() => {
+        element.innerHTML = ''
+        element.className = 'settings-message'
+      }, 5000)
+    }
   }
 }
 
 // ----------------- Initialization -----------------
 document.addEventListener('DOMContentLoaded', async () => {
-  const uiManager = new UIManager()
-  initializeUpdateCountdown()
-  initializeChangelog()
-  setInterval(async () => { try { await cleanExpiredFiles() } catch (e) { console.warn('Background cleanup failed:', e.message || e) } }, 2 * 60 * 1000)
-  cleanExpiredFiles().catch(e => { console.warn('Initial cleanup failed:', e.message || e) })
-  $$('.nav-btn').forEach((btn, i) => {
-    btn.animate([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'translateY(0)' }], {
-      duration: 420, delay: i * 80, easing: 'cubic-bezier(.2,.9,.3,1)'
+  console.log('[safenest] DOM Content Loaded - Starting initialization')
+  
+  try {
+    const uiManager = new UIManager()
+    await uiManager.init()
+
+    initializeUpdateCountdown()
+    initializeChangelog()
+
+    // Background cleanup dengan error handling
+    setInterval(async () => {
+      try {
+        await cleanExpiredFiles()
+      } catch (e) {
+        console.warn('Background cleanup failed:', e.message || e)
+      }
+    }, 2 * 60 * 1000)
+
+    // Initial cleanup dengan error handling
+    cleanExpiredFiles().catch(e => {
+      console.warn('Initial cleanup failed:', e.message || e)
     })
-  })
-  window.addEventListener('load', () => {
-    setTimeout(() => {
-      const loader = $('globalLoader')
-      if (loader) { loader.style.opacity = '0'; setTimeout(() => loader.remove(), 300) }
-    }, 1000)
-  })
+    
+    $$('.nav-btn').forEach((btn, i) => {
+      btn.animate([
+        { opacity: 0, transform: 'translateY(8px)' },
+        { opacity: 1, transform: 'translateY(0)' }
+      ], {
+        duration: 420,
+        delay: i * 80,
+        easing: 'cubic-bezier(.2,.9,.3,1)'
+      })
+    })
+
+    console.log('[safenest] Initialization completed successfully')
+
+  } catch (error) {
+    console.error('[safenest] Initialization failed:', error)
+  }
 })
 
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    const loader = $('globalLoader')
+    if (loader) {
+      loader.style.opacity = '0'
+      setTimeout(() => {
+        if (loader.parentNode) {
+          loader.remove()
+        }
+      }, 300)
+    }
+  }, 1000)
+})
+
+// Emergency loader timeout
+setTimeout(() => {
+  const loader = document.getElementById('globalLoader')
+  if (loader && loader.style.opacity !== '0') {
+    console.warn('Emergency loader timeout triggered')
+    loader.style.opacity = '0'
+    setTimeout(() => {
+      if (loader.parentNode) {
+        loader.remove()
+      }
+    }, 300)
+  }
+}, 8000)
+
+// Make functions globally available
 window.hideUpdateBanner = hideUpdateBanner
 window.checkMaintenanceForUpload = checkMaintenanceForUpload
 window.hideChangelog = hideChangelog
 window.hideAdminWelcome = hideAdminWelcome
+window.hideMaintenanceOverlay = hideMaintenanceOverlay
