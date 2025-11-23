@@ -52,15 +52,36 @@
     </header>
 
     <main class="main-area">
-      <!-- DOWNLOAD -->
+      <!-- DOWNLOAD - DIPERBAIKI DENGAN DASHBOARD FILE -->
       <section id="page-download" class="page active">
         <div class="card glass-card">
           <div class="card-header">
-            <h2 class="page-title"><i class="fa fa-download"></i> Download</h2>
+            <h2 class="page-title"><i class="fa fa-download"></i> Dashboard File Saya</h2>
             <div id="downloadUpdateBadge" class="page-update-badge hide">
               <i class="fa fa-rocket"></i>
               <span>Update dalam: <span id="downloadUpdateCountdown">--:--:--</span></span>
             </div>
+          </div>
+          
+          <div class="dashboard-actions">
+            <button id="uploadNewFile" class="btn primary">
+              <i class="fa fa-plus"></i> Upload File Baru
+            </button>
+            <button class="btn ghost" onclick="uiManager.loadUserFiles()">
+              <i class="fa fa-refresh"></i> Refresh
+            </button>
+          </div>
+
+          <div id="userFilesList" class="user-files-list">
+            <!-- File user akan dimuat di sini -->
+          </div>
+
+          <div id="user-files-message" class="settings-message"></div>
+        </div>
+
+        <div class="card glass-card" style="margin-top: 20px;">
+          <div class="card-header">
+            <h3 class="page-title"><i class="fa fa-key"></i> Akses File dengan Kredensial</h3>
           </div>
           
           <p class="muted">Masukkan username & password yang diberikan uploader.</p>
@@ -180,7 +201,7 @@
         <footer class="page-footer">copyright by safenest © 2025-2026</footer>
       </section>
 
-      <!-- ABOUT - LAYOUT DIPERBAIKI -->
+      <!-- ABOUT -->
       <section id="page-about" class="page">
         <div class="card glass-card">
           <div class="card-header">
@@ -245,39 +266,6 @@
                 <div class="feature-content">
                   <h4>Keamanan Berlapis</h4>
                   <p>File Anda dilindungi dengan enkripsi dan sistem autentikasi yang kuat.</p>
-                </div>
-              </div>
-            </div>
-
-            <div class="about-section vision-mission">
-              <div class="vm-grid">
-                <div class="vm-card">
-                  <div class="vm-icon">
-                    <i class="fa fa-eye"></i>
-                  </div>
-                  <h4>Visi Kami</h4>
-                  <p>Mewujudkan ruang berbagi file yang aman, pribadi, dan minimalis tanpa kompromi terhadap keamanan data pengguna.</p>
-                </div>
-                
-                <div class="vm-card">
-                  <div class="vm-icon">
-                    <i class="fa fa-target"></i>
-                  </div>
-                  <h4>Misi Kami</h4>
-                  <div class="mission-list">
-                    <div class="mission-item">
-                      <span class="mission-number">1</span>
-                      <span>Sistem berbagi file yang cepat dan bebas distraksi</span>
-                    </div>
-                    <div class="mission-item">
-                      <span class="mission-number">2</span>
-                      <span>Privasi melalui kredensial unik per-file</span>
-                    </div>
-                    <div class="mission-item">
-                      <span class="mission-number">3</span>
-                      <span>Lingkungan yang aman dan nyaman bagi semua pengguna</span>
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
@@ -357,118 +345,242 @@
         <div class="card glass-card">
           <div class="card-header">
             <h2 class="page-title"><i class="fa fa-lock"></i> Admin Dashboard</h2>
-            <button id="admin-logout" class="btn ghost small">
-              <i class="fa fa-sign-out"></i> Logout
-            </button>
-          </div>
-
-          <!-- Quick Stats -->
-          <div class="simple-stats">
-            <div class="stat-item">
-              <div class="stat-number" id="stat-uploads">0</div>
-              <div class="stat-label">Uploads</div>
-            </div>
-            <div class="stat-item">
-              <div class="stat-number" id="stat-downloads">0</div>
-              <div class="stat-label">Downloads</div>
-            </div>
-            <div class="stat-item">
-              <div class="stat-number" id="stat-files">0</div>
-              <div class="stat-label">Files Aktif</div>
+            <div class="admin-status">
+              <span class="status-badge active"><i class="fa fa-circle"></i> Online</span>
             </div>
           </div>
 
-          <!-- Quick Actions -->
-          <div class="quick-actions">
-            <h4>Quick Actions</h4>
-            <div class="action-buttons">
-              <button id="cleanup-files" class="btn primary small">
-                <i class="fa fa-trash"></i> Bersihkan Expired
-              </button>
-              <button id="refresh-files" class="btn ghost small">
-                <i class="fa fa-refresh"></i> Refresh
-              </button>
-              <button id="clear-cache" class="btn ghost small">
-                <i class="fa fa-eraser"></i> Clear Cache
-              </button>
+          <div id="admin-welcome" class="admin-welcome">
+            <div class="welcome-icon">
+              <i class="fa fa-shield"></i>
+            </div>
+            <div class="welcome-text">
+              <h3>Selamat datang, Admin!</h3>
+              <p class="muted">Kelola sistem Safenest dari sini</p>
             </div>
           </div>
 
-          <!-- System Controls -->
-          <div class="system-controls">
-            <div class="control-group">
-              <h4><i class="fa fa-wrench"></i> Maintenance Mode</h4>
-              <div class="toggle-row">
-                <label class="toggle">
-                  <input type="checkbox" id="maintenance-toggle" />
-                  <span class="toggle-slider"></span>
-                </label>
-                <span class="toggle-label">Aktifkan Maintenance</span>
+          <!-- 1. Statistik -->
+          <div class="admin-block">
+            <h4><i class="fa fa-bar-chart"></i> Statistik Sistem</h4>
+            <div id="stat-box" class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-icon uploads">
+                  <i class="fa fa-upload"></i>
+                </div>
+                <div class="stat-content">
+                  <div class="stat-num" id="stat-uploads">0</div>
+                  <div class="stat-label">Total Uploads</div>
+                </div>
               </div>
+              <div class="stat-card">
+                <div class="stat-icon downloads">
+                  <i class="fa fa-download"></i>
+                </div>
+                <div class="stat-content">
+                  <div class="stat-num" id="stat-downloads">0</div>
+                  <div class="stat-label">Total Downloads</div>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon files">
+                  <i class="fa fa-files-o"></i>
+                </div>
+                <div class="stat-content">
+                  <div class="stat-num" id="stat-files">0</div>
+                  <div class="stat-label">File Aktif</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. Changelog Settings -->
+          <div class="admin-block">
+            <h4><i class="fa fa-newspaper-o"></i> Changelog Settings</h4>
+            <div class="admin-settings-card">
+              <p class="muted">Kelola pembaruan dan informasi versi untuk pengguna.</p>
               
-              <div id="maintenance-settings" class="control-settings">
-                <input type="text" id="maintenance-message" placeholder="Pesan maintenance..." class="full-width" />
-                <input type="datetime-local" id="maintenance-ends" class="full-width" />
-                <button id="save-maintenance-settings" class="btn primary small full-width">
-                  <i class="fa fa-save"></i> Simpan Maintenance
+              <div class="setting-group">
+                <div class="toggle-group">
+                  <label class="toggle">
+                    <input type="checkbox" id="changelog-enabled" />
+                    <span class="toggle-slider"></span>
+                  </label>
+                  <span class="toggle-label">Aktifkan Changelog</span>
+                </div>
+              </div>
+
+              <div id="changelog-settings" class="changelog-settings">
+                <div class="setting-group">
+                  <label class="setting-label">Judul Changelog</label>
+                  <input type="text" id="changelog-title" placeholder="Pembaruan Terbaru" />
+                </div>
+
+                <div class="setting-group">
+                  <label class="setting-label">Versi</label>
+                  <input type="text" id="changelog-version" placeholder="1.0.0" />
+                </div>
+
+                <div class="setting-group">
+                  <label class="setting-label">Konten Changelog</label>
+                  <textarea 
+                    id="changelog-content" 
+                    placeholder="Tuliskan pembaruan dan perbaikan..."
+                    rows="6"
+                  ></textarea>
+                </div>
+
+                <div class="setting-group">
+                  <div class="toggle-group">
+                    <label class="toggle">
+                      <input type="checkbox" id="changelog-startup" checked />
+                      <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label">Tampilkan saat startup</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="setting-actions">
+                <button id="save-changelog-settings" class="btn primary">
+                  <i class="fa fa-floppy-o"></i> Simpan Changelog
+                </button>
+                <button id="test-changelog" class="btn ghost">
+                  <i class="fa fa-eye"></i> Test Changelog
                 </button>
               </div>
-            </div>
-
-            <div class="control-group">
-              <h4><i class="fa fa-rocket"></i> Update Countdown</h4>
-              <div class="toggle-row">
-                <label class="toggle">
-                  <input type="checkbox" id="update-toggle" />
-                  <span class="toggle-slider"></span>
-                </label>
-                <span class="toggle-label">Aktifkan Countdown</span>
-              </div>
               
-              <div id="update-settings" class="control-settings">
-                <input type="text" id="update-message" placeholder="Pesan update..." class="full-width" />
-                <input type="datetime-local" id="update-ends" class="full-width" />
-                <div class="toggle-row">
+              <div id="changelog-msg" class="settings-message"></div>
+            </div>
+          </div>
+
+          <!-- 3. Update Countdown Settings -->
+          <div class="admin-block">
+            <h4><i class="fa fa-rocket"></i> Update Countdown</h4>
+            <div class="admin-settings-card">
+              <p class="muted">Atur countdown untuk update berikutnya.</p>
+              
+              <div class="setting-group">
+                <label class="setting-label">Jadwal Update Berikutnya</label>
+                <div class="time-inputs-grid">
+                  <div class="time-input">
+                    <input type="number" id="update-days" placeholder="0" min="0" />
+                    <label>Hari</label>
+                  </div>
+                  <div class="time-input">
+                    <input type="number" id="update-hours" placeholder="0" min="0" max="23" />
+                    <label>Jam</label>
+                  </div>
+                  <div class="time-input">
+                    <input type="number" id="update-minutes" placeholder="0" min="0" max="59" />
+                    <label>Menit</label>
+                  </div>
+                </div>
+                
+                <div class="datetime-input">
+                  <label>Atau tentukan waktu pasti:</label>
+                  <input type="datetime-local" id="update-ends" />
+                </div>
+              </div>
+
+              <div class="setting-group">
+                <label class="setting-label">Pesan Update</label>
+                <textarea 
+                  id="update-message" 
+                  placeholder="Jelaskan update yang akan datang..."
+                  rows="3"
+                >Pembaruan sistem untuk pengalaman yang lebih baik!</textarea>
+              </div>
+
+              <div class="setting-group">
+                <div class="toggle-group">
                   <label class="toggle">
                     <input type="checkbox" id="update-banner-toggle" checked />
                     <span class="toggle-slider"></span>
                   </label>
-                  <span class="toggle-label">Tampilkan Banner</span>
+                  <span class="toggle-label">Tampilkan banner countdown</span>
                 </div>
-                <button id="save-update-settings" class="btn primary small full-width">
-                  <i class="fa fa-save"></i> Simpan Update
+              </div>
+
+              <div class="setting-actions">
+                <button id="save-update-settings" class="btn primary">
+                  <i class="fa fa-floppy-o"></i> Simpan Pengaturan Update
                 </button>
-                <button id="clear-update" class="btn ghost small full-width">
+                <button id="clear-update" class="btn ghost">
                   <i class="fa fa-times"></i> Hapus Countdown
                 </button>
               </div>
+              
+              <div id="update-settings-msg" class="settings-message"></div>
             </div>
+          </div>
 
-            <div class="control-group">
-              <h4><i class="fa fa-history"></i> Changelog Settings</h4>
-              <div class="control-settings">
-                <input type="text" id="app-version" placeholder="Versi (contoh: v2.1.0)" class="full-width" />
-                <textarea id="changelog-content" placeholder="Changelog dalam format JSON" rows="6" class="full-width"></textarea>
-                <small class="muted">Format: [{"version": "v2.1.0", "date": "2024-01-15", "changes": ["Fitur 1", "Fitur 2"]}]</small>
-                <button id="save-changelog-settings" class="btn primary small full-width">
-                  <i class="fa fa-save"></i> Simpan Changelog
+          <!-- 4. Maintenance Settings -->
+          <div class="admin-block">
+            <h4><i class="fa fa-wrench"></i> Maintenance Settings</h4>
+            <div class="admin-settings-card">
+              <div class="setting-group">
+                <div class="toggle-group">
+                  <label class="toggle">
+                    <input type="checkbox" id="maintenance-toggle" />
+                    <span class="toggle-slider"></span>
+                  </label>
+                  <span class="toggle-label">Aktifkan Maintenance Mode</span>
+                </div>
+              </div>
+
+              <div id="maintenance-settings" class="maintenance-settings">
+                <div class="setting-group">
+                  <label class="setting-label">Durasi Maintenance</label>
+                  <div class="time-inputs-grid">
+                    <div class="time-input">
+                      <input type="number" id="maintenance-days" placeholder="0" min="0" />
+                      <label>Hari</label>
+                    </div>
+                    <div class="time-input">
+                      <input type="number" id="maintenance-hours" placeholder="0" min="0" max="23" />
+                      <label>Jam</label>
+                    </div>
+                  </div>
+                  
+                  <div class="datetime-input">
+                    <label>Atau tentukan waktu akhir:</label>
+                    <input type="datetime-local" id="maintenance-ends" />
+                  </div>
+                </div>
+
+                <div class="setting-group">
+                  <label class="setting-label">Pesan Maintenance</label>
+                  <textarea 
+                    id="maintenance-message" 
+                    placeholder="Pesan yang akan ditampilkan kepada pengguna..."
+                    rows="3"
+                  >Sistem dalam perbaikan. Terima kasih atas pengertiannya.</textarea>
+                </div>
+              </div>
+
+              <div class="setting-actions">
+                <button id="save-maintenance-settings" class="btn primary">
+                  <i class="fa fa-floppy-o"></i> Simpan Pengaturan Maintenance
                 </button>
               </div>
+              
+              <div id="maintenance-msg" class="settings-message"></div>
             </div>
           </div>
 
-          <!-- File Management -->
-          <div class="file-management">
-            <div class="files-header">
-              <h4><i class="fa fa-files-o"></i> File Management</h4>
-              <div class="files-count">Total: <span id="files-count">0</span> file</div>
-            </div>
-            <div id="files-list" class="simple-files-list">
-              <!-- File list will be inserted here -->
+          <!-- 5. System Actions -->
+          <div class="admin-block">
+            <h4><i class="fa fa-cogs"></i> System Actions</h4>
+            <div class="system-actions">
+              <button id="clear-cache" class="btn ghost">
+                <i class="fa fa-eraser"></i> Clear Cache
+              </button>
+              <button id="admin-logout" class="btn ghost">
+                <i class="fa fa-sign-out"></i> Logout Admin
+              </button>
             </div>
           </div>
-
-          <div id="admin-message" class="admin-message"></div>
         </div>
       </section>
     </main>
@@ -478,7 +590,7 @@
       <div class="nav-inner">
         <button class="nav-btn" data-target="page-download" id="nav-download" aria-label="Download">
           <div class="icon-wrap"><i class="fa fa-download"></i></div>
-          <div class="label">Download</div>
+          <div class="label">Dashboard</div>
         </button>
 
         <button class="nav-btn center" data-target="page-upload" id="nav-upload" aria-label="Upload">
@@ -494,31 +606,31 @@
     </nav>
   </div>
 
-  <!-- Changelog Floating Button & Popup -->
-  <div id="changelogButton" class="changelog-floating-btn small">
-    <i class="fa fa-history"></i>
-  </div>
-
-  <div id="changelogOverlay" class="changelog-overlay hide"></div>
-
-  <div id="changelogPopup" class="changelog-popup hide">
-    <div class="changelog-header">
-      <h3><i class="fa fa-history"></i> Changelog & Version</h3>
-      <button id="changelogClose" class="changelog-close-btn">
-        <i class="fa fa-times"></i>
-      </button>
-    </div>
-    
-    <div class="version-info">
-      <div class="version-badge">
-        <i class="fa fa-tag"></i>
-        <span id="currentVersion">v2.1.0</span>
+  <!-- Changelog Modal -->
+  <div id="changelogModal" class="global-maintenance-overlay hide">
+    <div class="changelog-modal">
+      <div class="changelog-header">
+        <div class="changelog-icon">
+          <i class="fa fa-newspaper-o"></i>
+        </div>
+        <div class="changelog-title-content">
+          <h3 id="changelog-title">Pembaruan Terbaru</h3>
+          <span class="changelog-version" id="changelog-version">v1.0.0</span>
+        </div>
+        <button class="changelog-close" onclick="hideChangelogModal()">
+          <i class="fa fa-times"></i>
+        </button>
       </div>
-      <p class="muted">Riwayat pembaruan dan fitur Safenest</p>
-    </div>
-
-    <div id="changelogContent" class="changelog-content">
-      <!-- Changelog items will be inserted here -->
+      <div class="changelog-content">
+        <div id="changelog-content" class="changelog-text">
+          <!-- Konten changelog akan dimuat di sini -->
+        </div>
+      </div>
+      <div class="changelog-actions">
+        <button class="btn primary changelog-ok" onclick="hideChangelogModal()">
+          <i class="fa fa-check"></i> Mengerti
+        </button>
+      </div>
     </div>
   </div>
 

@@ -1,4 +1,4 @@
-// app.js — Safenest dengan Tampilan Upload yang Lebih Clean
+// app.js — Safenest dengan Dashboard Admin yang Lebih Sederhana
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
 
 // ========== CONFIG ==========
@@ -6,6 +6,7 @@ const SUPABASE_URL = 'https://rjsifamddfdhnlvrrwbb.supabase.co'
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJqc2lmYW1kZGZkaG5sdnJyd2JiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2Mjc2ODM5NiwiZXhwIjoyMDc4MzQ0Mzk2fQ.RwHToh53bF3iqWLomtBQczrkErqjXRxprIhvT4RB-1k'
 const BUCKET = 'piw-files'
 const BASE_LOGIN_LINK = window.location.origin
+const ADMIN_CREDENTIALS = { user: 'aryapiw.pages.dev', pass: 'dapid.my.id' }
 // ============================
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
@@ -14,8 +15,6 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 let updateCountdownInterval = null
 let maintenanceCountdownInterval = null
 let currentUpdateEndsAt = null
-let changelogTimeout = null
-let lazyLoadObserver = null
 
 // ----------------- Optimized Helpers -----------------
 const $ = id => document.getElementById(id)
@@ -52,115 +51,6 @@ function escapeHtml(s=''){
   return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;') 
 }
 
-// ----------------- Admin Authentication System -----------------
-async function verifyAdminCredentials(username, password) {
-  try {
-    const { data, error } = await supabase
-      .from('admin_users')
-      .select('*')
-      .eq('username', username)
-      .eq('is_active', true)
-      .single()
-
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return { valid: false, reason: 'Admin tidak ditemukan' }
-      }
-      throw error
-    }
-
-    if (!data) {
-      return { valid: false, reason: 'Admin tidak ditemukan' }
-    }
-
-    // Verify password
-    const hash = await sha256(password)
-    if (hash !== data.password_hash) {
-      return { valid: false, reason: 'Password salah' }
-    }
-
-    return { valid: true, admin: data }
-  } catch (error) {
-    console.error('Admin verification error:', error)
-    return { valid: false, reason: 'Terjadi kesalahan sistem' }
-  }
-}
-
-async function createAdminUser(username, password) {
-  try {
-    const hash = await sha256(password)
-    
-    const { data, error } = await supabase
-      .from('admin_users')
-      .insert([{
-        username: username,
-        password_hash: hash,
-        is_active: true,
-        created_at: new Date().toISOString()
-      }])
-      .select()
-      .single()
-
-    if (error) throw error
-    return { success: true, data }
-  } catch (error) {
-    console.error('Create admin error:', error)
-    return { success: false, error: error.message }
-  }
-}
-
-// ----------------- Lazy Loading System -----------------
-function initializeLazyLoading() {
-  if ('IntersectionObserver' in window) {
-    lazyLoadObserver = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          const element = entry.target
-          
-          // Lazy load images
-          if (element.tagName === 'IMG' && element.dataset.src) {
-            element.src = element.dataset.src
-            element.classList.remove('lazy')
-            lazyLoadObserver.unobserve(element)
-          }
-          
-          // Lazy load background images
-          if (element.dataset.bg) {
-            element.style.backgroundImage = `url(${element.dataset.bg})`
-            element.classList.remove('lazy-bg')
-            lazyLoadObserver.unobserve(element)
-          }
-          
-          // Lazy load components
-          if (element.classList.contains('lazy-component')) {
-            element.classList.add('loaded')
-            lazyLoadObserver.unobserve(element)
-          }
-        }
-      })
-    }, {
-      rootMargin: '50px 0px',
-      threshold: 0.1
-    })
-
-    // Observe all lazy elements
-    document.querySelectorAll('.lazy, .lazy-bg, .lazy-component').forEach(el => {
-      lazyLoadObserver.observe(el)
-    })
-  } else {
-    // Fallback for browsers without IntersectionObserver
-    document.querySelectorAll('.lazy[data-src]').forEach(img => {
-      img.src = img.dataset.src
-    })
-    document.querySelectorAll('.lazy-bg[data-bg]').forEach(el => {
-      el.style.backgroundImage = `url(${el.dataset.bg})`
-    })
-    document.querySelectorAll('.lazy-component').forEach(el => {
-      el.classList.add('loaded')
-    })
-  }
-}
-
 // ----------------- Cache System -----------------
 const cache = {
   get: (key) => {
@@ -195,153 +85,68 @@ const cache = {
   }
 }
 
-// ----------------- App Version & Changelog System -----------------
-let APP_VERSION = 'v2.1.0'
-let CHANGELOG = []
+// ----------------- Changelog System -----------------
+async function getChangelog() {
+  const cacheKey = 'changelog'
+  const cached = cache.get(cacheKey)
+  if (cached) return cached
 
-async function loadAppSettings() {
-  try {
-    const settings = await getSetting('app_settings')
-    if (settings?.value) {
-      APP_VERSION = settings.value.version || APP_VERSION
-      CHANGELOG = settings.value.changelog || []
-    }
-  } catch (error) {
-    console.warn('Failed to load app settings:', error)
+  const setting = await getSetting('changelog')
+  const changelog = {
+    enabled: false,
+    title: 'Pembaruan Terbaru',
+    content: '',
+    version: '1.0.0',
+    show_on_startup: true
   }
+
+  if (setting?.value) {
+    changelog.enabled = setting.value.enabled || false
+    changelog.title = setting.value.title || changelog.title
+    changelog.content = setting.value.content || changelog.content
+    changelog.version = setting.value.version || changelog.version
+    changelog.show_on_startup = setting.value.show_on_startup !== false
+  }
+
+  cache.set(cacheKey, changelog, 30 * 1000)
+  return changelog
 }
 
-function getChangelog() {
-  return CHANGELOG
-}
-
-function getAppVersion() {
-  return APP_VERSION
-}
-
-async function saveChangelogSettings(version, changelog) {
-  try {
-    APP_VERSION = version
-    CHANGELOG = changelog
-    
-    await upsertSetting('app_settings', {
-      version: version,
-      changelog: changelog,
+async function upsertChangelog(settings) {
+  const payload = { 
+    key: 'changelog',
+    value: {
+      ...settings,
       updated_at: new Date().toISOString()
-    })
-    
-    cache.clear('app_settings')
-    return true
-  } catch (error) {
-    console.error('Failed to save changelog settings:', error)
-    throw error
-  }
-}
-
-// ----------------- Changelog Popup Functions -----------------
-function showChangelogPopup() {
-  const popup = $('changelogPopup')
-  const overlay = $('changelogOverlay')
-  if (popup && overlay) {
-    popup.classList.remove('hide')
-    overlay.classList.remove('hide')
-    setTimeout(() => {
-      popup.classList.add('active')
-      overlay.classList.add('active')
-    }, 10)
-    document.body.style.overflow = 'hidden'
-    
-    // Load changelog content
-    loadChangelogContent()
-    
-    // Reset timeout
-    resetChangelogButtonTimeout()
-  }
-}
-
-function hideChangelogPopup() {
-  const popup = $('changelogPopup')
-  const overlay = $('changelogOverlay')
-  if (popup && overlay) {
-    popup.classList.remove('active')
-    overlay.classList.remove('active')
-    setTimeout(() => {
-      popup.classList.add('hide')
-      overlay.classList.add('hide')
-    }, 300)
-    document.body.style.overflow = ''
-    
-    // Reset timeout
-    resetChangelogButtonTimeout()
-  }
-}
-
-function loadChangelogContent() {
-  try {
-    const container = $('#changelogContent')
-    const versionEl = $('#currentVersion')
-    
-    if (versionEl) versionEl.textContent = getAppVersion()
-    
-    if (!container) return
-
-    const changelog = getChangelog()
-    container.innerHTML = ''
-    
-    if (changelog.length === 0) {
-      container.innerHTML = '<div class="muted text-center" style="padding: 40px;">Belum ada riwayat perubahan</div>'
-      return
     }
-    
-    changelog.forEach(item => {
-      const itemEl = document.createElement('div')
-      itemEl.className = 'changelog-item lazy-component'
-      
-      const changesList = item.changes.map(change => 
-        `<li>${escapeHtml(change)}</li>`
-      ).join('')
-      
-      itemEl.innerHTML = `
-        <div class="changelog-header-inner">
-          <span class="changelog-version">${escapeHtml(item.version)}</span>
-          <span class="changelog-date">${escapeHtml(item.date)}</span>
-        </div>
-        <ul class="changelog-changes">
-          ${changesList}
-        </ul>
-      `
-      
-      container.appendChild(itemEl)
-    })
+  }
+  
+  const { data, error } = await supabase
+    .from('settings')
+    .upsert([payload])
+    .select()
+    .single()
 
-    // Initialize lazy loading for new elements
-    if (lazyLoadObserver) {
-      container.querySelectorAll('.lazy-component').forEach(el => {
-        lazyLoadObserver.observe(el)
-      })
-    }
+  if (error) throw error
+  
+  cache.clear('changelog')
+  return data
+}
 
-  } catch (error) {
-    console.error('Error loading changelog content:', error)
+function showChangelogModal() {
+  const modal = $('changelogModal')
+  if (modal) {
+    modal.classList.remove('hide')
+    setTimeout(() => modal.classList.add('active'), 10)
   }
 }
 
-function resetChangelogButtonTimeout() {
-  const button = $('changelogButton')
-  if (!button) return
-  
-  // Clear existing timeout
-  if (changelogTimeout) {
-    clearTimeout(changelogTimeout)
+function hideChangelogModal() {
+  const modal = $('changelogModal')
+  if (modal) {
+    modal.classList.remove('active')
+    setTimeout(() => modal.classList.add('hide'), 300)
   }
-  
-  // Add small class immediately
-  button.classList.add('small')
-  
-  // Set timeout to remove small class after 3 seconds of inactivity
-  changelogTimeout = setTimeout(() => {
-    button.classList.remove('small')
-  }, 3000)
 }
 
 // ----------------- Update Countdown System -----------------
@@ -690,7 +495,7 @@ async function listFiles(){
 
   const { data, error } = await supabase
     .from('files')
-    .select('id, username, size, created_at, expires_at, storage_path')
+    .select('*')
     .order('created_at', { ascending: false })
     .limit(500)
 
@@ -758,7 +563,7 @@ async function upsertSetting(key, valueObj){
   cache.clear(`setting_${key}`)
   if (key === 'maintenance') cache.clear('maintenance_status')
   if (key === 'update_countdown') cache.clear('update_status')
-  if (key === 'app_settings') cache.clear('app_settings')
+  if (key === 'changelog') cache.clear('changelog')
   
   return data
 }
@@ -797,31 +602,30 @@ function isAdminSession(){
   if (!session) return false
   
   try {
-    const { expiry, username } = JSON.parse(session)
+    const { expiry } = JSON.parse(session)
     if (expiry && Date.now() > expiry) {
       localStorage.removeItem('sn_admin_session')
       return false
     }
-    return { valid: true, username }
+    return true
   } catch {
     localStorage.removeItem('sn_admin_session')
     return false
   }
 }
 
-function setAdminSession(username, ttl = 24 * 60 * 60 * 1000){
-  const session = {
-    username: username,
-    created: Date.now(),
-    expiry: Date.now() + ttl
+function setAdminSession(on = true, ttl = 24 * 60 * 60 * 1000){
+  if (on) {
+    const session = {
+      created: Date.now(),
+      expiry: Date.now() + ttl
+    }
+    localStorage.setItem('sn_admin_session', JSON.stringify(session))
+  } else {
+    localStorage.removeItem('sn_admin_session')
+    cache.clear('stats')
+    cache.clear('files_list')
   }
-  localStorage.setItem('sn_admin_session', JSON.stringify(session))
-}
-
-function clearAdminSession(){
-  localStorage.removeItem('sn_admin_session')
-  cache.clear('stats')
-  cache.clear('files_list')
 }
 
 // ----------------- Fixed Expiry System -----------------
@@ -851,12 +655,12 @@ function expiryToIso(selectVal){
   return expiryDate.toISOString()
 }
 
-// ----------------- Fixed Cleanup System - DIPERBAIKI -----------------
+// ----------------- Fixed Cleanup System -----------------
 async function cleanExpiredFiles(){
   try {
     const now = new Date().toISOString()
     
-    // Find expired files - QUERY YANG LEBIH AMAN
+    // Find expired files
     const { data: expiredFiles, error } = await supabase
       .from('files')
       .select('*')
@@ -877,7 +681,7 @@ async function cleanExpiredFiles(){
 
     for (const file of expiredFiles) {
       try {
-        // Check if file has any downloads - QUERY TERPISAH YANG LEBIH AMAN
+        // Check if file has any downloads
         const { data: downloads, error: downloadError } = await supabase
           .from('downloads')
           .select('id')
@@ -895,9 +699,9 @@ async function cleanExpiredFiles(){
           // File has never been downloaded, safe to delete
           await deleteFile(file)
           cleanedCount++
-          log(`Deleted expired file: ${file.username} (ID: ${file.id})`)
+          log(`Deleted expired file: ${file.filename} (ID: ${file.id})`)
         } else {
-          log(`Skipping expired file with downloads: ${file.username} (Downloads: ${downloadCount})`)
+          log(`Skipping expired file with downloads: ${file.filename} (Downloads: ${downloadCount})`)
         }
       } catch (e) {
         console.warn(`Error processing file ${file.id}:`, e.message || e)
@@ -964,6 +768,7 @@ class UIManager {
     this.pages = Array.from($$('.page'))
     this.navButtons = Array.from($$('.nav-btn'))
     this.currentPage = 'page-download'
+    this.userFiles = []
     this.init()
   }
 
@@ -972,15 +777,7 @@ class UIManager {
     this.setupEventListeners()
     this.showPage('page-download')
     this.initializeAdminSettings()
-    loadAppSettings().then(() => {
-      this.loadChangelogSettings()
-    })
-    
-    // Initialize changelog button timeout
-    resetChangelogButtonTimeout()
-    
-    // Initialize lazy loading
-    initializeLazyLoading()
+    this.initializeChangelog()
   }
 
   setupNavigation() {
@@ -1032,11 +829,8 @@ class UIManager {
   }
 
   showPage(id) {
-    const session = isAdminSession()
-    
-    if (id === 'page-admin' && !session) {
+    if (id === 'page-admin' && !isAdminSession()) {
       id = 'page-download'
-      this.showMessage('admin-message', 'Silakan login sebagai admin terlebih dahulu', 'error')
     }
 
     this.currentPage = id
@@ -1053,6 +847,8 @@ class UIManager {
 
     if (id === 'page-admin') {
       this.loadAdminDashboard()
+    } else if (id === 'page-download') {
+      this.loadUserFiles()
     }
   }
 
@@ -1069,8 +865,7 @@ class UIManager {
   }
 
   async loadAdminDashboard() {
-    const session = isAdminSession()
-    if (!session) return
+    if (!isAdminSession()) return
 
     try {
       const stats = await loadStats()
@@ -1078,171 +873,753 @@ class UIManager {
       if ($('stat-downloads')) $('stat-downloads').textContent = stats.downloads
       if ($('stat-files')) $('stat-files').textContent = stats.files
 
-      await this.loadFilesList()
-      await this.loadMaintenanceSettings()
-      await this.loadUpdateSettings()
       await this.loadChangelogSettings()
-
-      // Update welcome message dengan username admin
-      const welcomeText = $('admin-welcome-text')
-      if (welcomeText) {
-        welcomeText.textContent = `Selamat datang, ${session.username}!`
-      }
 
     } catch (e) {
       console.error('Admin dashboard error:', e)
     }
   }
 
-  async loadFilesList() {
-    try {
-      const files = await listFiles()
-      const filesListEl = $('files-list')
-      const filesCountEl = $('files-count')
-      
-      if (!filesListEl) return
+  async loadUserFiles() {
+    // Simulasi data file user (dalam implementasi real, ini akan diambil dari database)
+    // Untuk demo, kita gunakan data dummy
+    this.userFiles = [
+      { id: 1, name: 'document.pdf', size: 2457600, uploaded: '2024-01-15', expires: '2024-02-15' },
+      { id: 2, name: 'image.jpg', size: 1024000, uploaded: '2024-01-16', expires: '2024-01-23' },
+      { id: 3, name: 'presentation.pptx', size: 5242880, uploaded: '2024-01-14', expires: null }
+    ]
+    
+    this.renderUserFiles()
+  }
 
-      filesListEl.innerHTML = ''
-      
-      if (filesCountEl) filesCountEl.textContent = files.length
+  renderUserFiles() {
+    const container = $('userFilesList')
+    if (!container) return
 
-      if (files.length === 0) {
-        filesListEl.innerHTML = '<div class="muted text-center" style="padding: 40px;">Tidak ada file</div>'
-        return
-      }
+    if (this.userFiles.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <i class="fa fa-folder-open"></i>
+          <h3>Belum ada file</h3>
+          <p>Upload file pertama Anda untuk mulai mengelolanya</p>
+        </div>
+      `
+      return
+    }
 
-      files.forEach(file => {
-        const row = document.createElement('div')
-        row.className = 'file-row lazy-component'
-
-        const meta = document.createElement('div')
-        meta.className = 'file-meta'
-        
-        const expiresText = file.expires_at ? 
-          ` • Expires: ${new Date(file.expires_at).toLocaleString()}` : 
-          ''
-        
-        const isExpired = file.expires_at && new Date(file.expires_at) < new Date()
-        if (isExpired) {
-          row.classList.add('expired')
-        }
-        
-        // Admin hanya bisa melihat username, bukan nama file
-        meta.innerHTML = `
-          <div class="name ${isExpired ? 'expired-text' : ''}">${escapeHtml(file.username)}</div>
-          <div class="sub">
-            <span>${niceBytes(file.size || 0)}</span>
-            <span>•</span>
-            <span>${file.created_at ? new Date(file.created_at).toLocaleString() : '-'}</span>
-            ${expiresText}
-            ${isExpired ? '<span class="expired-badge">EXPIRED</span>' : ''}
+    container.innerHTML = this.userFiles.map(file => `
+      <div class="file-item" data-file-id="${file.id}">
+        <div class="file-icon">
+          <i class="fa fa-file"></i>
+        </div>
+        <div class="file-info">
+          <h4 class="file-name">${escapeHtml(file.name)}</h4>
+          <div class="file-meta">
+            <span class="file-size">${niceBytes(file.size)}</span>
+            <span class="file-uploaded">Diunggah: ${file.uploaded}</span>
+            ${file.expires ? `<span class="file-expires">Kadaluarsa: ${file.expires}</span>` : ''}
           </div>
-        `
+        </div>
+        <div class="file-actions">
+          <button class="btn-action download" onclick="uiManager.downloadFile(${file.id})" title="Download">
+            <i class="fa fa-download"></i>
+          </button>
+          <button class="btn-action rename" onclick="uiManager.renameFile(${file.id})" title="Rename">
+            <i class="fa fa-edit"></i>
+          </button>
+          <button class="btn-action delete" onclick="uiManager.deleteUserFile(${file.id})" title="Hapus">
+            <i class="fa fa-trash"></i>
+          </button>
+        </div>
+      </div>
+    `).join('')
+  }
 
-        const actions = document.createElement('div')
-        actions.className = 'file-actions'
+  async downloadFile(fileId) {
+    const file = this.userFiles.find(f => f.id === fileId)
+    if (!file) return
 
-        // Hapus tombol view untuk admin
-        const btnDel = document.createElement('button')
-        btnDel.className = 'btn ghost small danger'
-        btnDel.innerHTML = '<i class="fa fa-trash"></i> Hapus'
-        btnDel.onclick = async () => {
-          if (!confirm('Hapus file ini secara permanen? Admin tidak dapat melihat konten file.')) return
-          try {
-            await deleteFile(file)
-            row.style.opacity = '0'
-            setTimeout(() => row.remove(), 300)
-            this.showMessage('admin-message', 'File berhasil dihapus!', 'success')
-          } catch (e) {
-            this.showMessage('admin-message', 'Gagal menghapus: ' + e.message, 'error')
-          }
-        }
+    this.showMessage('user-files-message', `Mengunduh ${file.name}...`, 'info')
+    
+    // Simulasi download
+    setTimeout(() => {
+      this.showMessage('user-files-message', `Berhasil mengunduh ${file.name}`, 'success')
+    }, 1000)
+  }
 
-        actions.appendChild(btnDel)
-        row.appendChild(meta)
-        row.appendChild(actions)
-        filesListEl.appendChild(row)
-      })
+  async renameFile(fileId) {
+    const file = this.userFiles.find(f => f.id === fileId)
+    if (!file) return
 
-      // Initialize lazy loading for new elements
-      if (lazyLoadObserver) {
-        filesListEl.querySelectorAll('.lazy-component').forEach(el => {
-          lazyLoadObserver.observe(el)
-        })
-      }
-
-    } catch (e) {
-      console.error('Files list error:', e)
-      if ($('files-list')) {
-        $('files-list').innerHTML = '<div class="muted text-center" style="padding: 20px;">Gagal memuat file</div>'
-      }
+    const newName = prompt('Masukkan nama baru:', file.name)
+    if (newName && newName.trim() !== '') {
+      file.name = newName.trim()
+      this.renderUserFiles()
+      this.showMessage('user-files-message', `File berhasil diubah menjadi ${file.name}`, 'success')
     }
   }
 
-  async loadMaintenanceSettings() {
-    try {
-      const maintenance = await getMaintenanceStatus()
-      const toggle = $('maintenance-toggle')
-      const messageInput = $('maintenance-message')
-      const endsInput = $('maintenance-ends')
+  async deleteUserFile(fileId) {
+    const file = this.userFiles.find(f => f.id === fileId)
+    if (!file) return
 
-      if (toggle) toggle.checked = maintenance.enabled
-      if (endsInput && maintenance.ends_at) {
-        endsInput.value = new Date(maintenance.ends_at).toISOString().slice(0, 16)
-      } else if (endsInput) {
-        endsInput.value = ''
-      }
-      if (messageInput) {
-        messageInput.value = maintenance.message || ''
-      }
-
-      this.updateMaintenanceDisplay(maintenance)
-
-    } catch (e) {
-      console.error('Maintenance settings error:', e)
-    }
-  }
-
-  async loadUpdateSettings() {
-    try {
-      const updateStatus = await getUpdateStatus()
-      const toggle = $('update-toggle')
-      const messageInput = $('update-message')
-      const endsInput = $('update-ends')
-      const bannerToggle = $('update-banner-toggle')
-
-      if (toggle) toggle.checked = updateStatus.enabled
-      if (endsInput && updateStatus.ends_at) {
-        endsInput.value = new Date(updateStatus.ends_at).toISOString().slice(0, 16)
-      } else if (endsInput) {
-        endsInput.value = ''
-      }
-      if (messageInput) {
-        messageInput.value = updateStatus.message || ''
-      }
-      if (bannerToggle) {
-        bannerToggle.checked = updateStatus.show_banner !== false
-      }
-
-      this.updateUpdateDisplay(updateStatus)
-
-    } catch (e) {
-      console.error('Update settings error:', e)
+    if (confirm(`Yakin ingin menghapus ${file.name}?`)) {
+      this.userFiles = this.userFiles.filter(f => f.id !== fileId)
+      this.renderUserFiles()
+      this.showMessage('user-files-message', `File ${file.name} berhasil dihapus`, 'success')
     }
   }
 
   async loadChangelogSettings() {
     try {
-      const versionInput = $('app-version')
-      const changelogInput = $('changelog-content')
-      
-      if (versionInput) versionInput.value = getAppVersion()
-      if (changelogInput) {
-        const changelog = getChangelog()
-        changelogInput.value = JSON.stringify(changelog, null, 2)
-      }
+      const changelog = await getChangelog()
+      const titleInput = $('changelog-title')
+      const contentInput = $('changelog-content')
+      const versionInput = $('changelog-version')
+      const enabledToggle = $('changelog-enabled')
+      const startupToggle = $('changelog-startup')
+
+      if (titleInput) titleInput.value = changelog.title
+      if (contentInput) contentInput.value = changelog.content
+      if (versionInput) versionInput.value = changelog.version
+      if (enabledToggle) enabledToggle.checked = changelog.enabled
+      if (startupToggle) startupToggle.checked = changelog.show_on_startup
+
+      this.updateChangelogDisplay(changelog)
+
     } catch (e) {
       console.error('Changelog settings error:', e)
+    }
+  }
+
+  updateChangelogDisplay(changelog) {
+    const msgEl = $('changelog-msg')
+    if (!msgEl) return
+
+    if (changelog.enabled) {
+      msgEl.innerHTML = `
+        <div class="settings-message success">
+          <i class="fa fa-check-circle"></i> Changelog aktif - 
+          Versi: <strong>${changelog.version}</strong>
+        </div>
+      `
+    } else {
+      msgEl.innerHTML = '<div class="settings-message">Changelog tidak aktif</div>'
+    }
+  }
+
+  async initializeChangelog() {
+    try {
+      const changelog = await getChangelog()
+      
+      // Check if changelog should be shown on startup
+      const changelogShown = localStorage.getItem('sn_changelog_shown')
+      const currentVersion = changelog.version
+      
+      if (changelog.enabled && changelog.show_on_startup && 
+          changelogShown !== currentVersion) {
+        
+        // Update modal content
+        if ($('changelog-title')) $('changelog-title').textContent = changelog.title
+        if ($('changelog-content')) $('changelog-content').innerHTML = changelog.content.replace(/\n/g, '<br>')
+        if ($('changelog-version')) $('changelog-version').textContent = `v${changelog.version}`
+        
+        // Show modal after a short delay
+        setTimeout(() => {
+          showChangelogModal()
+          localStorage.setItem('sn_changelog_shown', currentVersion)
+        }, 1000)
+      }
+    } catch (error) {
+      console.warn('Failed to initialize changelog:', error)
+    }
+  }
+
+  setupEventListeners() {
+    // Upload handler
+    if ($('btnUpload')) {
+      $('btnUpload').addEventListener('click', this.handleUpload.bind(this))
+    }
+
+    // Verify handler
+    if ($('btnVerify')) {
+      $('btnVerify').addEventListener('click', this.handleVerify.bind(this))
+    }
+
+    // File input change handler untuk clean display
+    if ($('fileInput')) {
+      $('fileInput').addEventListener('change', this.handleFileSelect.bind(this));
+    }
+
+    // Copy credentials
+    if ($('copyCreds')) {
+      $('copyCreds').addEventListener('click', this.handleCopyCreds.bind(this))
+    }
+
+    // Clear form
+    if ($('btnClear')) {
+      $('btnClear').addEventListener('click', () => {
+        if ($('dlUser')) $('dlUser').value = ''
+        if ($('dlPass')) $('dlPass').value = ''
+        if ($('dlInfo')) $('dlInfo').classList.add('hide')
+      })
+    }
+
+    // Changelog settings
+    if ($('save-changelog-settings')) {
+      $('save-changelog-settings').addEventListener('click', this.handleSaveChangelogSettings.bind(this))
+    }
+
+    // Test changelog
+    if ($('test-changelog')) {
+      $('test-changelog').addEventListener('click', this.handleTestChangelog.bind(this))
+    }
+
+    // Clear cache
+    if ($('clear-cache')) {
+      $('clear-cache').addEventListener('click', () => {
+        const keys = Object.keys(localStorage).filter(key => key.startsWith('sn_'))
+        keys.forEach(key => localStorage.removeItem(key))
+        this.showMessage('cleanup-result', 'Cache berhasil dibersihkan!', 'success')
+      })
+    }
+
+    // Maintenance settings
+    if ($('save-maintenance-settings')) {
+      $('save-maintenance-settings').addEventListener('click', this.handleSaveMaintenanceSettings.bind(this))
+    }
+
+    // Update settings
+    if ($('save-update-settings')) {
+      $('save-update-settings').addEventListener('click', this.handleSaveUpdateSettings.bind(this))
+    }
+
+    // Clear update
+    if ($('clear-update')) {
+      $('clear-update').addEventListener('click', this.handleClearUpdate.bind(this))
+    }
+
+    // Admin logout
+    if ($('admin-logout')) {
+      $('admin-logout').addEventListener('click', () => {
+        setAdminSession(false)
+        this.showMessage('cleanup-result', 'Logout admin berhasil', 'success')
+        setTimeout(() => this.showPage('page-download'), 1000)
+      })
+    }
+
+    // Comment system
+    if ($('cSend')) {
+      $('cSend').addEventListener('click', this.handleCommentSubmit.bind(this))
+    }
+
+    // Maintenance OK button
+    const maintenanceOk = $('globalMaintenanceOverlay')?.querySelector('.maintenance-ok')
+    if (maintenanceOk) {
+      maintenanceOk.addEventListener('click', hideMaintenanceOverlay)
+    }
+
+    // Changelog close button
+    const changelogClose = $('changelogModal')?.querySelector('.changelog-close')
+    if (changelogClose) {
+      changelogClose.addEventListener('click', hideChangelogModal)
+    }
+
+    // Upload new file in dashboard
+    if ($('uploadNewFile')) {
+      $('uploadNewFile').addEventListener('click', () => {
+        this.showPage('page-upload')
+      })
+    }
+  }
+
+  // NEW METHOD: Handle file selection for clean display
+  handleFileSelect(event) {
+    const file = event.target.files[0];
+    const filebox = $('fileInput').closest('.filebox');
+    
+    // Hapus display nama file sebelumnya jika ada
+    const existingDisplay = filebox.querySelector('.file-name-display');
+    if (existingDisplay) {
+      existingDisplay.remove();
+    }
+    
+    if (file) {
+      // Tampilkan nama file yang dipilih
+      const fileNameDisplay = document.createElement('div');
+      fileNameDisplay.className = 'file-name-display';
+      fileNameDisplay.innerHTML = `
+        <i class="fa fa-check-circle"></i> 
+        ${escapeHtml(file.name)} 
+        <small>(${niceBytes(file.size)})</small>
+      `;
+      filebox.appendChild(fileNameDisplay);
+      
+      // Update style filebox untuk menunjukkan file dipilih
+      filebox.style.borderColor = 'var(--accent1)';
+      filebox.style.background = 'rgba(107, 142, 252, 0.05)';
+    } else {
+      // Reset style filebox jika tidak ada file
+      filebox.style.borderColor = '';
+      filebox.style.background = '';
+    }
+  }
+
+  initializeAdminSettings() {
+    // Maintenance settings toggle
+    const maintenanceToggle = $('maintenance-toggle')
+    const maintenanceSettings = $('maintenance-settings')
+    
+    if (maintenanceToggle && maintenanceSettings) {
+      maintenanceToggle.addEventListener('change', () => {
+        maintenanceSettings.style.display = maintenanceToggle.checked ? 'block' : 'none'
+      })
+      maintenanceSettings.style.display = maintenanceToggle.checked ? 'block' : 'none'
+    }
+
+    // Changelog settings toggle
+    const changelogToggle = $('changelog-enabled')
+    const changelogSettings = $('changelog-settings')
+    
+    if (changelogToggle && changelogSettings) {
+      changelogToggle.addEventListener('change', () => {
+        changelogSettings.style.display = changelogToggle.checked ? 'block' : 'none'
+      })
+      changelogSettings.style.display = changelogToggle.checked ? 'block' : 'none'
+    }
+
+    // Real-time preview for maintenance message
+    const maintenanceMessage = $('maintenance-message')
+    const maintenancePreview = $('preview-maintenance-message')
+    
+    if (maintenanceMessage && maintenancePreview) {
+      maintenanceMessage.addEventListener('input', () => {
+        maintenancePreview.textContent = maintenanceMessage.value || 'Sistem dalam perbaikan. Terima kasih atas pengertiannya.'
+      })
+    }
+
+    // Real-time preview for update message
+    const updateMessage = $('update-message')
+    const updatePreview = $('preview-update-message')
+    
+    if (updateMessage && updatePreview) {
+      updateMessage.addEventListener('input', () => {
+        updatePreview.textContent = updateMessage.value || 'Pembaruan sistem untuk pengalaman yang lebih baik!'
+      })
+    }
+  }
+
+  async handleUpload() {
+    // Check maintenance before upload
+    const isMaintenance = await checkMaintenanceForUpload()
+    if (isMaintenance) return
+
+    const btnUpload = $('btnUpload')
+    const fileInput = $('fileInput')
+    const file = fileInput?.files?.[0]
+
+    if (!file) {
+      this.showMessage('cleanup-result', 'Pilih file terlebih dahulu.', 'error')
+      return
+    }
+
+    btnUpload.disabled = true
+    btnUpload.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Uploading...'
+
+    try {
+      const dest = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`
+      const storage_path = await uploadFileToStorage(file, dest)
+
+      const expirySelect = $('expireSelect')
+      const expiresIso = expirySelect ? expiryToIso(expirySelect.value) : null
+
+      const username = 'sn-' + rand(6)
+      const password = 'sn-' + rand(10)
+      const hash = await sha256(password)
+
+      const record = await insertFileRecord({
+        filename: file.name,
+        storage_path,
+        username,
+        password_hash: hash,
+        size: file.size,
+        expires_at: expiresIso
+      })
+
+      // Show credentials
+      if ($('outUser')) $('outUser').textContent = username
+      if ($('outPass')) $('outPass').textContent = password
+      if ($('outLink')) $('outLink').textContent = `${BASE_LOGIN_LINK}/?user=${username}`
+      if ($('outExpire')) {
+        $('outExpire').textContent = expiresIso ? new Date(expiresIso).toLocaleString() : 'Tidak expired'
+      }
+      
+      // Tampilkan section kredensial
+      const credsSection = $('creds')
+      if (credsSection) {
+        credsSection.classList.remove('hide')
+        // Scroll ke section kredensial untuk memastikan user melihatnya
+        credsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      }
+
+      this.showMessage('cleanup-result', 'Upload berhasil! Simpan kredensial Anda - password hanya ditampilkan sekali.', 'success')
+
+      // Reset form dan file display
+      fileInput.value = ''
+      const filebox = $('fileInput').closest('.filebox');
+      const fileNameDisplay = filebox.querySelector('.file-name-display');
+      if (fileNameDisplay) {
+        fileNameDisplay.remove();
+      }
+      filebox.style.borderColor = '';
+      filebox.style.background = '';
+
+      // Cleanup expired files in background
+      cleanExpiredFiles().catch(() => {})
+
+    } catch (err) {
+      console.error('Upload error:', err)
+      this.showMessage('cleanup-result', 'Upload gagal: ' + (err.message || err), 'error')
+    } finally {
+      btnUpload.disabled = false
+      btnUpload.innerHTML = '<i class="fa fa-upload"></i> Upload & Generate Credentials'
+    }
+  }
+
+  async handleVerify() {
+    const username = ($('dlUser')?.value || '').trim()
+    const password = ($('dlPass')?.value || '').trim()
+
+    if (!username || !password) {
+      this.showMessage('cleanup-result', 'Harap isi username dan password.', 'error')
+      return
+    }
+
+    // Admin secret access
+    if (username === ADMIN_CREDENTIALS.user && password === ADMIN_CREDENTIALS.pass) {
+      setAdminSession(true)
+      this.showMessage('cleanup-result', 'Admin login berhasil - membuka dashboard', 'success')
+      setTimeout(() => this.showPage('page-admin'), 1000)
+      return
+    }
+
+    try {
+      const record = await getRecordByUsername(username)
+      
+      const verification = await verifyFileAccess(record)
+      if (!verification.valid) {
+        this.showMessage('cleanup-result', verification.reason, 'error')
+        return
+      }
+
+      const hash = await sha256(password)
+      if (hash !== record.password_hash) {
+        this.showMessage('cleanup-result', 'Password salah.', 'error')
+        return
+      }
+
+      // Get signed URL
+      let signedUrl = null
+      try {
+        signedUrl = await createSignedUrl(record.storage_path, 300)
+      } catch (e) {
+        console.warn('Signed URL failed:', e)
+      }
+
+      // Update UI
+      if ($('fileName')) $('fileName').textContent = record.filename || record.storage_path
+      if ($('fileSize')) $('fileSize').textContent = niceBytes(record.size)
+      if ($('fileTime')) $('fileTime').textContent = record.created_at ? 
+        new Date(record.created_at).toLocaleString() : '-'
+      if ($('dlInfo')) $('dlInfo').classList.remove('hide')
+
+      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(record.storage_path)}`
+      const finalUrl = signedUrl || publicUrl
+
+      // Setup download handler
+      if ($('btnDownload')) {
+        $('btnDownload').onclick = async () => {
+          try {
+            await forceDownloadUrl(finalUrl, record.filename || 'download')
+            await recordDownload({
+              file_id: record.id,
+              filename: record.filename,
+              username: record.username
+            })
+            this.showMessage('cleanup-result', 'Download berhasil!', 'success')
+          } catch (e) {
+            console.error('Download error:', e)
+            this.showMessage('cleanup-result', 'Gagal mengunduh: ' + e.message, 'error')
+          }
+        }
+      }
+
+      // Setup view handler
+      if ($('btnView')) {
+        $('btnView').onclick = () => window.open(finalUrl, '_blank')
+      }
+
+    } catch (err) {
+      console.error('Verification error:', err)
+      if (err.message.includes('PGRST116')) {
+        this.showMessage('cleanup-result', 'Username tidak ditemukan.', 'error')
+      } else {
+        this.showMessage('cleanup-result', 'Verifikasi gagal: ' + (err.message || err), 'error')
+      }
+    }
+  }
+
+  handleCopyCreds() {
+    const username = $('outUser')?.textContent || ''
+    const password = $('outPass')?.textContent || ''
+    const link = $('outLink')?.textContent || ''
+    const expiry = $('outExpire')?.textContent || 'Tidak expired'
+
+    const text = `SAFENEST CREDENTIALS\n====================\nUsername: ${username}\nPassword: ${password}\nLink: ${link}\nExpired: ${expiry}\n====================\nSimpan informasi ini dengan aman!`
+
+    navigator.clipboard.writeText(text).then(() => {
+      $('copyCreds').animate([
+        { transform: 'scale(1)' },
+        { transform: 'scale(0.95)' },
+        { transform: 'scale(1)' }
+      ], { duration: 200 })
+      
+      this.showMessage('cleanup-result', 'Kredensial berhasil disalin ke clipboard!', 'success')
+    }).catch(() => {
+      this.showMessage('cleanup-result', 'Gagal menyalin kredensial.', 'error')
+    })
+  }
+
+  async handleSaveChangelogSettings() {
+    const titleInput = $('changelog-title')
+    const contentInput = $('changelog-content')
+    const versionInput = $('changelog-version')
+    const enabledToggle = $('changelog-enabled')
+    const startupToggle = $('changelog-startup')
+
+    const enabled = enabledToggle?.checked || false
+    const title = titleInput?.value || 'Pembaruan Terbaru'
+    const content = contentInput?.value || ''
+    const version = versionInput?.value || '1.0.0'
+    const showOnStartup = startupToggle?.checked !== false
+
+    if (enabled && (!content.trim())) {
+      this.showMessage('changelog-msg', 'Harap isi konten changelog!', 'error')
+      return
+    }
+
+    try {
+      await upsertChangelog({
+        enabled,
+        title,
+        content,
+        version,
+        show_on_startup: showOnStartup
+      })
+
+      this.showMessage('changelog-msg', 'Pengaturan changelog berhasil disimpan!', 'success')
+      
+      const changelog = await getChangelog()
+      this.updateChangelogDisplay(changelog)
+
+    } catch (e) {
+      this.showMessage('changelog-msg', 'Gagal menyimpan pengaturan: ' + e.message, 'error')
+    }
+  }
+
+  async handleTestChangelog() {
+    const changelog = await getChangelog()
+    
+    if (!changelog.enabled) {
+      this.showMessage('changelog-msg', 'Changelog belum diaktifkan!', 'error')
+      return
+    }
+
+    // Update modal content
+    if ($('changelog-title')) $('changelog-title').textContent = changelog.title
+    if ($('changelog-content')) $('changelog-content').innerHTML = changelog.content.replace(/\n/g, '<br>')
+    if ($('changelog-version')) $('changelog-version').textContent = `v${changelog.version}`
+    
+    // Show modal
+    showChangelogModal()
+    this.showMessage('changelog-msg', 'Changelog ditampilkan!', 'success')
+  }
+
+  async handleSaveMaintenanceSettings() {
+    const toggle = $('maintenance-toggle')
+    const daysInput = $('maintenance-days')
+    const hoursInput = $('maintenance-hours')
+    const endsInput = $('maintenance-ends')
+    const messageInput = $('maintenance-message')
+
+    const enabled = toggle?.checked || false
+    let endsAt = null
+
+    if (enabled) {
+      if (endsInput?.value) {
+        endsAt = new Date(endsInput.value).toISOString()
+      } else {
+        const days = parseInt(daysInput?.value || '0')
+        const hours = parseInt(hoursInput?.value || '0')
+        const totalMs = (days * 24 * 60 * 60 * 1000) + (hours * 60 * 60 * 1000)
+        
+        if (totalMs > 0) {
+          endsAt = new Date(Date.now() + totalMs).toISOString()
+        }
+      }
+    }
+
+    const message = messageInput?.value || 'Sistem dalam perbaikan. Terima kasih atas pengertiannya.'
+
+    try {
+      await upsertSetting('maintenance', {
+        enabled,
+        ends_at: endsAt,
+        message,
+        updated_by: 'admin'
+      })
+
+      this.showMessage('maintenance-msg', 'Pengaturan maintenance berhasil disimpan!', 'success')
+      
+      const maintenance = await getMaintenanceStatus()
+      this.updateMaintenanceDisplay(maintenance)
+
+    } catch (e) {
+      this.showMessage('maintenance-msg', 'Gagal menyimpan pengaturan: ' + e.message, 'error')
+    }
+  }
+
+  async handleSaveUpdateSettings() {
+    const daysInput = $('update-days')
+    const hoursInput = $('update-hours')
+    const minutesInput = $('update-minutes')
+    const endsInput = $('update-ends')
+    const messageInput = $('update-message')
+    const bannerToggle = $('update-banner-toggle')
+
+    let endsAt = null
+
+    if (endsInput?.value) {
+      endsAt = new Date(endsInput.value).toISOString()
+    } else {
+      const days = parseInt(daysInput?.value || '0')
+      const hours = parseInt(hoursInput?.value || '0')
+      const minutes = parseInt(minutesInput?.value || '0')
+      const totalMs = (days * 24 * 60 * 60 * 1000) + (hours * 60 * 60 * 1000) + (minutes * 60 * 1000)
+      
+      if (totalMs > 0) {
+        endsAt = new Date(Date.now() + totalMs).toISOString()
+      }
+    }
+
+    if (!endsAt) {
+      this.showMessage('update-settings-msg', 'Harap tentukan waktu update!', 'error')
+      return
+    }
+
+    const message = messageInput?.value || 'Pembaruan sistem untuk pengalaman yang lebih baik!'
+    const showBanner = bannerToggle?.checked !== false
+
+    try {
+      await upsertUpdateSettings({
+        enabled: true,
+        ends_at: endsAt,
+        message,
+        show_banner: showBanner
+      })
+
+      this.showMessage('update-settings-msg', 'Update countdown berhasil diatur!', 'success')
+      
+      await initializeUpdateCountdown()
+      
+      const updateStatus = await getUpdateStatus()
+      this.updateUpdateDisplay(updateStatus)
+
+    } catch (e) {
+      this.showMessage('update-settings-msg', 'Gagal menyimpan pengaturan: ' + e.message, 'error')
+    }
+  }
+
+  async handleClearUpdate() {
+    try {
+      await upsertUpdateSettings({
+        enabled: false,
+        ends_at: null,
+        message: 'Pembaruan sistem untuk pengalaman yang lebih baik!',
+        show_banner: true
+      })
+
+      this.showMessage('update-settings-msg', 'Update countdown berhasil dihapus!', 'success')
+      
+      if (updateCountdownInterval) {
+        clearInterval(updateCountdownInterval)
+        updateCountdownInterval = null
+      }
+      
+      hideUpdateBanner()
+      
+      const headerBadge = $('headerUpdateBadge')
+      if (headerBadge) headerBadge.classList.add('hide')
+      
+      const pages = ['download', 'upload', 'about']
+      pages.forEach(page => {
+        const badge = $(`${page}UpdateBadge`)
+        if (badge) badge.classList.add('hide')
+      })
+      
+      const updateStatus = await getUpdateStatus()
+      this.updateUpdateDisplay(updateStatus)
+
+    } catch (e) {
+      this.showMessage('update-settings-msg', 'Gagal menghapus countdown: ' + e.message, 'error')
+    }
+  }
+
+  async handleCommentSubmit() {
+    const name = ($('cName')?.value || '').trim()
+    const message = ($('cMsg')?.value || '').trim()
+
+    if (!message) {
+      this.showMessage('cleanup-result', 'Tulis komentar terlebih dahulu.', 'error')
+      return
+    }
+
+    try {
+      await window.sendComment({
+        name: name || 'anon',
+        message: message
+      })
+
+      if ($('cMsg')) $('cMsg').value = ''
+      if ($('cName')) $('cName').value = ''
+
+      const btn = $('cSend')
+      const originalText = btn.innerHTML
+      btn.innerHTML = '<i class="fa fa-check"></i> Terkirim!'
+      btn.disabled = true
+      
+      setTimeout(() => {
+        btn.innerHTML = originalText
+        btn.disabled = false
+      }, 2000)
+
+    } catch (e) {
+      this.showMessage('cleanup-result', 'Gagal mengirim komentar: ' + e.message, 'error')
+    }
+  }
+
+  showMessage(elementId, message, type = 'info') {
+    const element = $(elementId)
+    if (!element) return
+
+    element.innerHTML = message
+    element.className = `settings-message ${type}`
+    
+    if (type === 'success') {
+      setTimeout(() => {
+        element.innerHTML = ''
+        element.className = 'settings-message'
+      }, 5000)
     }
   }
 
@@ -1296,565 +1673,11 @@ class UIManager {
       msgEl.innerHTML = '<div class="settings-message">Update countdown tidak aktif</div>'
     }
   }
-
-  setupEventListeners() {
-    // Upload handler
-    if ($('btnUpload')) {
-      $('btnUpload').addEventListener('click', this.handleUpload.bind(this))
-    }
-
-    // Verify handler - UPDATED: Sekarang support login admin dari database
-    if ($('btnVerify')) {
-      $('btnVerify').addEventListener('click', this.handleVerify.bind(this))
-    }
-
-    // File input change handler untuk clean display
-    if ($('fileInput')) {
-      $('fileInput').addEventListener('change', this.handleFileSelect.bind(this));
-    }
-
-    // Copy credentials
-    if ($('copyCreds')) {
-      $('copyCreds').addEventListener('click', this.handleCopyCreds.bind(this))
-    }
-
-    // Clear form
-    if ($('btnClear')) {
-      $('btnClear').addEventListener('click', () => {
-        if ($('dlUser')) $('dlUser').value = ''
-        if ($('dlPass')) $('dlPass').value = ''
-        if ($('dlInfo')) $('dlInfo').classList.add('hide')
-      })
-    }
-
-    // Refresh files
-    if ($('refresh-files')) {
-      $('refresh-files').addEventListener('click', () => {
-        this.loadFilesList()
-      })
-    }
-
-    // Cleanup files - DIPERBAIKI DENGAN ERROR HANDLING
-    if ($('cleanup-files')) {
-      $('cleanup-files').addEventListener('click', async () => {
-        const btn = $('cleanup-files')
-        const originalText = btn.innerHTML
-        btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Cleaning...'
-        btn.disabled = true
-        
-        try {
-          const result = await cleanExpiredFiles()
-          if (result.error) {
-            this.showMessage('admin-message', `Gagal membersihkan: ${result.error}`, 'error')
-          } else {
-            const message = result.cleaned > 0 
-              ? `Pembersihan selesai! ${result.cleaned}/${result.total} file expired dihapus.`
-              : `Tidak ada file expired yang perlu dihapus. ${result.total} file expired ditemukan, tetapi sudah pernah didownload.`
-            this.showMessage('admin-message', message, 'success')
-          }
-          this.loadFilesList()
-          this.loadAdminDashboard()
-        } catch (e) {
-          this.showMessage('admin-message', 'Gagal membersihkan file: ' + (e.message || e), 'error')
-        } finally {
-          btn.innerHTML = originalText
-          btn.disabled = false
-        }
-      })
-    }
-
-    // Clear cache
-    if ($('clear-cache')) {
-      $('clear-cache').addEventListener('click', () => {
-        const keys = Object.keys(localStorage).filter(key => key.startsWith('sn_'))
-        keys.forEach(key => localStorage.removeItem(key))
-        this.showMessage('admin-message', 'Cache berhasil dibersihkan!', 'success')
-      })
-    }
-
-    // Maintenance settings
-    if ($('save-maintenance-settings')) {
-      $('save-maintenance-settings').addEventListener('click', this.handleSaveMaintenanceSettings.bind(this))
-    }
-
-    // Update settings
-    if ($('save-update-settings')) {
-      $('save-update-settings').addEventListener('click', this.handleSaveUpdateSettings.bind(this))
-    }
-
-    // Clear update
-    if ($('clear-update')) {
-      $('clear-update').addEventListener('click', this.handleClearUpdate.bind(this))
-    }
-
-    // Changelog settings
-    if ($('save-changelog-settings')) {
-      $('save-changelog-settings').addEventListener('click', this.handleSaveChangelogSettings.bind(this))
-    }
-
-    // Admin logout - UPDATED: Gunakan clearAdminSession
-    if ($('admin-logout')) {
-      $('admin-logout').addEventListener('click', () => {
-        clearAdminSession()
-        this.showMessage('admin-message', 'Logout admin berhasil', 'success')
-        setTimeout(() => this.showPage('page-download'), 1000)
-      })
-    }
-
-    // Comment system
-    if ($('cSend')) {
-      $('cSend').addEventListener('click', this.handleCommentSubmit.bind(this))
-    }
-
-    // Maintenance OK button
-    const maintenanceOk = $('globalMaintenanceOverlay')?.querySelector('.maintenance-ok')
-    if (maintenanceOk) {
-      maintenanceOk.addEventListener('click', hideMaintenanceOverlay)
-    }
-
-    // Changelog button - FIXED: Pastikan event listener terpasang
-    const changelogButton = $('changelogButton')
-    if (changelogButton) {
-      changelogButton.addEventListener('click', showChangelogPopup)
-      changelogButton.addEventListener('mouseenter', () => {
-        changelogButton.classList.remove('small')
-        resetChangelogButtonTimeout()
-      })
-    }
-
-    // Changelog close button
-    const changelogClose = $('changelogClose')
-    if (changelogClose) {
-      changelogClose.addEventListener('click', hideChangelogPopup)
-    }
-
-    // Changelog overlay
-    const changelogOverlay = $('changelogOverlay')
-    if (changelogOverlay) {
-      changelogOverlay.addEventListener('click', hideChangelogPopup)
-    }
-  }
-
-  // NEW METHOD: Handle file selection for clean display
-  handleFileSelect(event) {
-    const file = event.target.files[0];
-    const filebox = $('fileInput').closest('.filebox');
-    
-    // Hapus display nama file sebelumnya jika ada
-    const existingDisplay = filebox.querySelector('.file-name-display');
-    if (existingDisplay) {
-      existingDisplay.remove();
-    }
-    
-    if (file) {
-      // Tampilkan nama file yang dipilih
-      const fileNameDisplay = document.createElement('div');
-      fileNameDisplay.className = 'file-name-display';
-      fileNameDisplay.innerHTML = `
-        <i class="fa fa-check-circle"></i> 
-        ${escapeHtml(file.name)} 
-        <small>(${niceBytes(file.size)})</small>
-      `;
-      filebox.appendChild(fileNameDisplay);
-      
-      // Update style filebox untuk menunjukkan file dipilih
-      filebox.style.borderColor = 'var(--accent1)';
-      filebox.style.background = 'rgba(107, 142, 252, 0.05)';
-    } else {
-      // Reset style filebox jika tidak ada file
-      filebox.style.borderColor = '';
-      filebox.style.background = '';
-    }
-  }
-
-  initializeAdminSettings() {
-    // Maintenance settings toggle
-    const maintenanceToggle = $('maintenance-toggle')
-    const maintenanceSettings = $('maintenance-settings')
-    
-    if (maintenanceToggle && maintenanceSettings) {
-      maintenanceToggle.addEventListener('change', () => {
-        maintenanceSettings.style.display = maintenanceToggle.checked ? 'block' : 'none'
-      })
-      maintenanceSettings.style.display = maintenanceToggle.checked ? 'block' : 'none'
-    }
-
-    // Update settings toggle
-    const updateToggle = $('update-toggle')
-    const updateSettings = $('update-settings')
-    
-    if (updateToggle && updateSettings) {
-      updateToggle.addEventListener('change', () => {
-        updateSettings.style.display = updateToggle.checked ? 'block' : 'none'
-      })
-      updateSettings.style.display = updateToggle.checked ? 'block' : 'none'
-    }
-  }
-
-  async handleUpload() {
-    // Check maintenance before upload
-    const isMaintenance = await checkMaintenanceForUpload()
-    if (isMaintenance) return
-
-    const btnUpload = $('btnUpload')
-    const fileInput = $('fileInput')
-    const file = fileInput?.files?.[0]
-
-    if (!file) {
-      this.showMessage('admin-message', 'Pilih file terlebih dahulu.', 'error')
-      return
-    }
-
-    btnUpload.disabled = true
-    btnUpload.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Uploading...'
-
-    try {
-      const dest = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`
-      const storage_path = await uploadFileToStorage(file, dest)
-
-      const expirySelect = $('expireSelect')
-      const expiresIso = expirySelect ? expiryToIso(expirySelect.value) : null
-
-      const username = 'sn-' + rand(6)
-      const password = 'sn-' + rand(10)
-      const hash = await sha256(password)
-
-      const record = await insertFileRecord({
-        filename: file.name,
-        storage_path,
-        username,
-        password_hash: hash,
-        size: file.size,
-        expires_at: expiresIso
-      })
-
-      // Show credentials - PERBAIKAN: Pastikan elemen creds ditampilkan
-      if ($('outUser')) $('outUser').textContent = username
-      if ($('outPass')) $('outPass').textContent = password
-      if ($('outLink')) $('outLink').textContent = `${BASE_LOGIN_LINK}/?user=${username}`
-      if ($('outExpire')) {
-        $('outExpire').textContent = expiresIso ? new Date(expiresIso).toLocaleString() : 'Tidak expired'
-      }
-      
-      // PERBAIKAN PENTING: Tampilkan section kredensial
-      const credsSection = $('creds')
-      if (credsSection) {
-        credsSection.classList.remove('hide')
-        // Scroll ke section kredensial untuk memastikan user melihatnya
-        credsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-      }
-
-      this.showMessage('admin-message', 'Upload berhasil! Simpan kredensial Anda - password hanya ditampilkan sekali.', 'success')
-
-      // Reset form dan file display
-      fileInput.value = ''
-      const filebox = $('fileInput').closest('.filebox');
-      const fileNameDisplay = filebox.querySelector('.file-name-display');
-      if (fileNameDisplay) {
-        fileNameDisplay.remove();
-      }
-      filebox.style.borderColor = '';
-      filebox.style.background = '';
-
-      // Cleanup expired files in background
-      cleanExpiredFiles().catch(() => {})
-
-    } catch (err) {
-      console.error('Upload error:', err)
-      this.showMessage('admin-message', 'Upload gagal: ' + (err.message || err), 'error')
-    } finally {
-      btnUpload.disabled = false
-      btnUpload.innerHTML = '<i class="fa fa-upload"></i> Upload & Generate Credentials'
-    }
-  }
-
-  async handleVerify() {
-    const username = ($('dlUser')?.value || '').trim()
-    const password = ($('dlPass')?.value || '').trim()
-
-    if (!username || !password) {
-      this.showMessage('admin-message', 'Harap isi username dan password.', 'error')
-      return
-    }
-
-    // Coba login sebagai admin terlebih dahulu
-    const adminResult = await verifyAdminCredentials(username, password)
-    if (adminResult.valid) {
-      setAdminSession(username)
-      this.showMessage('admin-message', `Login admin berhasil! Selamat datang, ${username}`, 'success')
-      setTimeout(() => this.showPage('page-admin'), 1000)
-      return
-    }
-
-    // Jika bukan admin, coba sebagai user biasa
-    try {
-      const record = await getRecordByUsername(username)
-      
-      const verification = await verifyFileAccess(record)
-      if (!verification.valid) {
-        this.showMessage('admin-message', verification.reason, 'error')
-        return
-      }
-
-      const hash = await sha256(password)
-      if (hash !== record.password_hash) {
-        this.showMessage('admin-message', 'Password salah.', 'error')
-        return
-      }
-
-      // Get signed URL
-      let signedUrl = null
-      try {
-        signedUrl = await createSignedUrl(record.storage_path, 300)
-      } catch (e) {
-        console.warn('Signed URL failed:', e)
-      }
-
-      // Update UI
-      if ($('fileName')) $('fileName').textContent = record.filename || record.storage_path
-      if ($('fileSize')) $('fileSize').textContent = niceBytes(record.size)
-      if ($('fileTime')) $('fileTime').textContent = record.created_at ? 
-        new Date(record.created_at).toLocaleString() : '-'
-      if ($('dlInfo')) $('dlInfo').classList.remove('hide')
-
-      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(record.storage_path)}`
-      const finalUrl = signedUrl || publicUrl
-
-      // Setup download handler
-      if ($('btnDownload')) {
-        $('btnDownload').onclick = async () => {
-          try {
-            await forceDownloadUrl(finalUrl, record.filename || 'download')
-            await recordDownload({
-              file_id: record.id,
-              filename: record.filename,
-              username: record.username
-            })
-            this.showMessage('admin-message', 'Download berhasil!', 'success')
-          } catch (e) {
-            console.error('Download error:', e)
-            this.showMessage('admin-message', 'Gagal mengunduh: ' + e.message, 'error')
-          }
-        }
-      }
-
-      // Setup view handler
-      if ($('btnView')) {
-        $('btnView').onclick = () => window.open(finalUrl, '_blank')
-      }
-
-    } catch (err) {
-      console.error('Verification error:', err)
-      if (err.message.includes('PGRST116')) {
-        this.showMessage('admin-message', 'Username tidak ditemukan.', 'error')
-      } else {
-        this.showMessage('admin-message', 'Verifikasi gagal: ' + (err.message || err), 'error')
-      }
-    }
-  }
-
-  handleCopyCreds() {
-    const username = $('outUser')?.textContent || ''
-    const password = $('outPass')?.textContent || ''
-    const link = $('outLink')?.textContent || ''
-    const expiry = $('outExpire')?.textContent || 'Tidak expired'
-
-    const text = `SAFENEST CREDENTIALS\n====================\nUsername: ${username}\nPassword: ${password}\nLink: ${link}\nExpired: ${expiry}\n====================\nSimpan informasi ini dengan aman!`
-
-    navigator.clipboard.writeText(text).then(() => {
-      $('copyCreds').animate([
-        { transform: 'scale(1)' },
-        { transform: 'scale(0.95)' },
-        { transform: 'scale(1)' }
-      ], { duration: 200 })
-      
-      this.showMessage('admin-message', 'Kredensial berhasil disalin ke clipboard!', 'success')
-    }).catch(() => {
-      this.showMessage('admin-message', 'Gagal menyalin kredensial.', 'error')
-    })
-  }
-
-  async handleSaveMaintenanceSettings() {
-    const toggle = $('maintenance-toggle')
-    const messageInput = $('maintenance-message')
-    const endsInput = $('maintenance-ends')
-
-    const enabled = toggle?.checked || false
-    let endsAt = null
-
-    if (enabled && endsInput?.value) {
-      endsAt = new Date(endsInput.value).toISOString()
-    }
-
-    const message = messageInput?.value || 'Sistem dalam perbaikan. Terima kasih atas pengertiannya.'
-
-    try {
-      await upsertSetting('maintenance', {
-        enabled,
-        ends_at: endsAt,
-        message,
-        updated_by: 'admin'
-      })
-
-      this.showMessage('admin-message', 'Pengaturan maintenance berhasil disimpan!', 'success')
-      
-      const maintenance = await getMaintenanceStatus()
-      this.updateMaintenanceDisplay(maintenance)
-
-    } catch (e) {
-      this.showMessage('admin-message', 'Gagal menyimpan pengaturan: ' + e.message, 'error')
-    }
-  }
-
-  async handleSaveUpdateSettings() {
-    const toggle = $('update-toggle')
-    const messageInput = $('update-message')
-    const endsInput = $('update-ends')
-    const bannerToggle = $('update-banner-toggle')
-
-    const enabled = toggle?.checked || false
-    let endsAt = null
-
-    if (enabled && endsInput?.value) {
-      endsAt = new Date(endsInput.value).toISOString()
-    } else if (enabled) {
-      this.showMessage('admin-message', 'Harap tentukan waktu update!', 'error')
-      return
-    }
-
-    const message = messageInput?.value || 'Pembaruan sistem untuk pengalaman yang lebih baik!'
-    const showBanner = bannerToggle?.checked !== false
-
-    try {
-      await upsertUpdateSettings({
-        enabled: enabled,
-        ends_at: endsAt,
-        message,
-        show_banner: showBanner
-      })
-
-      this.showMessage('admin-message', 'Update countdown berhasil diatur!', 'success')
-      
-      await initializeUpdateCountdown()
-      
-      const updateStatus = await getUpdateStatus()
-      this.updateUpdateDisplay(updateStatus)
-
-    } catch (e) {
-      this.showMessage('admin-message', 'Gagal menyimpan pengaturan: ' + e.message, 'error')
-    }
-  }
-
-  async handleSaveChangelogSettings() {
-    const versionInput = $('app-version')
-    const changelogInput = $('changelog-content')
-
-    const version = versionInput?.value || 'v2.1.0'
-    let changelog = []
-
-    try {
-      changelog = JSON.parse(changelogInput?.value || '[]')
-    } catch (e) {
-      this.showMessage('admin-message', 'Format JSON changelog tidak valid!', 'error')
-      return
-    }
-
-    try {
-      await saveChangelogSettings(version, changelog)
-      this.showMessage('admin-message', 'Changelog berhasil disimpan!', 'success')
-      loadChangelogContent()
-    } catch (e) {
-      this.showMessage('admin-message', 'Gagal menyimpan changelog: ' + e.message, 'error')
-    }
-  }
-
-  async handleClearUpdate() {
-    try {
-      await upsertUpdateSettings({
-        enabled: false,
-        ends_at: null,
-        message: 'Pembaruan sistem untuk pengalaman yang lebih baik!',
-        show_banner: true
-      })
-
-      this.showMessage('admin-message', 'Update countdown berhasil dihapus!', 'success')
-      
-      if (updateCountdownInterval) {
-        clearInterval(updateCountdownInterval)
-        updateCountdownInterval = null
-      }
-      
-      hideUpdateBanner()
-      
-      const headerBadge = $('headerUpdateBadge')
-      if (headerBadge) headerBadge.classList.add('hide')
-      
-      const pages = ['download', 'upload', 'about']
-      pages.forEach(page => {
-        const badge = $(`${page}UpdateBadge`)
-        if (badge) badge.classList.add('hide')
-      })
-      
-      const updateStatus = await getUpdateStatus()
-      this.updateUpdateDisplay(updateStatus)
-
-    } catch (e) {
-      this.showMessage('admin-message', 'Gagal menghapus countdown: ' + e.message, 'error')
-    }
-  }
-
-  async handleCommentSubmit() {
-    const name = ($('cName')?.value || '').trim()
-    const message = ($('cMsg')?.value || '').trim()
-
-    if (!message) {
-      this.showMessage('admin-message', 'Tulis komentar terlebih dahulu.', 'error')
-      return
-    }
-
-    try {
-      await window.sendComment({
-        name: name || 'anon',
-        message: message
-      })
-
-      if ($('cMsg')) $('cMsg').value = ''
-      if ($('cName')) $('cName').value = ''
-
-      const btn = $('cSend')
-      const originalText = btn.innerHTML
-      btn.innerHTML = '<i class="fa fa-check"></i> Terkirim!'
-      btn.disabled = true
-      
-      setTimeout(() => {
-        btn.innerHTML = originalText
-        btn.disabled = false
-      }, 2000)
-
-    } catch (e) {
-      this.showMessage('admin-message', 'Gagal mengirim komentar: ' + e.message, 'error')
-    }
-  }
-
-  showMessage(elementId, message, type = 'info') {
-    const element = $(elementId)
-    if (!element) return
-
-    element.innerHTML = message
-    element.className = `admin-message ${type}`
-    
-    if (type === 'success') {
-      setTimeout(() => {
-        element.innerHTML = ''
-        element.className = 'admin-message'
-      }, 5000)
-    }
-  }
 }
 
 // ----------------- Initialization -----------------
 document.addEventListener('DOMContentLoaded', () => {
-  const uiManager = new UIManager()
+  window.uiManager = new UIManager()
 
   initializeUpdateCountdown()
 
@@ -1896,9 +1719,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
 window.hideUpdateBanner = hideUpdateBanner
 window.checkMaintenanceForUpload = checkMaintenanceForUpload
-window.getChangelog = getChangelog
-window.getAppVersion = getAppVersion
-window.showChangelogPopup = showChangelogPopup
-window.hideChangelogPopup = hideChangelogPopup
-window.createAdminUser = createAdminUser
-window.verifyAdminCredentials = verifyAdminCredentials
+window.hideChangelogModal = hideChangelogModal
