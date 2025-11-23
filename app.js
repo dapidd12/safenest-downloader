@@ -15,6 +15,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 let updateCountdownInterval = null
 let maintenanceCountdownInterval = null
 let currentUpdateEndsAt = null
+let currentUserSession = null
 
 // ----------------- Optimized Helpers -----------------
 const $ = id => document.getElementById(id)
@@ -82,6 +83,69 @@ const cache = {
   
   clear: (key) => {
     localStorage.removeItem(`sn_${key}`)
+  }
+}
+
+// ----------------- Changelog System -----------------
+async function getChangelogSettings() {
+  const cacheKey = 'changelog_settings'
+  const cached = cache.get(cacheKey)
+  if (cached) return cached
+
+  const setting = await getSetting('changelog')
+  const defaultSettings = {
+    enabled: false,
+    title: 'Pembaruan Terbaru',
+    content: 'Berikut adalah pembaruan yang telah dilakukan pada sistem.',
+    version: '1.0.0',
+    show_on_startup: true,
+    last_updated: new Date().toISOString()
+  }
+
+  const settings = setting?.value ? { ...defaultSettings, ...setting.value } : defaultSettings
+  cache.set(cacheKey, settings, 30 * 1000)
+  return settings
+}
+
+async function upsertChangelogSettings(settings) {
+  const payload = { 
+    key: 'changelog',
+    value: {
+      ...settings,
+      last_updated: new Date().toISOString()
+    }
+  }
+  
+  const { data, error } = await supabase
+    .from('settings')
+    .upsert([payload])
+    .select()
+    .single()
+
+  if (error) throw error
+  
+  cache.clear('changelog_settings')
+  return data
+}
+
+function showChangelogModal(settings) {
+  const modal = $('changelogModal')
+  if (!modal) return
+
+  if ($('changelogTitle')) $('changelogTitle').textContent = settings.title
+  if ($('changelogVersion')) $('changelogVersion').textContent = `v${settings.version}`
+  if ($('changelogContent')) $('changelogContent').innerHTML = settings.content.replace(/\n/g, '<br>')
+  if ($('changelogDate')) $('changelogDate').textContent = new Date(settings.last_updated).toLocaleDateString('id-ID')
+  
+  modal.classList.remove('hide')
+  setTimeout(() => modal.classList.add('active'), 10)
+}
+
+function hideChangelogModal() {
+  const modal = $('changelogModal')
+  if (modal) {
+    modal.classList.remove('active')
+    setTimeout(() => modal.classList.add('hide'), 300)
   }
 }
 
@@ -556,11 +620,64 @@ function setAdminSession(on = true, ttl = 24 * 60 * 60 * 1000){
       expiry: Date.now() + ttl
     }
     localStorage.setItem('sn_admin_session', JSON.stringify(session))
+    showAdminWelcomeModal()
   } else {
     localStorage.removeItem('sn_admin_session')
     cache.clear('stats')
     cache.clear('files_list')
   }
+}
+
+function showAdminWelcomeModal() {
+  const modal = $('adminWelcomeModal')
+  if (modal) {
+    modal.classList.remove('hide')
+    setTimeout(() => modal.classList.add('active'), 10)
+  }
+}
+
+function hideAdminWelcomeModal() {
+  const modal = $('adminWelcomeModal')
+  if (modal) {
+    modal.classList.remove('active')
+    setTimeout(() => modal.classList.add('hide'), 300)
+  }
+}
+
+// ----------------- User Session -----------------
+function setUserSession(username, ttl = 24 * 60 * 60 * 1000) {
+  const session = {
+    username: username,
+    created: Date.now(),
+    expiry: Date.now() + ttl
+  }
+  localStorage.setItem('sn_user_session', JSON.stringify(session))
+  currentUserSession = session
+}
+
+function isUserSession() {
+  const session = localStorage.getItem('sn_user_session')
+  if (!session) return false
+  
+  try {
+    const { username, expiry } = JSON.parse(session)
+    if (expiry && Date.now() > expiry) {
+      localStorage.removeItem('sn_user_session')
+      currentUserSession = null
+      return false
+    }
+    currentUserSession = { username, expiry }
+    return true
+  } catch {
+    localStorage.removeItem('sn_user_session')
+    currentUserSession = null
+    return false
+  }
+}
+
+function clearUserSession() {
+  localStorage.removeItem('sn_user_session')
+  currentUserSession = null
 }
 
 // ----------------- Fixed Expiry System -----------------
@@ -711,6 +828,7 @@ class UIManager {
     this.setupEventListeners()
     this.showPage('page-download')
     this.initializeAdminSettings()
+    this.initializeChangelog()
   }
 
   setupNavigation() {
@@ -780,6 +898,8 @@ class UIManager {
 
     if (id === 'page-admin') {
       this.loadAdminDashboard()
+    } else if (id === 'page-download' && isUserSession()) {
+      this.showUserDashboard()
     }
   }
 
@@ -795,6 +915,22 @@ class UIManager {
     })
   }
 
+  async initializeChangelog() {
+    try {
+      const changelogSettings = await getChangelogSettings()
+      if (changelogSettings.enabled && changelogSettings.show_on_startup) {
+        // Check if user has seen this version
+        const lastSeenVersion = localStorage.getItem('sn_last_seen_version')
+        if (lastSeenVersion !== changelogSettings.version) {
+          showChangelogModal(changelogSettings)
+          localStorage.setItem('sn_last_seen_version', changelogSettings.version)
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to initialize changelog:', error)
+    }
+  }
+
   async loadAdminDashboard() {
     if (!isAdminSession()) return
 
@@ -807,9 +943,48 @@ class UIManager {
       await this.loadFilesList()
       await this.loadMaintenanceSettings()
       await this.loadUpdateSettings()
+      await this.loadChangelogSettings()
 
     } catch (e) {
       console.error('Admin dashboard error:', e)
+    }
+  }
+
+  async loadChangelogSettings() {
+    try {
+      const changelog = await getChangelogSettings()
+      const enabledToggle = $('changelog-toggle')
+      const titleInput = $('changelog-title')
+      const versionInput = $('changelog-version')
+      const contentInput = $('changelog-content')
+      const showOnStartupToggle = $('changelog-show-on-startup')
+
+      if (enabledToggle) enabledToggle.checked = changelog.enabled
+      if (titleInput) titleInput.value = changelog.title || ''
+      if (versionInput) versionInput.value = changelog.version || ''
+      if (contentInput) contentInput.value = changelog.content || ''
+      if (showOnStartupToggle) showOnStartupToggle.checked = changelog.show_on_startup !== false
+
+      this.updateChangelogDisplay(changelog)
+
+    } catch (e) {
+      console.error('Changelog settings error:', e)
+    }
+  }
+
+  updateChangelogDisplay(changelog) {
+    const msgEl = $('changelog-msg')
+    if (!msgEl) return
+
+    if (changelog.enabled) {
+      msgEl.innerHTML = `
+        <div class="settings-message success">
+          <i class="fa fa-check-circle"></i> Changelog aktif - 
+          Versi: <strong>${changelog.version}</strong>
+        </div>
+      `
+    } else {
+      msgEl.innerHTML = '<div class="settings-message">Changelog tidak aktif</div>'
     }
   }
 
@@ -1018,6 +1193,11 @@ class UIManager {
       $('btnUpload').addEventListener('click', this.handleUpload.bind(this))
     }
 
+    // Multi file upload handler
+    if ($('multiFileInput')) {
+      $('multiFileInput').addEventListener('change', this.handleMultiFileSelect.bind(this))
+    }
+
     // Verify handler
     if ($('btnVerify')) {
       $('btnVerify').addEventListener('click', this.handleVerify.bind(this))
@@ -1097,6 +1277,11 @@ class UIManager {
       $('save-update-settings').addEventListener('click', this.handleSaveUpdateSettings.bind(this))
     }
 
+    // Changelog settings
+    if ($('save-changelog-settings')) {
+      $('save-changelog-settings').addEventListener('click', this.handleSaveChangelogSettings.bind(this))
+    }
+
     // Clear update
     if ($('clear-update')) {
       $('clear-update').addEventListener('click', this.handleClearUpdate.bind(this))
@@ -1111,6 +1296,15 @@ class UIManager {
       })
     }
 
+    // User logout
+    if ($('user-logout')) {
+      $('user-logout').addEventListener('click', () => {
+        clearUserSession()
+        this.showMessage('cleanup-result', 'Logout berhasil', 'success')
+        setTimeout(() => window.location.reload(), 1000)
+      })
+    }
+
     // Comment system
     if ($('cSend')) {
       $('cSend').addEventListener('click', this.handleCommentSubmit.bind(this))
@@ -1120,6 +1314,124 @@ class UIManager {
     const maintenanceOk = $('globalMaintenanceOverlay')?.querySelector('.maintenance-ok')
     if (maintenanceOk) {
       maintenanceOk.addEventListener('click', hideMaintenanceOverlay)
+    }
+
+    // Changelog close button
+    const changelogClose = $('changelogModal')?.querySelector('.changelog-close')
+    if (changelogClose) {
+      changelogClose.addEventListener('click', hideChangelogModal)
+    }
+
+    // Admin welcome close button
+    const adminWelcomeClose = $('adminWelcomeModal')?.querySelector('.admin-welcome-close')
+    if (adminWelcomeClose) {
+      adminWelcomeClose.addEventListener('click', hideAdminWelcomeModal)
+    }
+
+    // Drag and drop events
+    this.setupDragAndDrop()
+  }
+
+  setupDragAndDrop() {
+    const dropZone = $('uploadDropZone')
+    if (!dropZone) return
+
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, preventDefaults, false)
+    })
+
+    function preventDefaults(e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropZone.addEventListener(eventName, () => {
+        dropZone.classList.add('drag-over')
+      }, false)
+    })
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, () => {
+        dropZone.classList.remove('drag-over')
+      }, false)
+    })
+
+    dropZone.addEventListener('drop', (e) => {
+      const dt = e.dataTransfer
+      const files = dt.files
+      this.handleDroppedFiles(files)
+    }, false)
+  }
+
+  handleDroppedFiles(files) {
+    if (files.length > 0) {
+      if (files.length === 1) {
+        // Single file
+        const fileInput = $('fileInput')
+        const dataTransfer = new DataTransfer()
+        dataTransfer.items.add(files[0])
+        fileInput.files = dataTransfer.files
+        this.handleFileSelect({ target: fileInput })
+      } else {
+        // Multiple files
+        const multiFileInput = $('multiFileInput')
+        const dataTransfer = new DataTransfer()
+        for (let file of files) {
+          dataTransfer.items.add(file)
+        }
+        multiFileInput.files = dataTransfer.files
+        this.handleMultiFileSelect({ target: multiFileInput })
+      }
+    }
+  }
+
+  // NEW METHOD: Handle multi file selection
+  handleMultiFileSelect(event) {
+    const files = event.target.files;
+    const filebox = $('multiFileInput').closest('.filebox');
+    const fileList = $('multiFileList');
+    
+    // Clear previous display
+    if (fileList) {
+      fileList.innerHTML = '';
+    }
+    
+    if (files.length > 0) {
+      // Update style filebox untuk menunjukkan file dipilih
+      filebox.style.borderColor = 'var(--accent1)';
+      filebox.style.background = 'rgba(107, 142, 252, 0.05)';
+      
+      // Tampilkan daftar file
+      Array.from(files).forEach((file, index) => {
+        const fileItem = document.createElement('div');
+        fileItem.className = 'multi-file-item';
+        fileItem.innerHTML = `
+          <div class="file-info">
+            <i class="fa fa-file"></i>
+            <span class="file-name">${escapeHtml(file.name)}</span>
+            <span class="file-size">(${niceBytes(file.size)})</span>
+          </div>
+          <div class="file-status">
+            <i class="fa fa-check-circle success"></i>
+          </div>
+        `;
+        if (fileList) {
+          fileList.appendChild(fileItem);
+        }
+      });
+      
+      // Show multi file list
+      if (fileList) {
+        fileList.classList.remove('hide');
+      }
+    } else {
+      // Reset style filebox jika tidak ada file
+      filebox.style.borderColor = '';
+      filebox.style.background = '';
+      if (fileList) {
+        fileList.classList.add('hide');
+      }
     }
   }
 
@@ -1167,6 +1479,17 @@ class UIManager {
       maintenanceSettings.style.display = maintenanceToggle.checked ? 'block' : 'none'
     }
 
+    // Changelog settings toggle
+    const changelogToggle = $('changelog-toggle')
+    const changelogSettings = $('changelog-settings')
+    
+    if (changelogToggle && changelogSettings) {
+      changelogToggle.addEventListener('change', () => {
+        changelogSettings.style.display = changelogToggle.checked ? 'block' : 'none'
+      })
+      changelogSettings.style.display = changelogToggle.checked ? 'block' : 'none'
+    }
+
     // Real-time preview for maintenance message
     const maintenanceMessage = $('maintenance-message')
     const maintenancePreview = $('preview-maintenance-message')
@@ -1184,6 +1507,32 @@ class UIManager {
     if (updateMessage && updatePreview) {
       updateMessage.addEventListener('input', () => {
         updatePreview.textContent = updateMessage.value || 'Pembaruan sistem untuk pengalaman yang lebih baik!'
+      })
+    }
+
+    // Real-time preview for changelog
+    const changelogTitle = $('changelog-title')
+    const changelogVersion = $('changelog-version')
+    const changelogContent = $('changelog-content')
+    const changelogPreviewTitle = $('preview-changelog-title')
+    const changelogPreviewVersion = $('preview-changelog-version')
+    const changelogPreviewContent = $('preview-changelog-content')
+    
+    if (changelogTitle && changelogPreviewTitle) {
+      changelogTitle.addEventListener('input', () => {
+        changelogPreviewTitle.textContent = changelogTitle.value || 'Pembaruan Terbaru'
+      })
+    }
+    
+    if (changelogVersion && changelogPreviewVersion) {
+      changelogVersion.addEventListener('input', () => {
+        changelogPreviewVersion.textContent = `v${changelogVersion.value || '1.0.0'}`
+      })
+    }
+    
+    if (changelogContent && changelogPreviewContent) {
+      changelogContent.addEventListener('input', () => {
+        changelogPreviewContent.innerHTML = (changelogContent.value || 'Berikut adalah pembaruan yang telah dilakukan pada sistem.').replace(/\n/g, '<br>')
       })
     }
   }
@@ -1297,46 +1646,11 @@ class UIManager {
         return
       }
 
-      // Get signed URL
-      let signedUrl = null
-      try {
-        signedUrl = await createSignedUrl(record.storage_path, 300)
-      } catch (e) {
-        console.warn('Signed URL failed:', e)
-      }
+      // Set user session
+      setUserSession(username)
 
-      // Update UI
-      if ($('fileName')) $('fileName').textContent = record.filename || record.storage_path
-      if ($('fileSize')) $('fileSize').textContent = niceBytes(record.size)
-      if ($('fileTime')) $('fileTime').textContent = record.created_at ? 
-        new Date(record.created_at).toLocaleString() : '-'
-      if ($('dlInfo')) $('dlInfo').classList.remove('hide')
-
-      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(record.storage_path)}`
-      const finalUrl = signedUrl || publicUrl
-
-      // Setup download handler
-      if ($('btnDownload')) {
-        $('btnDownload').onclick = async () => {
-          try {
-            await forceDownloadUrl(finalUrl, record.filename || 'download')
-            await recordDownload({
-              file_id: record.id,
-              filename: record.filename,
-              username: record.username
-            })
-            this.showMessage('cleanup-result', 'Download berhasil!', 'success')
-          } catch (e) {
-            console.error('Download error:', e)
-            this.showMessage('cleanup-result', 'Gagal mengunduh: ' + e.message, 'error')
-          }
-        }
-      }
-
-      // Setup view handler
-      if ($('btnView')) {
-        $('btnView').onclick = () => window.open(finalUrl, '_blank')
-      }
+      // Show user dashboard
+      this.showUserDashboard(record)
 
     } catch (err) {
       console.error('Verification error:', err)
@@ -1344,6 +1658,97 @@ class UIManager {
         this.showMessage('cleanup-result', 'Username tidak ditemukan.', 'error')
       } else {
         this.showMessage('cleanup-result', 'Verifikasi gagal: ' + (err.message || err), 'error')
+      }
+    }
+  }
+
+  showUserDashboard(fileRecord = null) {
+    // Hide verification form
+    const verifyForm = $('verifyForm')
+    if (verifyForm) verifyForm.classList.add('hide')
+    
+    // Show user dashboard
+    const userDashboard = $('userDashboard')
+    if (userDashboard) {
+      userDashboard.classList.remove('hide')
+      
+      // Populate file info
+      if (fileRecord) {
+        if ($('userFileName')) $('userFileName').textContent = fileRecord.filename || fileRecord.storage_path
+        if ($('userFileSize')) $('userFileSize').textContent = niceBytes(fileRecord.size)
+        if ($('userFileUploaded')) $('userFileUploaded').textContent = fileRecord.created_at ? 
+          new Date(fileRecord.created_at).toLocaleString() : '-'
+        if ($('userFileExpires')) {
+          $('userFileExpires').textContent = fileRecord.expires_at ? 
+            new Date(fileRecord.expires_at).toLocaleString() : 'Tidak expired'
+        }
+        
+        // Setup download handler
+        if ($('userBtnDownload')) {
+          $('userBtnDownload').onclick = async () => {
+            try {
+              let signedUrl = null
+              try {
+                signedUrl = await createSignedUrl(fileRecord.storage_path, 300)
+              } catch (e) {
+                console.warn('Signed URL failed:', e)
+              }
+              
+              const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(fileRecord.storage_path)}`
+              const finalUrl = signedUrl || publicUrl
+              
+              await forceDownloadUrl(finalUrl, fileRecord.filename || 'download')
+              await recordDownload({
+                file_id: fileRecord.id,
+                filename: fileRecord.filename,
+                username: fileRecord.username
+              })
+              this.showMessage('user-message', 'Download berhasil!', 'success')
+            } catch (e) {
+              console.error('Download error:', e)
+              this.showMessage('user-message', 'Gagal mengunduh: ' + e.message, 'error')
+            }
+          }
+        }
+        
+        // Setup view handler
+        if ($('userBtnView')) {
+          $('userBtnView').onclick = async () => {
+            try {
+              let signedUrl = null
+              try {
+                signedUrl = await createSignedUrl(fileRecord.storage_path, 300)
+              } catch (e) {
+                console.warn('Signed URL failed:', e)
+              }
+              
+              const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(fileRecord.storage_path)}`
+              const finalUrl = signedUrl || publicUrl
+              
+              window.open(finalUrl, '_blank')
+            } catch (e) {
+              this.showMessage('user-message', 'Gagal membuka file: ' + e.message, 'error')
+            }
+          }
+        }
+        
+        // Setup delete handler
+        if ($('userBtnDelete')) {
+          $('userBtnDelete').onclick = async () => {
+            if (!confirm('Hapus file ini secara permanen? Tindakan ini tidak dapat dibatalkan.')) return
+            
+            try {
+              await deleteFile(fileRecord)
+              this.showMessage('user-message', 'File berhasil dihapus!', 'success')
+              setTimeout(() => {
+                clearUserSession()
+                window.location.reload()
+              }, 2000)
+            } catch (e) {
+              this.showMessage('user-message', 'Gagal menghapus file: ' + e.message, 'error')
+            }
+          }
+        }
       }
     }
   }
@@ -1464,6 +1869,38 @@ class UIManager {
     }
   }
 
+  async handleSaveChangelogSettings() {
+    const enabledToggle = $('changelog-toggle')
+    const titleInput = $('changelog-title')
+    const versionInput = $('changelog-version')
+    const contentInput = $('changelog-content')
+    const showOnStartupToggle = $('changelog-show-on-startup')
+
+    const enabled = enabledToggle?.checked || false
+    const title = titleInput?.value || 'Pembaruan Terbaru'
+    const version = versionInput?.value || '1.0.0'
+    const content = contentInput?.value || 'Berikut adalah pembaruan yang telah dilakukan pada sistem.'
+    const showOnStartup = showOnStartupToggle?.checked !== false
+
+    try {
+      await upsertChangelogSettings({
+        enabled,
+        title,
+        version,
+        content,
+        show_on_startup: showOnStartup
+      })
+
+      this.showMessage('changelog-msg', 'Pengaturan changelog berhasil disimpan!', 'success')
+      
+      const changelog = await getChangelogSettings()
+      this.updateChangelogDisplay(changelog)
+
+    } catch (e) {
+      this.showMessage('changelog-msg', 'Gagal menyimpan pengaturan: ' + e.message, 'error')
+    }
+  }
+
   async handleClearUpdate() {
     try {
       await upsertUpdateSettings({
@@ -1554,6 +1991,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   initializeUpdateCountdown()
 
+  // Check if user session exists
+  if (isUserSession()) {
+    uiManager.showUserDashboard()
+  }
+
   // Background cleanup dengan error handling
   setInterval(async () => {
     try {
@@ -1592,3 +2034,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
 window.hideUpdateBanner = hideUpdateBanner
 window.checkMaintenanceForUpload = checkMaintenanceForUpload
+window.hideChangelogModal = hideChangelogModal
+window.hideAdminWelcomeModal = hideAdminWelcomeModal
