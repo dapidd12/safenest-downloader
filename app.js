@@ -6,7 +6,6 @@ const SUPABASE_URL = 'https://rjsifamddfdhnlvrrwbb.supabase.co'
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJqc2lmYW1kZGZkaG5sdnJyd2JiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2Mjc2ODM5NiwiZXhwIjoyMDc4MzQ0Mzk2fQ.RwHToh53bF3iqWLomtBQczrkErqjXRxprIhvT4RB-1k'
 const BUCKET = 'piw-files'
 const BASE_LOGIN_LINK = window.location.origin
-const ADMIN_CREDENTIALS = { user: 'aryapiw.pages.dev', pass: 'dapid.my.id' }
 // ============================
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
@@ -236,6 +235,13 @@ function startUpdateCountdown(endsAt) {
       clearInterval(updateCountdownInterval)
       updateCountdownInterval = null
       hideUpdateBanner()
+      // Auto-disable update countdown when time's up
+      upsertUpdateSettings({ 
+        enabled: false,
+        ends_at: null,
+        message: 'Pembaruan sistem untuk pengalaman yang lebih baik!',
+        show_banner: true
+      }).catch(console.error)
       cache.clear('update_status')
       return
     }
@@ -308,8 +314,13 @@ async function initializeUpdateCountdown() {
         startUpdateCountdown(updateStatus.ends_at)
         
       } else {
-        // Update has passed, disable it
-        await upsertUpdateSettings({ enabled: false })
+        // Update has passed, disable it automatically
+        await upsertUpdateSettings({ 
+          enabled: false,
+          ends_at: null,
+          message: updateStatus.message,
+          show_banner: updateStatus.show_banner
+        })
         cache.clear('update_status')
       }
     } else {
@@ -357,6 +368,13 @@ function startMaintenanceCountdown(endsAt) {
       clearInterval(maintenanceCountdownInterval)
       maintenanceCountdownInterval = null
       hideMaintenanceOverlay()
+      // Auto-disable maintenance when time's up
+      upsertSetting('maintenance', {
+        enabled: false,
+        ends_at: null,
+        message: 'Sistem dalam perbaikan. Terima kasih atas pengertiannya.',
+        updated_by: 'system'
+      }).catch(console.error)
       cache.clear('maintenance_status')
       return
     }
@@ -441,6 +459,78 @@ function getUserSession() {
 function clearUserSession() {
   localStorage.removeItem('sn_user_session')
   currentUserSession = null
+}
+
+// ----------------- Supabase Auth System -----------------
+async function signInAdmin(email, password) {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password
+  })
+  
+  if (error) throw error
+  return data
+}
+
+async function getCurrentAdmin() {
+  const { data: { session }, error } = await supabase.auth.getSession()
+  if (error) throw error
+  return session
+}
+
+function setAdminSession(session) {
+  if (session) {
+    localStorage.setItem('sn_admin_session', JSON.stringify({
+      access_token: session.access_token,
+      user: session.user,
+      expiry: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
+    }))
+    
+    // Show welcome popup
+    setTimeout(() => {
+      const welcomePopup = $('adminWelcomePopup')
+      if (welcomePopup) {
+        welcomePopup.classList.remove('hide')
+        setTimeout(() => welcomePopup.classList.add('active'), 10)
+      }
+    }, 500)
+  } else {
+    localStorage.removeItem('sn_admin_session')
+    cache.clear('stats')
+    cache.clear('files_list')
+  }
+}
+
+function isAdminSession() {
+  const session = localStorage.getItem('sn_admin_session')
+  if (!session) return false
+  
+  try {
+    const { expiry } = JSON.parse(session)
+    if (expiry && Date.now() > expiry) {
+      localStorage.removeItem('sn_admin_session')
+      return false
+    }
+    return true
+  } catch {
+    localStorage.removeItem('sn_admin_session')
+    return false
+  }
+}
+
+function hideAdminWelcome() {
+  const welcomePopup = $('adminWelcomePopup')
+  if (welcomePopup) {
+    welcomePopup.classList.remove('active')
+    setTimeout(() => welcomePopup.classList.add('hide'), 300)
+  }
+}
+
+async function adminLogout() {
+  const { error } = await supabase.auth.signOut()
+  if (error) console.warn('Logout error:', error)
+  
+  setAdminSession(null)
 }
 
 // ----------------- Supabase Helpers -----------------
@@ -660,54 +750,6 @@ async function loadStats(){
   }
 }
 
-// ----------------- Admin Session -----------------
-function isAdminSession(){ 
-  const session = localStorage.getItem('sn_admin_session')
-  if (!session) return false
-  
-  try {
-    const { expiry } = JSON.parse(session)
-    if (expiry && Date.now() > expiry) {
-      localStorage.removeItem('sn_admin_session')
-      return false
-    }
-    return true
-  } catch {
-    localStorage.removeItem('sn_admin_session')
-    return false
-  }
-}
-
-function setAdminSession(on = true, ttl = 24 * 60 * 60 * 1000){
-  if (on) {
-    const session = {
-      created: Date.now(),
-      expiry: Date.now() + ttl
-    }
-    localStorage.setItem('sn_admin_session', JSON.stringify(session))
-    // Show welcome popup
-    setTimeout(() => {
-      const welcomePopup = $('adminWelcomePopup')
-      if (welcomePopup) {
-        welcomePopup.classList.remove('hide')
-        setTimeout(() => welcomePopup.classList.add('active'), 10)
-      }
-    }, 500)
-  } else {
-    localStorage.removeItem('sn_admin_session')
-    cache.clear('stats')
-    cache.clear('files_list')
-  }
-}
-
-function hideAdminWelcome() {
-  const welcomePopup = $('adminWelcomePopup')
-  if (welcomePopup) {
-    welcomePopup.classList.remove('active')
-    setTimeout(() => welcomePopup.classList.add('hide'), 300)
-  }
-}
-
 // ----------------- Fixed Expiry System -----------------
 function expiryToIso(selectVal){
   if(!selectVal || selectVal === 'never') return null
@@ -735,12 +777,12 @@ function expiryToIso(selectVal){
   return expiryDate.toISOString()
 }
 
-// ----------------- Fixed Cleanup System - DIPERBAIKI -----------------
+// ----------------- Fixed Cleanup System -----------------
 async function cleanExpiredFiles(){
   try {
     const now = new Date().toISOString()
     
-    // Find expired files - QUERY YANG LEBIH AMAN
+    // Find expired files
     const { data: expiredFiles, error } = await supabase
       .from('files')
       .select('*')
@@ -761,7 +803,7 @@ async function cleanExpiredFiles(){
 
     for (const file of expiredFiles) {
       try {
-        // Check if file has any downloads - QUERY TERPISAH YANG LEBIH AMAN
+        // Check if file has any downloads
         const { data: downloads, error: downloadError } = await supabase
           .from('downloads')
           .select('id')
@@ -907,12 +949,24 @@ class UIManager {
     this.init()
   }
 
-  init() {
+  async init() {
+    await this.checkAdminSession()
     this.setupNavigation()
     this.setupEventListeners()
     this.showPage('page-download')
     this.initializeAdminSettings()
     this.checkUserSession()
+  }
+
+  async checkAdminSession() {
+    try {
+      const session = await getCurrentAdmin()
+      if (session) {
+        setAdminSession(session)
+      }
+    } catch (error) {
+      console.warn('Admin session check failed:', error)
+    }
   }
 
   checkUserSession() {
@@ -1298,7 +1352,7 @@ class UIManager {
       })
     }
 
-    // Cleanup files - DIPERBAIKI DENGAN ERROR HANDLING
+    // Cleanup files
     if ($('cleanup-files')) {
       $('cleanup-files').addEventListener('click', async () => {
         const btn = $('cleanup-files')
@@ -1358,8 +1412,8 @@ class UIManager {
 
     // Admin logout
     if ($('admin-logout')) {
-      $('admin-logout').addEventListener('click', () => {
-        setAdminSession(false)
+      $('admin-logout').addEventListener('click', async () => {
+        await adminLogout()
         this.showMessage('cleanup-result', 'Logout admin berhasil', 'success')
         setTimeout(() => this.showPage('page-download'), 1000)
       })
@@ -1594,74 +1648,6 @@ class UIManager {
     }
   }
 
-  showMultiUploadResults(results) {
-    const credsSection = $('creds')
-    if (!credsSection) return
-
-    let credentialsHTML = `
-      <div class="creds-header">
-        <h4><i class="fa fa-key"></i> Kredensial File</h4>
-        <small class="muted">${results.length} file berhasil diupload - Simpan informasi ini dengan aman!</small>
-      </div>
-    `
-
-    results.forEach((result, index) => {
-      credentialsHTML += `
-        <div class="file-credential-item">
-          <div class="file-credential-header">
-            <i class="fa fa-file"></i>
-            <span>${escapeHtml(result.filename)}</span>
-          </div>
-          <div class="creds-grid">
-            <div class="cred-item">
-              <label><i class="fa fa-user"></i> Username:</label>
-              <code class="cred-value">${result.username}</code>
-            </div>
-            <div class="cred-item">
-              <label><i class="fa fa-lock"></i> Password:</label>
-              <code class="cred-value">${result.password}</code>
-            </div>
-            <div class="cred-item">
-              <label><i class="fa fa-clock-o"></i> Expired:</label>
-              <code class="cred-value">${result.expiresIso ? new Date(result.expiresIso).toLocaleString() : 'Tidak expired'}</code>
-            </div>
-            <div class="cred-item">
-              <label><i class="fa fa-link"></i> Link:</label>
-              <code class="cred-value">${BASE_LOGIN_LINK}/?user=${result.username}</code>
-            </div>
-          </div>
-          ${index < results.length - 1 ? '<hr class="credential-divider">' : ''}
-        </div>
-      `
-    })
-
-    credentialsHTML += `
-      <div class="row" style="margin-top:20px; justify-content: center;">
-        <button id="copyAllCreds" class="btn primary">
-          <i class="fa fa-clipboard"></i> Salin Semua Kredensial
-        </button>
-      </div>
-      <div style="margin-top:16px; text-align: center;">
-        <small class="muted">
-          <i class="fa fa-exclamation-triangle"></i>
-          Simpan informasi ini di tempat yang aman. Password tidak dapat dipulihkan!
-        </small>
-      </div>
-    `
-
-    credsSection.innerHTML = credentialsHTML
-    credsSection.classList.remove('hide')
-
-    // Add event listener for copy all button
-    const copyAllBtn = $('copyAllCreds')
-    if (copyAllBtn) {
-      copyAllBtn.addEventListener('click', () => this.handleCopyAllCreds(results))
-    }
-
-    // Scroll to credentials section
-    credsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-  }
-
   async handleVerify() {
     const username = ($('dlUser')?.value || '').trim()
     const password = ($('dlPass')?.value || '').trim()
@@ -1671,14 +1657,22 @@ class UIManager {
       return
     }
 
-    // Admin secret access
-    if (username === ADMIN_CREDENTIALS.user && password === ADMIN_CREDENTIALS.pass) {
-      setAdminSession(true)
-      this.showMessage('cleanup-result', 'Admin login berhasil - membuka dashboard', 'success')
-      setTimeout(() => this.showPage('page-admin'), 1000)
-      return
+    // Admin login dengan Supabase Auth
+    if (username.includes('@')) {
+      try {
+        const adminData = await signInAdmin(username, password)
+        setAdminSession(adminData.session)
+        this.showMessage('cleanup-result', 'Admin login berhasil - membuka dashboard', 'success')
+        setTimeout(() => this.showPage('page-admin'), 1000)
+        return
+      } catch (err) {
+        console.error('Admin login error:', err)
+        this.showMessage('cleanup-result', 'Login admin gagal: ' + (err.message || err), 'error')
+        return
+      }
     }
 
+    // Regular file verification
     try {
       const record = await getRecordByUsername(username)
       
@@ -1822,6 +1816,74 @@ class UIManager {
     } catch (e) {
       this.showMessage('cleanup-result', 'Gagal mengubah nama file: ' + e.message, 'error')
     }
+  }
+
+  showMultiUploadResults(results) {
+    const credsSection = $('creds')
+    if (!credsSection) return
+
+    let credentialsHTML = `
+      <div class="creds-header">
+        <h4><i class="fa fa-key"></i> Kredensial File</h4>
+        <small class="muted">${results.length} file berhasil diupload - Simpan informasi ini dengan aman!</small>
+      </div>
+    `
+
+    results.forEach((result, index) => {
+      credentialsHTML += `
+        <div class="file-credential-item">
+          <div class="file-credential-header">
+            <i class="fa fa-file"></i>
+            <span>${escapeHtml(result.filename)}</span>
+          </div>
+          <div class="creds-grid">
+            <div class="cred-item">
+              <label><i class="fa fa-user"></i> Username:</label>
+              <code class="cred-value">${result.username}</code>
+            </div>
+            <div class="cred-item">
+              <label><i class="fa fa-lock"></i> Password:</label>
+              <code class="cred-value">${result.password}</code>
+            </div>
+            <div class="cred-item">
+              <label><i class="fa fa-clock-o"></i> Expired:</label>
+              <code class="cred-value">${result.expiresIso ? new Date(result.expiresIso).toLocaleString() : 'Tidak expired'}</code>
+            </div>
+            <div class="cred-item">
+              <label><i class="fa fa-link"></i> Link:</label>
+              <code class="cred-value">${BASE_LOGIN_LINK}/?user=${result.username}</code>
+            </div>
+          </div>
+          ${index < results.length - 1 ? '<hr class="credential-divider">' : ''}
+        </div>
+      `
+    })
+
+    credentialsHTML += `
+      <div class="row" style="margin-top:20px; justify-content: center;">
+        <button id="copyAllCreds" class="btn primary">
+          <i class="fa fa-clipboard"></i> Salin Semua Kredensial
+        </button>
+      </div>
+      <div style="margin-top:16px; text-align: center;">
+        <small class="muted">
+          <i class="fa fa-exclamation-triangle"></i>
+          Simpan informasi ini di tempat yang aman. Password tidak dapat dipulihkan!
+        </small>
+      </div>
+    `
+
+    credsSection.innerHTML = credentialsHTML
+    credsSection.classList.remove('hide')
+
+    // Add event listener for copy all button
+    const copyAllBtn = $('copyAllCreds')
+    if (copyAllBtn) {
+      copyAllBtn.addEventListener('click', () => this.handleCopyAllCreds(results))
+    }
+
+    // Scroll to credentials section
+    credsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }
 
   handleCopyCreds() {
@@ -2083,7 +2145,7 @@ class UIManager {
 }
 
 // ----------------- Initialization -----------------
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   const uiManager = new UIManager()
 
   initializeUpdateCountdown()
