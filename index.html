@@ -839,27 +839,5 @@
 
   <script type="module" src="firebase.js"></script>
   <script type="module" src="app.js"></script>
-
-  <!-- Emergency loader timeout -->
-  <script>
-  // Emergency loader hide - fallback
-  setTimeout(function() {
-    const loader = document.getElementById('globalLoader');
-    if (loader && loader.style.opacity !== '0') {
-      console.warn('Emergency loader timeout triggered');
-      loader.style.opacity = '0';
-      setTimeout(function() {
-        if (loader.parentNode) {
-          loader.remove();
-        }
-      }, 300);
-    }
-  }, 8000); // 8 second timeout
-
-  // Basic error handler
-  window.addEventListener('error', function(e) {
-    console.error('Global error:', e.error);
-  });
-  </script>
 </body>
 </html>
