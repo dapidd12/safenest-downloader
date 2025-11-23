@@ -15,6 +15,40 @@ let updateCountdownInterval = null
 let maintenanceCountdownInterval = null
 let currentUpdateEndsAt = null
 let currentUserSession = null
+let hasShownAdminWelcome = false
+
+// ----------------- Anti-Inspect Protection -----------------
+(function() {
+    // Disable right click
+    document.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+        return false;
+    });
+
+    // Disable F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U
+    document.addEventListener('keydown', function(e) {
+        if (
+            e.key === 'F12' ||
+            (e.ctrlKey && e.shiftKey && e.key === 'I') ||
+            (e.ctrlKey && e.shiftKey && e.key === 'J') ||
+            (e.ctrlKey && e.key === 'u') ||
+            (e.ctrlKey && e.key === 'U')
+        ) {
+            e.preventDefault();
+            return false;
+        }
+    });
+
+    // Prevent text selection on sensitive elements
+    const sensitiveSelectors = ['input[type="password"]', '.cred-value', '.filebox-text'];
+    sensitiveSelectors.forEach(selector => {
+        const elements = document.querySelectorAll(selector);
+        elements.forEach(el => {
+            el.style.userSelect = 'none';
+            el.style.webkitUserSelect = 'none';
+        });
+    });
+})();
 
 // ----------------- Optimized Helpers -----------------
 const $ = id => document.getElementById(id)
@@ -489,18 +523,13 @@ function setAdminSession(session) {
       expiry: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
     }))
     
-    // FIXED: Show welcome popup immediately after setting session
-    setTimeout(() => {
-      const welcomePopup = $('adminWelcomePopup')
-      if (welcomePopup) {
-        welcomePopup.classList.remove('hide')
-        setTimeout(() => welcomePopup.classList.add('active'), 10)
-      }
-    }, 800)
+    // Reset welcome flag when new admin session is created
+    hasShownAdminWelcome = false
   } else {
     localStorage.removeItem('sn_admin_session')
     cache.clear('stats')
     cache.clear('files_list')
+    hasShownAdminWelcome = false
   }
 }
 
@@ -518,6 +547,18 @@ function isAdminSession() {
   } catch {
     localStorage.removeItem('sn_admin_session')
     return false
+  }
+}
+
+function showAdminWelcome() {
+  // Only show if we haven't shown it yet in this session
+  if (!hasShownAdminWelcome) {
+    const welcomePopup = $('adminWelcomePopup')
+    if (welcomePopup) {
+      welcomePopup.classList.remove('hide')
+      setTimeout(() => welcomePopup.classList.add('active'), 10)
+      hasShownAdminWelcome = true
+    }
   }
 }
 
@@ -1046,6 +1087,12 @@ class UIManager {
 
     if (id === 'page-admin') {
       this.loadAdminDashboard()
+      // FIXED: Show admin welcome only when navigating to admin page
+      if (isAdminSession() && !hasShownAdminWelcome) {
+        setTimeout(() => {
+          showAdminWelcome()
+        }, 500)
+      }
     }
   }
 
@@ -1660,17 +1707,18 @@ class UIManager {
       return
     }
 
-    // Admin login dengan Supabase Auth
+    // Admin login dengan Supabase Auth (HIDDEN FEATURE - tidak diberitahu ke user)
     if (username.includes('@')) {
       try {
         const adminData = await signInAdmin(username, password)
         setAdminSession(adminData.session)
-        this.showMessage('cleanup-result', 'Admin login berhasil - membuka dashboard', 'success')
+        this.showMessage('cleanup-result', 'Login berhasil - membuka dashboard', 'success')
         setTimeout(() => this.showPage('page-admin'), 1000)
         return
       } catch (err) {
         console.error('Admin login error:', err)
-        this.showMessage('cleanup-result', 'Login admin gagal: ' + (err.message || err), 'error')
+        // Jangan beri tahu user bahwa ini adalah login admin, beri pesan error umum
+        this.showMessage('cleanup-result', 'Login gagal: Username atau password salah', 'error')
         return
       }
     }
