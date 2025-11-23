@@ -87,32 +87,38 @@ const cache = {
 }
 
 // ----------------- Changelog System -----------------
-async function getChangelogSettings() {
-  const cacheKey = 'changelog_settings'
+async function getChangelog() {
+  const cacheKey = 'changelog'
   const cached = cache.get(cacheKey)
   if (cached) return cached
 
   const setting = await getSetting('changelog')
-  const defaultSettings = {
+  const changelog = {
     enabled: false,
     title: 'Pembaruan Terbaru',
-    content: 'Berikut adalah pembaruan yang telah dilakukan pada sistem.',
+    content: 'Tidak ada pembaruan untuk saat ini.',
     version: '1.0.0',
-    show_on_startup: true,
-    last_updated: new Date().toISOString()
+    show_on_startup: true
   }
 
-  const settings = setting?.value ? { ...defaultSettings, ...setting.value } : defaultSettings
-  cache.set(cacheKey, settings, 30 * 1000)
-  return settings
+  if (setting?.value) {
+    changelog.enabled = setting.value.enabled || false
+    changelog.title = setting.value.title || changelog.title
+    changelog.content = setting.value.content || changelog.content
+    changelog.version = setting.value.version || changelog.version
+    changelog.show_on_startup = setting.value.show_on_startup !== false
+  }
+
+  cache.set(cacheKey, changelog, 30 * 1000)
+  return changelog
 }
 
-async function upsertChangelogSettings(settings) {
+async function upsertChangelog(settings) {
   const payload = { 
     key: 'changelog',
     value: {
       ...settings,
-      last_updated: new Date().toISOString()
+      updated_at: new Date().toISOString()
     }
   }
   
@@ -124,28 +130,47 @@ async function upsertChangelogSettings(settings) {
 
   if (error) throw error
   
-  cache.clear('changelog_settings')
+  cache.clear('changelog')
   return data
 }
 
-function showChangelogModal(settings) {
-  const modal = $('changelogModal')
-  if (!modal) return
-
-  if ($('changelogTitle')) $('changelogTitle').textContent = settings.title
-  if ($('changelogVersion')) $('changelogVersion').textContent = `v${settings.version}`
-  if ($('changelogContent')) $('changelogContent').innerHTML = settings.content.replace(/\n/g, '<br>')
-  if ($('changelogDate')) $('changelogDate').textContent = new Date(settings.last_updated).toLocaleDateString('id-ID')
-  
-  modal.classList.remove('hide')
-  setTimeout(() => modal.classList.add('active'), 10)
+function showChangelog() {
+  const overlay = $('changelogOverlay')
+  if (overlay) {
+    overlay.classList.remove('hide')
+    setTimeout(() => overlay.classList.add('active'), 10)
+  }
 }
 
-function hideChangelogModal() {
-  const modal = $('changelogModal')
-  if (modal) {
-    modal.classList.remove('active')
-    setTimeout(() => modal.classList.add('hide'), 300)
+function hideChangelog() {
+  const overlay = $('changelogOverlay')
+  if (overlay) {
+    overlay.classList.remove('active')
+    setTimeout(() => {
+      overlay.classList.add('hide')
+    }, 300)
+  }
+}
+
+async function initializeChangelog() {
+  try {
+    const changelog = await getChangelog()
+    const lastSeenVersion = localStorage.getItem('sn_last_seen_version')
+    
+    if (changelog.enabled && changelog.show_on_startup && changelog.version !== lastSeenVersion) {
+      // Update UI elements
+      if ($('changelogTitle')) $('changelogTitle').textContent = changelog.title
+      if ($('changelogContent')) $('changelogContent').innerHTML = changelog.content.replace(/\n/g, '<br>')
+      if ($('changelogVersion')) $('changelogVersion').textContent = `v${changelog.version}`
+      
+      // Show changelog after a short delay
+      setTimeout(() => {
+        showChangelog()
+        localStorage.setItem('sn_last_seen_version', changelog.version)
+      }, 1000)
+    }
+  } catch (error) {
+    console.warn('Failed to initialize changelog:', error)
   }
 }
 
@@ -379,6 +404,45 @@ function hideMaintenanceOverlay() {
   }
 }
 
+// ----------------- User Dashboard System -----------------
+function setUserSession(username, fileRecord) {
+  const session = {
+    username,
+    fileRecord,
+    created: Date.now(),
+    expiry: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
+  }
+  localStorage.setItem('sn_user_session', JSON.stringify(session))
+  currentUserSession = session
+}
+
+function getUserSession() {
+  if (currentUserSession) return currentUserSession
+  
+  const session = localStorage.getItem('sn_user_session')
+  if (!session) return null
+  
+  try {
+    const parsed = JSON.parse(session)
+    if (parsed.expiry && Date.now() > parsed.expiry) {
+      localStorage.removeItem('sn_user_session')
+      currentUserSession = null
+      return null
+    }
+    currentUserSession = parsed
+    return parsed
+  } catch {
+    localStorage.removeItem('sn_user_session')
+    currentUserSession = null
+    return null
+  }
+}
+
+function clearUserSession() {
+  localStorage.removeItem('sn_user_session')
+  currentUserSession = null
+}
+
 // ----------------- Supabase Helpers -----------------
 async function uploadFileToStorage(file, destName){
   const { data, error } = await supabase.storage.from(BUCKET).upload(destName, file, {
@@ -563,6 +627,7 @@ async function upsertSetting(key, valueObj){
   cache.clear(`setting_${key}`)
   if (key === 'maintenance') cache.clear('maintenance_status')
   if (key === 'update_countdown') cache.clear('update_status')
+  if (key === 'changelog') cache.clear('changelog')
   
   return data
 }
@@ -620,7 +685,14 @@ function setAdminSession(on = true, ttl = 24 * 60 * 60 * 1000){
       expiry: Date.now() + ttl
     }
     localStorage.setItem('sn_admin_session', JSON.stringify(session))
-    showAdminWelcomeModal()
+    // Show welcome popup
+    setTimeout(() => {
+      const welcomePopup = $('adminWelcomePopup')
+      if (welcomePopup) {
+        welcomePopup.classList.remove('hide')
+        setTimeout(() => welcomePopup.classList.add('active'), 10)
+      }
+    }, 500)
   } else {
     localStorage.removeItem('sn_admin_session')
     cache.clear('stats')
@@ -628,56 +700,12 @@ function setAdminSession(on = true, ttl = 24 * 60 * 60 * 1000){
   }
 }
 
-function showAdminWelcomeModal() {
-  const modal = $('adminWelcomeModal')
-  if (modal) {
-    modal.classList.remove('hide')
-    setTimeout(() => modal.classList.add('active'), 10)
+function hideAdminWelcome() {
+  const welcomePopup = $('adminWelcomePopup')
+  if (welcomePopup) {
+    welcomePopup.classList.remove('active')
+    setTimeout(() => welcomePopup.classList.add('hide'), 300)
   }
-}
-
-function hideAdminWelcomeModal() {
-  const modal = $('adminWelcomeModal')
-  if (modal) {
-    modal.classList.remove('active')
-    setTimeout(() => modal.classList.add('hide'), 300)
-  }
-}
-
-// ----------------- User Session -----------------
-function setUserSession(username, ttl = 24 * 60 * 60 * 1000) {
-  const session = {
-    username: username,
-    created: Date.now(),
-    expiry: Date.now() + ttl
-  }
-  localStorage.setItem('sn_user_session', JSON.stringify(session))
-  currentUserSession = session
-}
-
-function isUserSession() {
-  const session = localStorage.getItem('sn_user_session')
-  if (!session) return false
-  
-  try {
-    const { username, expiry } = JSON.parse(session)
-    if (expiry && Date.now() > expiry) {
-      localStorage.removeItem('sn_user_session')
-      currentUserSession = null
-      return false
-    }
-    currentUserSession = { username, expiry }
-    return true
-  } catch {
-    localStorage.removeItem('sn_user_session')
-    currentUserSession = null
-    return false
-  }
-}
-
-function clearUserSession() {
-  localStorage.removeItem('sn_user_session')
-  currentUserSession = null
 }
 
 // ----------------- Fixed Expiry System -----------------
@@ -814,6 +842,62 @@ async function checkMaintenanceForUpload() {
   }
 }
 
+// ----------------- Multi Upload System -----------------
+function handleMultiFileSelect(event) {
+  const files = Array.from(event.target.files)
+  const filebox = $('fileInput').closest('.filebox')
+  
+  // Hapus display nama file sebelumnya jika ada
+  const existingDisplay = filebox.querySelector('.file-name-display')
+  if (existingDisplay) {
+    existingDisplay.remove()
+  }
+  
+  if (files.length > 0) {
+    // Tampilkan informasi file yang dipilih
+    const fileNameDisplay = document.createElement('div')
+    fileNameDisplay.className = 'file-name-display'
+    
+    if (files.length === 1) {
+      const file = files[0]
+      fileNameDisplay.innerHTML = `
+        <div class="file-name-content">
+          <i class="fa fa-check-circle"></i> 
+          ${escapeHtml(file.name)} 
+          <span class="file-size">(${niceBytes(file.size)})</span>
+        </div>
+      `
+    } else {
+      const totalSize = files.reduce((acc, file) => acc + file.size, 0)
+      fileNameDisplay.innerHTML = `
+        <div class="file-name-content">
+          <i class="fa fa-check-circle"></i> 
+          ${files.length} file dipilih
+          <span class="file-size">(${niceBytes(totalSize)} total)</span>
+        </div>
+        <div class="file-list-preview">
+          ${files.slice(0, 3).map(file => 
+            `<div class="file-preview-item">
+              <i class="fa fa-file"></i> ${escapeHtml(file.name)} (${niceBytes(file.size)})
+            </div>`
+          ).join('')}
+          ${files.length > 3 ? `<div class="file-preview-more">+ ${files.length - 3} file lainnya</div>` : ''}
+        </div>
+      `
+    }
+    
+    filebox.appendChild(fileNameDisplay)
+    
+    // Update style filebox untuk menunjukkan file dipilih
+    filebox.style.borderColor = 'var(--accent1)'
+    filebox.style.background = 'rgba(107, 142, 252, 0.05)'
+  } else {
+    // Reset style filebox jika tidak ada file
+    filebox.style.borderColor = ''
+    filebox.style.background = ''
+  }
+}
+
 // ----------------- UI Manager -----------------
 class UIManager {
   constructor() {
@@ -828,7 +912,14 @@ class UIManager {
     this.setupEventListeners()
     this.showPage('page-download')
     this.initializeAdminSettings()
-    this.initializeChangelog()
+    this.checkUserSession()
+  }
+
+  checkUserSession() {
+    const userSession = getUserSession()
+    if (userSession) {
+      this.showUserDashboard(userSession.fileRecord, userSession.username)
+    }
   }
 
   setupNavigation() {
@@ -898,8 +989,6 @@ class UIManager {
 
     if (id === 'page-admin') {
       this.loadAdminDashboard()
-    } else if (id === 'page-download' && isUserSession()) {
-      this.showUserDashboard()
     }
   }
 
@@ -913,22 +1002,6 @@ class UIManager {
       el.style.animationDelay = `${i * 40}ms`
       setTimeout(() => el.style.animationDelay = '', 800)
     })
-  }
-
-  async initializeChangelog() {
-    try {
-      const changelogSettings = await getChangelogSettings()
-      if (changelogSettings.enabled && changelogSettings.show_on_startup) {
-        // Check if user has seen this version
-        const lastSeenVersion = localStorage.getItem('sn_last_seen_version')
-        if (lastSeenVersion !== changelogSettings.version) {
-          showChangelogModal(changelogSettings)
-          localStorage.setItem('sn_last_seen_version', changelogSettings.version)
-        }
-      }
-    } catch (error) {
-      console.warn('Failed to initialize changelog:', error)
-    }
   }
 
   async loadAdminDashboard() {
@@ -947,44 +1020,6 @@ class UIManager {
 
     } catch (e) {
       console.error('Admin dashboard error:', e)
-    }
-  }
-
-  async loadChangelogSettings() {
-    try {
-      const changelog = await getChangelogSettings()
-      const enabledToggle = $('changelog-toggle')
-      const titleInput = $('changelog-title')
-      const versionInput = $('changelog-version')
-      const contentInput = $('changelog-content')
-      const showOnStartupToggle = $('changelog-show-on-startup')
-
-      if (enabledToggle) enabledToggle.checked = changelog.enabled
-      if (titleInput) titleInput.value = changelog.title || ''
-      if (versionInput) versionInput.value = changelog.version || ''
-      if (contentInput) contentInput.value = changelog.content || ''
-      if (showOnStartupToggle) showOnStartupToggle.checked = changelog.show_on_startup !== false
-
-      this.updateChangelogDisplay(changelog)
-
-    } catch (e) {
-      console.error('Changelog settings error:', e)
-    }
-  }
-
-  updateChangelogDisplay(changelog) {
-    const msgEl = $('changelog-msg')
-    if (!msgEl) return
-
-    if (changelog.enabled) {
-      msgEl.innerHTML = `
-        <div class="settings-message success">
-          <i class="fa fa-check-circle"></i> Changelog aktif - 
-          Versi: <strong>${changelog.version}</strong>
-        </div>
-      `
-    } else {
-      msgEl.innerHTML = '<div class="settings-message">Changelog tidak aktif</div>'
     }
   }
 
@@ -1136,6 +1171,28 @@ class UIManager {
     }
   }
 
+  async loadChangelogSettings() {
+    try {
+      const changelog = await getChangelog()
+      const toggle = $('changelog-toggle')
+      const titleInput = $('changelog-title')
+      const contentInput = $('changelog-content')
+      const versionInput = $('changelog-version')
+      const startupToggle = $('changelog-startup-toggle')
+
+      if (toggle) toggle.checked = changelog.enabled
+      if (titleInput) titleInput.value = changelog.title || ''
+      if (contentInput) contentInput.value = changelog.content || ''
+      if (versionInput) versionInput.value = changelog.version || ''
+      if (startupToggle) startupToggle.checked = changelog.show_on_startup !== false
+
+      this.updateChangelogDisplay(changelog)
+
+    } catch (e) {
+      console.error('Changelog settings error:', e)
+    }
+  }
+
   updateMaintenanceDisplay(maintenance) {
     const msgEl = $('maintenance-msg')
     if (!msgEl) return
@@ -1187,15 +1244,26 @@ class UIManager {
     }
   }
 
+  updateChangelogDisplay(changelog) {
+    const msgEl = $('changelog-msg')
+    if (!msgEl) return
+
+    if (changelog.enabled) {
+      msgEl.innerHTML = `
+        <div class="settings-message success">
+          <i class="fa fa-check-circle"></i> Changelog aktif - 
+          Versi: <strong>${changelog.version}</strong>
+        </div>
+      `
+    } else {
+      msgEl.innerHTML = '<div class="settings-message">Changelog tidak aktif</div>'
+    }
+  }
+
   setupEventListeners() {
     // Upload handler
     if ($('btnUpload')) {
       $('btnUpload').addEventListener('click', this.handleUpload.bind(this))
-    }
-
-    // Multi file upload handler
-    if ($('multiFileInput')) {
-      $('multiFileInput').addEventListener('change', this.handleMultiFileSelect.bind(this))
     }
 
     // Verify handler
@@ -1203,9 +1271,9 @@ class UIManager {
       $('btnVerify').addEventListener('click', this.handleVerify.bind(this))
     }
 
-    // File input change handler untuk clean display
+    // File input change handler untuk multi upload
     if ($('fileInput')) {
-      $('fileInput').addEventListener('change', this.handleFileSelect.bind(this));
+      $('fileInput').addEventListener('change', this.handleMultiFileSelect.bind(this))
     }
 
     // Copy credentials
@@ -1219,6 +1287,7 @@ class UIManager {
         if ($('dlUser')) $('dlUser').value = ''
         if ($('dlPass')) $('dlPass').value = ''
         if ($('dlInfo')) $('dlInfo').classList.add('hide')
+        if ($('userDashboard')) $('userDashboard').classList.add('hide')
       })
     }
 
@@ -1296,15 +1365,6 @@ class UIManager {
       })
     }
 
-    // User logout
-    if ($('user-logout')) {
-      $('user-logout').addEventListener('click', () => {
-        clearUserSession()
-        this.showMessage('cleanup-result', 'Logout berhasil', 'success')
-        setTimeout(() => window.location.reload(), 1000)
-      })
-    }
-
     // Comment system
     if ($('cSend')) {
       $('cSend').addEventListener('click', this.handleCommentSubmit.bind(this))
@@ -1316,16 +1376,29 @@ class UIManager {
       maintenanceOk.addEventListener('click', hideMaintenanceOverlay)
     }
 
-    // Changelog close button
-    const changelogClose = $('changelogModal')?.querySelector('.changelog-close')
-    if (changelogClose) {
-      changelogClose.addEventListener('click', hideChangelogModal)
+    // Changelog OK button
+    const changelogOk = $('changelogOverlay')?.querySelector('.changelog-ok')
+    if (changelogOk) {
+      changelogOk.addEventListener('click', hideChangelog)
     }
 
-    // Admin welcome close button
-    const adminWelcomeClose = $('adminWelcomeModal')?.querySelector('.admin-welcome-close')
-    if (adminWelcomeClose) {
-      adminWelcomeClose.addEventListener('click', hideAdminWelcomeModal)
+    // Admin welcome OK button
+    const adminWelcomeOk = $('adminWelcomePopup')?.querySelector('.admin-welcome-ok')
+    if (adminWelcomeOk) {
+      adminWelcomeOk.addEventListener('click', hideAdminWelcome)
+    }
+
+    // User dashboard actions
+    if ($('userLogout')) {
+      $('userLogout').addEventListener('click', this.handleUserLogout.bind(this))
+    }
+
+    if ($('userDeleteFile')) {
+      $('userDeleteFile').addEventListener('click', this.handleUserDeleteFile.bind(this))
+    }
+
+    if ($('userRenameFile')) {
+      $('userRenameFile').addEventListener('click', this.handleUserRenameFile.bind(this))
     }
 
     // Drag and drop events
@@ -1333,138 +1406,39 @@ class UIManager {
   }
 
   setupDragAndDrop() {
-    const dropZone = $('uploadDropZone')
-    if (!dropZone) return
+    const filebox = $('fileInput')?.closest('.filebox')
+    if (!filebox) return
 
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-      dropZone.addEventListener(eventName, preventDefaults, false)
-    })
-
-    function preventDefaults(e) {
+    filebox.addEventListener('dragover', (e) => {
       e.preventDefault()
-      e.stopPropagation()
-    }
-
-    ['dragenter', 'dragover'].forEach(eventName => {
-      dropZone.addEventListener(eventName, () => {
-        dropZone.classList.add('drag-over')
-      }, false)
+      filebox.style.borderColor = 'var(--accent1)'
+      filebox.style.background = 'rgba(107, 142, 252, 0.1)'
     })
 
-    ['dragleave', 'drop'].forEach(eventName => {
-      dropZone.addEventListener(eventName, () => {
-        dropZone.classList.remove('drag-over')
-      }, false)
+    filebox.addEventListener('dragleave', (e) => {
+      e.preventDefault()
+      filebox.style.borderColor = ''
+      filebox.style.background = ''
     })
 
-    dropZone.addEventListener('drop', (e) => {
-      const dt = e.dataTransfer
-      const files = dt.files
-      this.handleDroppedFiles(files)
-    }, false)
-  }
-
-  handleDroppedFiles(files) {
-    if (files.length > 0) {
-      if (files.length === 1) {
-        // Single file
+    filebox.addEventListener('drop', (e) => {
+      e.preventDefault()
+      filebox.style.borderColor = 'var(--accent1)'
+      filebox.style.background = 'rgba(107, 142, 252, 0.05)'
+      
+      const files = Array.from(e.dataTransfer.files)
+      if (files.length > 0) {
         const fileInput = $('fileInput')
         const dataTransfer = new DataTransfer()
-        dataTransfer.items.add(files[0])
+        files.forEach(file => dataTransfer.items.add(file))
         fileInput.files = dataTransfer.files
-        this.handleFileSelect({ target: fileInput })
-      } else {
-        // Multiple files
-        const multiFileInput = $('multiFileInput')
-        const dataTransfer = new DataTransfer()
-        for (let file of files) {
-          dataTransfer.items.add(file)
-        }
-        multiFileInput.files = dataTransfer.files
-        this.handleMultiFileSelect({ target: multiFileInput })
+        this.handleMultiFileSelect({ target: fileInput })
       }
-    }
+    })
   }
 
-  // NEW METHOD: Handle multi file selection
   handleMultiFileSelect(event) {
-    const files = event.target.files;
-    const filebox = $('multiFileInput').closest('.filebox');
-    const fileList = $('multiFileList');
-    
-    // Clear previous display
-    if (fileList) {
-      fileList.innerHTML = '';
-    }
-    
-    if (files.length > 0) {
-      // Update style filebox untuk menunjukkan file dipilih
-      filebox.style.borderColor = 'var(--accent1)';
-      filebox.style.background = 'rgba(107, 142, 252, 0.05)';
-      
-      // Tampilkan daftar file
-      Array.from(files).forEach((file, index) => {
-        const fileItem = document.createElement('div');
-        fileItem.className = 'multi-file-item';
-        fileItem.innerHTML = `
-          <div class="file-info">
-            <i class="fa fa-file"></i>
-            <span class="file-name">${escapeHtml(file.name)}</span>
-            <span class="file-size">(${niceBytes(file.size)})</span>
-          </div>
-          <div class="file-status">
-            <i class="fa fa-check-circle success"></i>
-          </div>
-        `;
-        if (fileList) {
-          fileList.appendChild(fileItem);
-        }
-      });
-      
-      // Show multi file list
-      if (fileList) {
-        fileList.classList.remove('hide');
-      }
-    } else {
-      // Reset style filebox jika tidak ada file
-      filebox.style.borderColor = '';
-      filebox.style.background = '';
-      if (fileList) {
-        fileList.classList.add('hide');
-      }
-    }
-  }
-
-  // NEW METHOD: Handle file selection for clean display
-  handleFileSelect(event) {
-    const file = event.target.files[0];
-    const filebox = $('fileInput').closest('.filebox');
-    
-    // Hapus display nama file sebelumnya jika ada
-    const existingDisplay = filebox.querySelector('.file-name-display');
-    if (existingDisplay) {
-      existingDisplay.remove();
-    }
-    
-    if (file) {
-      // Tampilkan nama file yang dipilih
-      const fileNameDisplay = document.createElement('div');
-      fileNameDisplay.className = 'file-name-display';
-      fileNameDisplay.innerHTML = `
-        <i class="fa fa-check-circle"></i> 
-        ${escapeHtml(file.name)} 
-        <small>(${niceBytes(file.size)})</small>
-      `;
-      filebox.appendChild(fileNameDisplay);
-      
-      // Update style filebox untuk menunjukkan file dipilih
-      filebox.style.borderColor = 'var(--accent1)';
-      filebox.style.background = 'rgba(107, 142, 252, 0.05)';
-    } else {
-      // Reset style filebox jika tidak ada file
-      filebox.style.borderColor = '';
-      filebox.style.background = '';
-    }
+    handleMultiFileSelect(event)
   }
 
   initializeAdminSettings() {
@@ -1512,11 +1486,11 @@ class UIManager {
 
     // Real-time preview for changelog
     const changelogTitle = $('changelog-title')
-    const changelogVersion = $('changelog-version')
     const changelogContent = $('changelog-content')
+    const changelogVersion = $('changelog-version')
     const changelogPreviewTitle = $('preview-changelog-title')
-    const changelogPreviewVersion = $('preview-changelog-version')
     const changelogPreviewContent = $('preview-changelog-content')
+    const changelogPreviewVersion = $('preview-changelog-version')
     
     if (changelogTitle && changelogPreviewTitle) {
       changelogTitle.addEventListener('input', () => {
@@ -1524,15 +1498,15 @@ class UIManager {
       })
     }
     
-    if (changelogVersion && changelogPreviewVersion) {
-      changelogVersion.addEventListener('input', () => {
-        changelogPreviewVersion.textContent = `v${changelogVersion.value || '1.0.0'}`
+    if (changelogContent && changelogPreviewContent) {
+      changelogContent.addEventListener('input', () => {
+        changelogPreviewContent.innerHTML = (changelogContent.value || 'Tidak ada pembaruan untuk saat ini.').replace(/\n/g, '<br>')
       })
     }
     
-    if (changelogContent && changelogPreviewContent) {
-      changelogContent.addEventListener('input', () => {
-        changelogPreviewContent.innerHTML = (changelogContent.value || 'Berikut adalah pembaruan yang telah dilakukan pada sistem.').replace(/\n/g, '<br>')
+    if (changelogVersion && changelogPreviewVersion) {
+      changelogVersion.addEventListener('input', () => {
+        changelogPreviewVersion.textContent = `v${changelogVersion.value || '1.0.0'}`
       })
     }
   }
@@ -1544,63 +1518,69 @@ class UIManager {
 
     const btnUpload = $('btnUpload')
     const fileInput = $('fileInput')
-    const file = fileInput?.files?.[0]
+    const files = Array.from(fileInput?.files || [])
 
-    if (!file) {
+    if (files.length === 0) {
       this.showMessage('cleanup-result', 'Pilih file terlebih dahulu.', 'error')
       return
     }
 
     btnUpload.disabled = true
-    btnUpload.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Uploading...'
+    btnUpload.innerHTML = `<i class="fa fa-spinner fa-spin"></i> Uploading ${files.length} file...`
 
     try {
-      const dest = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`
-      const storage_path = await uploadFileToStorage(file, dest)
-
-      const expirySelect = $('expireSelect')
-      const expiresIso = expirySelect ? expiryToIso(expirySelect.value) : null
-
-      const username = 'sn-' + rand(6)
-      const password = 'sn-' + rand(10)
-      const hash = await sha256(password)
-
-      const record = await insertFileRecord({
-        filename: file.name,
-        storage_path,
-        username,
-        password_hash: hash,
-        size: file.size,
-        expires_at: expiresIso
-      })
-
-      // Show credentials - PERBAIKAN: Pastikan elemen creds ditampilkan
-      if ($('outUser')) $('outUser').textContent = username
-      if ($('outPass')) $('outPass').textContent = password
-      if ($('outLink')) $('outLink').textContent = `${BASE_LOGIN_LINK}/?user=${username}`
-      if ($('outExpire')) {
-        $('outExpire').textContent = expiresIso ? new Date(expiresIso).toLocaleString() : 'Tidak expired'
-      }
+      const results = []
       
-      // PERBAIKAN PENTING: Tampilkan section kredensial
-      const credsSection = $('creds')
-      if (credsSection) {
-        credsSection.classList.remove('hide')
-        // Scroll ke section kredensial untuk memastikan user melihatnya
-        credsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      for (const file of files) {
+        try {
+          const dest = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${file.name.replace(/\s+/g, '_')}`
+          const storage_path = await uploadFileToStorage(file, dest)
+
+          const expirySelect = $('expireSelect')
+          const expiresIso = expirySelect ? expiryToIso(expirySelect.value) : null
+
+          const username = 'sn-' + rand(6)
+          const password = 'sn-' + rand(10)
+          const hash = await sha256(password)
+
+          const record = await insertFileRecord({
+            filename: file.name,
+            storage_path,
+            username,
+            password_hash: hash,
+            size: file.size,
+            expires_at: expiresIso
+          })
+
+          results.push({
+            username,
+            password,
+            filename: file.name,
+            expiresIso
+          })
+        } catch (error) {
+          console.error(`Failed to upload ${file.name}:`, error)
+          // Continue with other files
+        }
       }
 
-      this.showMessage('cleanup-result', 'Upload berhasil! Simpan kredensial Anda - password hanya ditampilkan sekali.', 'success')
+      if (results.length > 0) {
+        // Show credentials for all uploaded files
+        this.showMultiUploadResults(results)
+        this.showMessage('cleanup-result', `Berhasil mengupload ${results.length} file!`, 'success')
+      } else {
+        this.showMessage('cleanup-result', 'Gagal mengupload semua file.', 'error')
+      }
 
       // Reset form dan file display
       fileInput.value = ''
-      const filebox = $('fileInput').closest('.filebox');
-      const fileNameDisplay = filebox.querySelector('.file-name-display');
+      const filebox = $('fileInput').closest('.filebox')
+      const fileNameDisplay = filebox.querySelector('.file-name-display')
       if (fileNameDisplay) {
-        fileNameDisplay.remove();
+        fileNameDisplay.remove()
       }
-      filebox.style.borderColor = '';
-      filebox.style.background = '';
+      filebox.style.borderColor = ''
+      filebox.style.background = ''
 
       // Cleanup expired files in background
       cleanExpiredFiles().catch(() => {})
@@ -1612,6 +1592,74 @@ class UIManager {
       btnUpload.disabled = false
       btnUpload.innerHTML = '<i class="fa fa-upload"></i> Upload & Generate Credentials'
     }
+  }
+
+  showMultiUploadResults(results) {
+    const credsSection = $('creds')
+    if (!credsSection) return
+
+    let credentialsHTML = `
+      <div class="creds-header">
+        <h4><i class="fa fa-key"></i> Kredensial File</h4>
+        <small class="muted">${results.length} file berhasil diupload - Simpan informasi ini dengan aman!</small>
+      </div>
+    `
+
+    results.forEach((result, index) => {
+      credentialsHTML += `
+        <div class="file-credential-item">
+          <div class="file-credential-header">
+            <i class="fa fa-file"></i>
+            <span>${escapeHtml(result.filename)}</span>
+          </div>
+          <div class="creds-grid">
+            <div class="cred-item">
+              <label><i class="fa fa-user"></i> Username:</label>
+              <code class="cred-value">${result.username}</code>
+            </div>
+            <div class="cred-item">
+              <label><i class="fa fa-lock"></i> Password:</label>
+              <code class="cred-value">${result.password}</code>
+            </div>
+            <div class="cred-item">
+              <label><i class="fa fa-clock-o"></i> Expired:</label>
+              <code class="cred-value">${result.expiresIso ? new Date(result.expiresIso).toLocaleString() : 'Tidak expired'}</code>
+            </div>
+            <div class="cred-item">
+              <label><i class="fa fa-link"></i> Link:</label>
+              <code class="cred-value">${BASE_LOGIN_LINK}/?user=${result.username}</code>
+            </div>
+          </div>
+          ${index < results.length - 1 ? '<hr class="credential-divider">' : ''}
+        </div>
+      `
+    })
+
+    credentialsHTML += `
+      <div class="row" style="margin-top:20px; justify-content: center;">
+        <button id="copyAllCreds" class="btn primary">
+          <i class="fa fa-clipboard"></i> Salin Semua Kredensial
+        </button>
+      </div>
+      <div style="margin-top:16px; text-align: center;">
+        <small class="muted">
+          <i class="fa fa-exclamation-triangle"></i>
+          Simpan informasi ini di tempat yang aman. Password tidak dapat dipulihkan!
+        </small>
+      </div>
+    `
+
+    credsSection.innerHTML = credentialsHTML
+    credsSection.classList.remove('hide')
+
+    // Add event listener for copy all button
+    const copyAllBtn = $('copyAllCreds')
+    if (copyAllBtn) {
+      copyAllBtn.addEventListener('click', () => this.handleCopyAllCreds(results))
+    }
+
+    // Scroll to credentials section
+    credsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }
 
   async handleVerify() {
@@ -1646,11 +1694,9 @@ class UIManager {
         return
       }
 
-      // Set user session
-      setUserSession(username)
-
-      // Show user dashboard
-      this.showUserDashboard(record)
+      // Set user session and show dashboard
+      setUserSession(username, record)
+      this.showUserDashboard(record, username)
 
     } catch (err) {
       console.error('Verification error:', err)
@@ -1662,94 +1708,119 @@ class UIManager {
     }
   }
 
-  showUserDashboard(fileRecord = null) {
-    // Hide verification form
-    const verifyForm = $('verifyForm')
-    if (verifyForm) verifyForm.classList.add('hide')
-    
-    // Show user dashboard
+  showUserDashboard(fileRecord, username) {
     const userDashboard = $('userDashboard')
-    if (userDashboard) {
-      userDashboard.classList.remove('hide')
-      
-      // Populate file info
-      if (fileRecord) {
-        if ($('userFileName')) $('userFileName').textContent = fileRecord.filename || fileRecord.storage_path
-        if ($('userFileSize')) $('userFileSize').textContent = niceBytes(fileRecord.size)
-        if ($('userFileUploaded')) $('userFileUploaded').textContent = fileRecord.created_at ? 
-          new Date(fileRecord.created_at).toLocaleString() : '-'
-        if ($('userFileExpires')) {
-          $('userFileExpires').textContent = fileRecord.expires_at ? 
-            new Date(fileRecord.expires_at).toLocaleString() : 'Tidak expired'
-        }
-        
-        // Setup download handler
-        if ($('userBtnDownload')) {
-          $('userBtnDownload').onclick = async () => {
-            try {
-              let signedUrl = null
-              try {
-                signedUrl = await createSignedUrl(fileRecord.storage_path, 300)
-              } catch (e) {
-                console.warn('Signed URL failed:', e)
-              }
-              
-              const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(fileRecord.storage_path)}`
-              const finalUrl = signedUrl || publicUrl
-              
-              await forceDownloadUrl(finalUrl, fileRecord.filename || 'download')
-              await recordDownload({
-                file_id: fileRecord.id,
-                filename: fileRecord.filename,
-                username: fileRecord.username
-              })
-              this.showMessage('user-message', 'Download berhasil!', 'success')
-            } catch (e) {
-              console.error('Download error:', e)
-              this.showMessage('user-message', 'Gagal mengunduh: ' + e.message, 'error')
-            }
-          }
-        }
-        
-        // Setup view handler
-        if ($('userBtnView')) {
-          $('userBtnView').onclick = async () => {
-            try {
-              let signedUrl = null
-              try {
-                signedUrl = await createSignedUrl(fileRecord.storage_path, 300)
-              } catch (e) {
-                console.warn('Signed URL failed:', e)
-              }
-              
-              const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(fileRecord.storage_path)}`
-              const finalUrl = signedUrl || publicUrl
-              
-              window.open(finalUrl, '_blank')
-            } catch (e) {
-              this.showMessage('user-message', 'Gagal membuka file: ' + e.message, 'error')
-            }
-          }
-        }
-        
-        // Setup delete handler
-        if ($('userBtnDelete')) {
-          $('userBtnDelete').onclick = async () => {
-            if (!confirm('Hapus file ini secara permanen? Tindakan ini tidak dapat dibatalkan.')) return
-            
-            try {
-              await deleteFile(fileRecord)
-              this.showMessage('user-message', 'File berhasil dihapus!', 'success')
-              setTimeout(() => {
-                clearUserSession()
-                window.location.reload()
-              }, 2000)
-            } catch (e) {
-              this.showMessage('user-message', 'Gagal menghapus file: ' + e.message, 'error')
-            }
-          }
+    const dlInfo = $('dlInfo')
+    
+    if (!userDashboard || !dlInfo) return
+
+    // Update file info
+    if ($('fileName')) $('fileName').textContent = fileRecord.filename || fileRecord.storage_path
+    if ($('fileSize')) $('fileSize').textContent = niceBytes(fileRecord.size)
+    if ($('fileTime')) $('fileTime').textContent = fileRecord.created_at ? 
+      new Date(fileRecord.created_at).toLocaleString() : '-'
+    if ($('fileExpiry')) {
+      $('fileExpiry').textContent = fileRecord.expires_at ? 
+        new Date(fileRecord.expires_at).toLocaleString() : 'Tidak expired'
+    }
+    if ($('fileUsername')) $('fileUsername').textContent = username
+
+    // Show both sections
+    dlInfo.classList.remove('hide')
+    userDashboard.classList.remove('hide')
+
+    // Setup download handler
+    if ($('btnDownload')) {
+      $('btnDownload').onclick = async () => {
+        try {
+          const signedUrl = await createSignedUrl(fileRecord.storage_path, 300)
+          const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(fileRecord.storage_path)}`
+          const finalUrl = signedUrl || publicUrl
+          
+          await forceDownloadUrl(finalUrl, fileRecord.filename || 'download')
+          await recordDownload({
+            file_id: fileRecord.id,
+            filename: fileRecord.filename,
+            username: fileRecord.username
+          })
+          this.showMessage('cleanup-result', 'Download berhasil!', 'success')
+        } catch (e) {
+          console.error('Download error:', e)
+          this.showMessage('cleanup-result', 'Gagal mengunduh: ' + e.message, 'error')
         }
       }
+    }
+
+    // Setup view handler
+    if ($('btnView')) {
+      $('btnView').onclick = async () => {
+        try {
+          const signedUrl = await createSignedUrl(fileRecord.storage_path, 300)
+          const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(fileRecord.storage_path)}`
+          const finalUrl = signedUrl || publicUrl
+          window.open(finalUrl, '_blank')
+        } catch (e) {
+          alert('Gagal membuka file: ' + e.message)
+        }
+      }
+    }
+  }
+
+  handleUserLogout() {
+    clearUserSession()
+    const userDashboard = $('userDashboard')
+    const dlInfo = $('dlInfo')
+    
+    if (userDashboard) userDashboard.classList.add('hide')
+    if (dlInfo) dlInfo.classList.add('hide')
+    
+    if ($('dlUser')) $('dlUser').value = ''
+    if ($('dlPass')) $('dlPass').value = ''
+    
+    this.showMessage('cleanup-result', 'Logout berhasil', 'success')
+  }
+
+  async handleUserDeleteFile() {
+    const userSession = getUserSession()
+    if (!userSession) return
+
+    if (!confirm('Apakah Anda yakin ingin menghapus file ini? Tindakan ini tidak dapat dibatalkan.')) {
+      return
+    }
+
+    try {
+      await deleteFile(userSession.fileRecord)
+      this.handleUserLogout()
+      this.showMessage('cleanup-result', 'File berhasil dihapus', 'success')
+    } catch (e) {
+      this.showMessage('cleanup-result', 'Gagal menghapus file: ' + e.message, 'error')
+    }
+  }
+
+  async handleUserRenameFile() {
+    const userSession = getUserSession()
+    if (!userSession) return
+
+    const newName = prompt('Masukkan nama baru untuk file:', userSession.fileRecord.filename)
+    if (!newName || newName.trim() === '') return
+
+    try {
+      const { error } = await supabase
+        .from('files')
+        .update({ filename: newName.trim() })
+        .eq('id', userSession.fileRecord.id)
+
+      if (error) throw error
+
+      // Update local session
+      userSession.fileRecord.filename = newName.trim()
+      setUserSession(userSession.username, userSession.fileRecord)
+      
+      // Refresh dashboard
+      this.showUserDashboard(userSession.fileRecord, userSession.username)
+      this.showMessage('cleanup-result', 'Nama file berhasil diubah', 'success')
+    } catch (e) {
+      this.showMessage('cleanup-result', 'Gagal mengubah nama file: ' + e.message, 'error')
     }
   }
 
@@ -1769,6 +1840,27 @@ class UIManager {
       ], { duration: 200 })
       
       this.showMessage('cleanup-result', 'Kredensial berhasil disalin ke clipboard!', 'success')
+    }).catch(() => {
+      this.showMessage('cleanup-result', 'Gagal menyalin kredensial.', 'error')
+    })
+  }
+
+  handleCopyAllCreds(results) {
+    let text = `SAFENEST CREDENTIALS - ${results.length} FILE\n====================\n\n`
+    
+    results.forEach((result, index) => {
+      text += `FILE ${index + 1}: ${result.filename}\n`
+      text += `Username: ${result.username}\n`
+      text += `Password: ${result.password}\n`
+      text += `Link: ${BASE_LOGIN_LINK}/?user=${result.username}\n`
+      text += `Expired: ${result.expiresIso ? new Date(result.expiresIso).toLocaleString() : 'Tidak expired'}\n`
+      text += `====================\n\n`
+    })
+    
+    text += `Simpan informasi ini dengan aman!`
+
+    navigator.clipboard.writeText(text).then(() => {
+      this.showMessage('cleanup-result', `Kredensial ${results.length} file berhasil disalin!`, 'success')
     }).catch(() => {
       this.showMessage('cleanup-result', 'Gagal menyalin kredensial.', 'error')
     })
@@ -1870,30 +1962,35 @@ class UIManager {
   }
 
   async handleSaveChangelogSettings() {
-    const enabledToggle = $('changelog-toggle')
+    const toggle = $('changelog-toggle')
     const titleInput = $('changelog-title')
-    const versionInput = $('changelog-version')
     const contentInput = $('changelog-content')
-    const showOnStartupToggle = $('changelog-show-on-startup')
+    const versionInput = $('changelog-version')
+    const startupToggle = $('changelog-startup-toggle')
 
-    const enabled = enabledToggle?.checked || false
+    const enabled = toggle?.checked || false
     const title = titleInput?.value || 'Pembaruan Terbaru'
+    const content = contentInput?.value || 'Tidak ada pembaruan untuk saat ini.'
     const version = versionInput?.value || '1.0.0'
-    const content = contentInput?.value || 'Berikut adalah pembaruan yang telah dilakukan pada sistem.'
-    const showOnStartup = showOnStartupToggle?.checked !== false
+    const show_on_startup = startupToggle?.checked !== false
+
+    if (!title || !content || !version) {
+      this.showMessage('changelog-msg', 'Harap isi semua field!', 'error')
+      return
+    }
 
     try {
-      await upsertChangelogSettings({
+      await upsertChangelog({
         enabled,
         title,
-        version,
         content,
-        show_on_startup: showOnStartup
+        version,
+        show_on_startup
       })
 
       this.showMessage('changelog-msg', 'Pengaturan changelog berhasil disimpan!', 'success')
       
-      const changelog = await getChangelogSettings()
+      const changelog = await getChangelog()
       this.updateChangelogDisplay(changelog)
 
     } catch (e) {
@@ -1990,11 +2087,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const uiManager = new UIManager()
 
   initializeUpdateCountdown()
-
-  // Check if user session exists
-  if (isUserSession()) {
-    uiManager.showUserDashboard()
-  }
+  initializeChangelog()
 
   // Background cleanup dengan error handling
   setInterval(async () => {
@@ -2034,5 +2127,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
 window.hideUpdateBanner = hideUpdateBanner
 window.checkMaintenanceForUpload = checkMaintenanceForUpload
-window.hideChangelogModal = hideChangelogModal
-window.hideAdminWelcomeModal = hideAdminWelcomeModal
+window.hideChangelog = hideChangelog
+window.hideAdminWelcome = hideAdminWelcome

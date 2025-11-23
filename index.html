@@ -31,6 +31,69 @@
     </div>
   </div>
 
+  <!-- Changelog Overlay -->
+  <div id="changelogOverlay" class="changelog-overlay hide">
+    <div class="changelog-modal">
+      <div class="changelog-header">
+        <div class="changelog-icon">
+          <i class="fa fa-newspaper-o"></i>
+        </div>
+        <div class="changelog-title-content">
+          <h2 id="changelogTitle">Pembaruan Terbaru</h2>
+          <span class="changelog-version" id="changelogVersion">v1.0.0</span>
+        </div>
+      </div>
+      
+      <div class="changelog-content">
+        <div id="changelogContent">
+          Tidak ada pembaruan untuk saat ini.
+        </div>
+      </div>
+      
+      <div class="changelog-actions">
+        <button class="btn primary changelog-ok">
+          <i class="fa fa-check"></i> Mengerti
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin Welcome Popup -->
+  <div id="adminWelcomePopup" class="admin-welcome-popup hide">
+    <div class="admin-welcome-modal">
+      <div class="admin-welcome-icon">
+        <i class="fa fa-shield"></i>
+      </div>
+      <div class="admin-welcome-content">
+        <h3>Selamat Datang di Dashboard Admin!</h3>
+        <p>Anda telah berhasil login sebagai administrator. Dari sini Anda dapat mengelola semua aspek sistem Safenest.</p>
+        <div class="admin-welcome-features">
+          <div class="welcome-feature">
+            <i class="fa fa-bar-chart"></i>
+            <span>Pantau statistik sistem</span>
+          </div>
+          <div class="welcome-feature">
+            <i class="fa fa-wrench"></i>
+            <span>Kelola maintenance</span>
+          </div>
+          <div class="welcome-feature">
+            <i class="fa fa-rocket"></i>
+            <span>Atur update countdown</span>
+          </div>
+          <div class="welcome-feature">
+            <i class="fa fa-newspaper-o"></i>
+            <span>Kelola changelog</span>
+          </div>
+        </div>
+      </div>
+      <div class="admin-welcome-actions">
+        <button class="btn primary admin-welcome-ok">
+          <i class="fa fa-thumbs-up"></i> Mulai Mengelola
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div class="app-shell">
     <!-- Simplified Header -->
     <header class="top-header glass">
@@ -63,84 +126,70 @@
             </div>
           </div>
           
-          <!-- Verification Form -->
-          <div id="verifyForm">
-            <p class="muted">Masukkan username & password yang diberikan uploader.</p>
+          <p class="muted">Masukkan username & password yang diberikan uploader.</p>
 
-            <div class="grid-2">
-              <input id="dlUser" placeholder="username (sn-xxxx)" />
-              <input id="dlPass" placeholder="password" type="password" />
-            </div>
+          <div class="grid-2">
+            <input id="dlUser" placeholder="username (sn-xxxx)" />
+            <input id="dlPass" placeholder="password" type="password" />
+          </div>
+
+          <div class="row" style="margin-top:12px">
+            <button id="btnVerify" class="btn primary"><i class="fa fa-check-circle"></i> Verify & Show</button>
+            <button id="btnClear" class="btn ghost"><i class="fa fa-refresh"></i> Bersihkan</button>
+          </div>
+
+          <!-- File Info Section -->
+          <div id="dlInfo" class="file-info hide">
+            <h3 id="fileName">-</h3>
+            <p class="muted small">Ukuran: <span id="fileSize">-</span> • Diunggah: <span id="fileTime">-</span></p>
 
             <div class="row" style="margin-top:12px">
-              <button id="btnVerify" class="btn primary"><i class="fa fa-check-circle"></i> Verify & Show</button>
-              <button id="btnClear" class="btn ghost"><i class="fa fa-refresh"></i> Bersihkan</button>
-            </div>
-
-            <div id="dlInfo" class="file-info hide">
-              <h3 id="fileName">-</h3>
-              <p class="muted small">Ukuran: <span id="fileSize">-</span> • Diunggah: <span id="fileTime">-</span></p>
-
-              <div class="row" style="margin-top:12px">
-                <button id="btnView" class="btn ghost"><i class="fa fa-eye"></i> Lihat File</button>
-                <button id="btnDownload" class="btn primary"><i class="fa fa-download"></i> Download</button>
-              </div>
+              <button id="btnView" class="btn ghost"><i class="fa fa-eye"></i> Lihat File</button>
+              <button id="btnDownload" class="btn primary"><i class="fa fa-download"></i> Download</button>
             </div>
           </div>
 
-          <!-- User Dashboard -->
+          <!-- User Dashboard Section -->
           <div id="userDashboard" class="user-dashboard hide">
-            <div class="user-welcome">
-              <div class="welcome-icon">
-                <i class="fa fa-user-circle"></i>
+            <div class="dashboard-header">
+              <h3><i class="fa fa-dashboard"></i> Dashboard File Anda</h3>
+              <p class="muted">Kelola file Anda dari sini</p>
+            </div>
+            
+            <div class="file-details-grid">
+              <div class="detail-item">
+                <label><i class="fa fa-user"></i> Username:</label>
+                <span id="fileUsername">-</span>
               </div>
-              <div class="welcome-text">
-                <h3>Selamat Datang!</h3>
-                <p class="muted">Anda telah berhasil masuk ke dashboard file Anda</p>
+              <div class="detail-item">
+                <label><i class="fa fa-file"></i> Nama File:</label>
+                <span id="fileNameDashboard">-</span>
+              </div>
+              <div class="detail-item">
+                <label><i class="fa fa-hdd-o"></i> Ukuran:</label>
+                <span id="fileSizeDashboard">-</span>
+              </div>
+              <div class="detail-item">
+                <label><i class="fa fa-clock-o"></i> Diunggah:</label>
+                <span id="fileTimeDashboard">-</span>
+              </div>
+              <div class="detail-item">
+                <label><i class="fa fa-calendar-times-o"></i> Expired:</label>
+                <span id="fileExpiry">-</span>
               </div>
             </div>
 
-            <div class="file-details-card">
-              <h4><i class="fa fa-file"></i> Detail File</h4>
-              <div class="file-details-grid">
-                <div class="detail-item">
-                  <label>Nama File:</label>
-                  <span id="userFileName" class="detail-value">-</span>
-                </div>
-                <div class="detail-item">
-                  <label>Ukuran:</label>
-                  <span id="userFileSize" class="detail-value">-</span>
-                </div>
-                <div class="detail-item">
-                  <label>Diunggah:</label>
-                  <span id="userFileUploaded" class="detail-value">-</span>
-                </div>
-                <div class="detail-item">
-                  <label>Kadaluarsa:</label>
-                  <span id="userFileExpires" class="detail-value">-</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="file-actions-grid">
-              <button id="userBtnView" class="btn primary large">
-                <i class="fa fa-eye"></i> Lihat File
+            <div class="dashboard-actions">
+              <button id="userRenameFile" class="btn ghost">
+                <i class="fa fa-edit"></i> Rename File
               </button>
-              <button id="userBtnDownload" class="btn success large">
-                <i class="fa fa-download"></i> Download
-              </button>
-              <button id="userBtnDelete" class="btn error large">
+              <button id="userDeleteFile" class="btn ghost error">
                 <i class="fa fa-trash"></i> Hapus File
               </button>
-            </div>
-
-            <div class="user-actions">
-              <button id="user-logout" class="btn ghost">
+              <button id="userLogout" class="btn ghost">
                 <i class="fa fa-sign-out"></i> Logout
               </button>
             </div>
-
-            <div id="user-message" class="settings-message"></div>
           </div>
         </div>
 
@@ -148,9 +197,7 @@
           <div class="footer-content">
             <p>&copy; 2025-2026 Safenest. All rights reserved.</p>
             <div class="footer-links">
-              <a href="#privacy">Privacy Policy</a>
-              <a href="#terms">Terms of Service</a>
-              <a href="#contact">Contact</a>
+              <span>Dibuat dengan ❤️ oleh Aryapiw & Dapid</span>
             </div>
           </div>
         </footer>
@@ -167,46 +214,24 @@
             </div>
           </div>
           
-          <p class="muted">Upload file. Kamu akan menerima username & password sekali tampil.</p>
+          <p class="muted">Upload file (support multi-upload & drag & drop). Kamu akan menerima username & password sekali tampil.</p>
 
           <!-- AREA UPLOAD YANG SUDAH DIPERBAIKI -->
           <div class="upload-area">
-            <!-- Single File Upload -->
-            <div class="upload-section">
-              <h4><i class="fa fa-file"></i> Upload File Tunggal</h4>
-              <label class="filebox" id="uploadDropZone">
-                <input id="fileInput" type="file" class="hidden-file-input" />
-                <div class="filebox-inner">
-                  <div class="filebox-icon">
-                    <i class="fa fa-cloud-upload"></i>
-                  </div>
-                  <div class="filebox-text">
-                    <strong>Upload File</strong>
-                    <small>Klik untuk memilih file atau drag & drop di sini</small>
-                    <small>pdf, png, jpg, mp3, mp4, zip, html, dll</small>
-                  </div>
+            <label class="filebox">
+              <input id="fileInput" type="file" class="hidden-file-input" multiple />
+              <div class="filebox-inner">
+                <div class="filebox-icon">
+                  <i class="fa fa-cloud-upload"></i>
                 </div>
-              </label>
-            </div>
-
-            <!-- Multi File Upload -->
-            <div class="upload-section">
-              <h4><i class="fa fa-files-o"></i> Upload Multiple Files</h4>
-              <label class="filebox">
-                <input id="multiFileInput" type="file" class="hidden-file-input" multiple />
-                <div class="filebox-inner">
-                  <div class="filebox-icon">
-                    <i class="fa fa-files-o"></i>
-                  </div>
-                  <div class="filebox-text">
-                    <strong>Upload Multiple Files</strong>
-                    <small>Klik untuk memilih beberapa file atau drag & drop di sini</small>
-                    <small>Maksimal 10 file sekaligus</small>
-                  </div>
+                <div class="filebox-text">
+                  <strong>Upload File</strong>
+                  <small>Klik atau drag & drop file di sini</small>
+                  <small>pdf, png, jpg, mp3, mp4, zip, html, dll</small>
+                  <small class="multi-upload-hint">Support multiple files</small>
                 </div>
-              </label>
-              <div id="multiFileList" class="multi-file-list hide"></div>
-            </div>
+              </div>
+            </label>
           </div>
 
           <!-- EXPIRE SELECT -->
@@ -227,42 +252,7 @@
 
           <!-- BAGIAN KREDENSIAL YANG DIPERBAIKI -->
           <div id="creds" class="creds-box hide">
-            <div class="creds-header">
-              <h4><i class="fa fa-key"></i> Kredensial File</h4>
-              <small class="muted">Simpan informasi ini dengan aman - password hanya ditampilkan sekali!</small>
-            </div>
-            
-            <div class="creds-grid">
-              <div class="cred-item">
-                <label><i class="fa fa-user"></i> Username:</label>
-                <code id="outUser" class="cred-value">-</code>
-              </div>
-              <div class="cred-item">
-                <label><i class="fa fa-lock"></i> Password:</label>
-                <code id="outPass" class="cred-value">-</code>
-              </div>
-              <div class="cred-item">
-                <label><i class="fa fa-clock-o"></i> Expired:</label>
-                <code id="outExpire" class="cred-value">-</code>
-              </div>
-              <div class="cred-item">
-                <label><i class="fa fa-link"></i> Link:</label>
-                <code id="outLink" class="cred-value">-</code>
-              </div>
-            </div>
-            
-            <div class="row" style="margin-top:20px; justify-content: center;">
-              <button id="copyCreds" class="btn primary">
-                <i class="fa fa-clipboard"></i> Salin Semua Kredensial
-              </button>
-            </div>
-
-            <div style="margin-top:16px; text-align: center;">
-              <small class="muted">
-                <i class="fa fa-exclamation-triangle"></i>
-                Simpan informasi ini di tempat yang aman. Password tidak dapat dipulihkan!
-              </small>
-            </div>
+            <!-- Content will be dynamically inserted -->
           </div>
         </div>
 
@@ -270,9 +260,7 @@
           <div class="footer-content">
             <p>&copy; 2025-2026 Safenest. All rights reserved.</p>
             <div class="footer-links">
-              <a href="#privacy">Privacy Policy</a>
-              <a href="#terms">Terms of Service</a>
-              <a href="#contact">Contact</a>
+              <span>Dibuat dengan ❤️ oleh Aryapiw & Dapid</span>
             </div>
           </div>
         </footer>
@@ -508,36 +496,24 @@
           <div class="admin-block">
             <h4><i class="fa fa-bolt"></i> Quick Actions</h4>
             <div class="quick-actions-grid">
-              <button id="cleanup-files" class="quick-action-btn">
-                <div class="action-icon cleanup">
-                  <i class="fa fa-trash"></i>
-                </div>
-                <div class="action-text">
-                  <span class="action-title">Bersihkan File Expired</span>
-                  <span class="action-desc">Hapus file yang sudah kadaluarsa</span>
-                </div>
-              </button>
-              
-              <button id="clear-cache" class="quick-action-btn">
-                <div class="action-icon cache">
-                  <i class="fa fa-eraser"></i>
-                </div>
-                <div class="action-text">
-                  <span class="action-title">Clear Cache</span>
-                  <span class="action-desc">Bersihkan cache sistem</span>
-                </div>
-              </button>
-              
               <button id="refresh-files" class="quick-action-btn">
-                <div class="action-icon refresh">
-                  <i class="fa fa-refresh"></i>
-                </div>
-                <div class="action-text">
-                  <span class="action-title">Refresh Data</span>
-                  <span class="action-desc">Perbarui semua data</span>
-                </div>
+                <i class="fa fa-refresh"></i>
+                <span>Refresh Files</span>
+              </button>
+              <button id="cleanup-files" class="quick-action-btn">
+                <i class="fa fa-trash"></i>
+                <span>Cleanup Expired</span>
+              </button>
+              <button id="clear-cache" class="quick-action-btn">
+                <i class="fa fa-eraser"></i>
+                <span>Clear Cache</span>
+              </button>
+              <button id="admin-logout" class="quick-action-btn">
+                <i class="fa fa-sign-out"></i>
+                <span>Logout</span>
               </button>
             </div>
+            <div id="cleanup-result" class="settings-message"></div>
           </div>
 
           <!-- 3. Update Countdown Settings -->
@@ -576,12 +552,22 @@
                 >Pembaruan sistem untuk pengalaman yang lebih baik!</textarea>
               </div>
 
+              <div class="setting-group">
+                <div class="toggle-group">
+                  <label class="toggle">
+                    <input type="checkbox" id="update-banner-toggle" checked />
+                    <span class="toggle-slider"></span>
+                  </label>
+                  <span class="toggle-label">Tampilkan banner countdown</span>
+                </div>
+              </div>
+
               <div class="setting-actions">
-                <button id="save-update-settings" class="btn primary">
-                  <i class="fa fa-floppy-o"></i> Simpan Pengaturan
+                <button id="save-update-settings" class="btn primary small">
+                  <i class="fa fa-floppy-o"></i> Simpan
                 </button>
-                <button id="clear-update" class="btn ghost">
-                  <i class="fa fa-times"></i> Hapus Countdown
+                <button id="clear-update" class="btn ghost small">
+                  <i class="fa fa-times"></i> Hapus
                 </button>
               </div>
               
@@ -634,8 +620,8 @@
               </div>
 
               <div class="setting-actions">
-                <button id="save-maintenance-settings" class="btn primary">
-                  <i class="fa fa-floppy-o"></i> Simpan Pengaturan
+                <button id="save-maintenance-settings" class="btn primary small">
+                  <i class="fa fa-floppy-o"></i> Simpan
                 </button>
               </div>
               
@@ -682,18 +668,18 @@
                   <label class="setting-label">Konten Changelog</label>
                   <textarea 
                     id="changelog-content" 
-                    placeholder="Deskripsikan pembaruan yang telah dilakukan..."
+                    placeholder="Deskripsikan pembaruan yang dilakukan..."
                     rows="5"
-                  >Berikut adalah pembaruan yang telah dilakukan pada sistem.</textarea>
+                  >Tidak ada pembaruan untuk saat ini.</textarea>
                 </div>
 
                 <div class="setting-group">
                   <div class="toggle-group">
                     <label class="toggle">
-                      <input type="checkbox" id="changelog-show-on-startup" checked />
+                      <input type="checkbox" id="changelog-startup-toggle" checked />
                       <span class="toggle-slider"></span>
                     </label>
-                    <span class="toggle-label">Tampilkan otomatis saat pertama kali mengakses website</span>
+                    <span class="toggle-label">Tampilkan saat startup</span>
                   </div>
                 </div>
 
@@ -705,17 +691,16 @@
                       <span id="preview-changelog-title">Pembaruan Terbaru</span>
                       <span class="preview-version" id="preview-changelog-version">v1.0.0</span>
                     </div>
-                    <div class="preview-content">
-                      <div class="preview-date">Terakhir diperbarui: <span id="preview-changelog-date">${new Date().toLocaleDateString('id-ID')}</span></div>
-                      <div class="preview-message" id="preview-changelog-content">Berikut adalah pembaruan yang telah dilakukan pada sistem.</div>
+                    <div class="preview-content" id="preview-changelog-content">
+                      Tidak ada pembaruan untuk saat ini.
                     </div>
                   </div>
                 </div>
               </div>
 
               <div class="setting-actions">
-                <button id="save-changelog-settings" class="btn primary">
-                  <i class="fa fa-floppy-o"></i> Simpan Pengaturan
+                <button id="save-changelog-settings" class="btn primary small">
+                  <i class="fa fa-floppy-o"></i> Simpan
                 </button>
               </div>
               
@@ -723,15 +708,30 @@
             </div>
           </div>
 
-          <!-- 6. System Actions -->
+          <!-- 6. Files Overview -->
           <div class="admin-block">
-            <h4><i class="fa fa-cogs"></i> System Actions</h4>
-            <div class="system-actions">
-              <button id="admin-logout" class="btn ghost">
-                <i class="fa fa-sign-out"></i> Logout Admin
-              </button>
+            <h4><i class="fa fa-files-o"></i> Files Overview</h4>
+            <div class="files-overview">
+              <div class="files-stats">
+                <div class="files-stat">
+                  <span class="stat-label">Total Files:</span>
+                  <span class="stat-value" id="files-count">0</span>
+                </div>
+                <div class="files-stat">
+                  <span class="stat-label">Active:</span>
+                  <span class="stat-value" id="files-active">0</span>
+                </div>
+                <div class="files-stat">
+                  <span class="stat-label">Expired:</span>
+                  <span class="stat-value" id="files-expired">0</span>
+                </div>
+              </div>
+              <div class="files-actions">
+                <button id="view-all-files" class="btn ghost small">
+                  <i class="fa fa-list"></i> View All
+                </button>
+              </div>
             </div>
-            <div id="cleanup-result" class="settings-message"></div>
           </div>
         </div>
       </section>
@@ -773,69 +773,6 @@
         </div>
         <button class="btn primary maintenance-ok">
           <i class="fa fa-check"></i> Mengerti
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Changelog Modal -->
-  <div id="changelogModal" class="global-maintenance-overlay hide">
-    <div class="changelog-modal">
-      <div class="changelog-header">
-        <div class="changelog-icon">
-          <i class="fa fa-newspaper-o"></i>
-        </div>
-        <div class="changelog-title-section">
-          <h3 id="changelogTitle">Pembaruan Terbaru</h3>
-          <div class="changelog-meta">
-            <span class="changelog-version" id="changelogVersion">v1.0.0</span>
-            <span class="changelog-date" id="changelogDate">${new Date().toLocaleDateString('id-ID')}</span>
-          </div>
-        </div>
-        <button class="changelog-close">
-          <i class="fa fa-times"></i>
-        </button>
-      </div>
-      <div class="changelog-content">
-        <div id="changelogContent" class="changelog-text">
-          Berikut adalah pembaruan yang telah dilakukan pada sistem.
-        </div>
-      </div>
-      <div class="changelog-actions">
-        <button class="btn primary changelog-close-btn">
-          <i class="fa fa-check"></i> Mengerti
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Admin Welcome Modal -->
-  <div id="adminWelcomeModal" class="global-maintenance-overlay hide">
-    <div class="admin-welcome-modal">
-      <div class="admin-welcome-icon">
-        <i class="fa fa-shield"></i>
-      </div>
-      <div class="admin-welcome-content">
-        <h3>Selamat Datang, Admin!</h3>
-        <p>Anda telah berhasil masuk ke dashboard administrator Safenest.</p>
-        <div class="admin-welcome-features">
-          <div class="welcome-feature">
-            <i class="fa fa-bar-chart"></i>
-            <span>Pantau statistik sistem</span>
-          </div>
-          <div class="welcome-feature">
-            <i class="fa fa-cogs"></i>
-            <span>Kelola pengaturan</span>
-          </div>
-          <div class="welcome-feature">
-            <i class="fa fa-rocket"></i>
-            <span>Atur update countdown</span>
-          </div>
-        </div>
-      </div>
-      <div class="admin-welcome-actions">
-        <button class="btn primary admin-welcome-close">
-          <i class="fa fa-check"></i> Mulai Mengelola
         </button>
       </div>
     </div>
