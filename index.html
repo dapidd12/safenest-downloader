@@ -52,18 +52,18 @@
     </header>
 
     <main class="main-area">
-      <!-- DOWNLOAD - HALAMAN LOGIN -->
+      <!-- DOWNLOAD -->
       <section id="page-download" class="page active">
         <div class="card glass-card">
           <div class="card-header">
-            <h2 class="page-title"><i class="fa fa-key"></i> Login ke Safenest</h2>
+            <h2 class="page-title"><i class="fa fa-download"></i> Download</h2>
             <div id="downloadUpdateBadge" class="page-update-badge hide">
               <i class="fa fa-rocket"></i>
               <span>Update dalam: <span id="downloadUpdateCountdown">--:--:--</span></span>
             </div>
           </div>
           
-          <p class="muted">Masukkan username & password yang diberikan saat upload file untuk mengakses dashboard file Anda.</p>
+          <p class="muted">Masukkan username & password yang diberikan uploader.</p>
 
           <div class="grid-2">
             <input id="dlUser" placeholder="username (sn-xxxx)" />
@@ -71,47 +71,19 @@
           </div>
 
           <div class="row" style="margin-top:12px">
-            <button id="btnVerify" class="btn primary"><i class="fa fa-check-circle"></i> Login & Akses Dashboard</button>
+            <button id="btnVerify" class="btn primary"><i class="fa fa-check-circle"></i> Verify & Show</button>
             <button id="btnClear" class="btn ghost"><i class="fa fa-refresh"></i> Bersihkan</button>
           </div>
 
-          <div class="row" style="margin-top:20px; justify-content: center;">
-            <small class="muted">
-              <i class="fa fa-info-circle"></i>
-              Belum punya akun? Upload file terlebih dahulu untuk mendapatkan kredensial.
-            </small>
-          </div>
-        </div>
+          <div id="dlInfo" class="file-info hide">
+            <h3 id="fileName">-</h3>
+            <p class="muted small">Ukuran: <span id="fileSize">-</span> • Diunggah: <span id="fileTime">-</span></p>
 
-        <footer class="page-footer">copyright by safenest © 2025-2026</footer>
-      </section>
-
-      <!-- DASHBOARD USER -->
-      <section id="page-dashboard" class="page">
-        <div class="card glass-card">
-          <div class="card-header">
-            <h2 class="page-title"><i class="fa fa-dashboard"></i> Dashboard File Saya</h2>
-            <div class="admin-status">
-              <button id="user-logout" class="btn ghost small">
-                <i class="fa fa-sign-out"></i> Logout
-              </button>
+            <div class="row" style="margin-top:12px">
+              <button id="btnView" class="btn ghost"><i class="fa fa-eye"></i> Lihat File</button>
+              <button id="btnDownload" class="btn primary"><i class="fa fa-download"></i> Download</button>
             </div>
           </div>
-          
-          <div class="dashboard-actions">
-            <button id="uploadNewFile" class="btn primary">
-              <i class="fa fa-plus"></i> Upload File Baru
-            </button>
-            <button class="btn ghost" onclick="uiManager.loadUserFiles()">
-              <i class="fa fa-refresh"></i> Refresh
-            </button>
-          </div>
-
-          <div id="userFilesList" class="user-files-list">
-            <!-- File user akan dimuat di sini -->
-          </div>
-
-          <div id="user-files-message" class="settings-message"></div>
         </div>
 
         <footer class="page-footer">copyright by safenest © 2025-2026</footer>
@@ -208,7 +180,7 @@
         <footer class="page-footer">copyright by safenest © 2025-2026</footer>
       </section>
 
-      <!-- ABOUT -->
+      <!-- ABOUT - LAYOUT DIPERBAIKI -->
       <section id="page-about" class="page">
         <div class="card glass-card">
           <div class="card-header">
@@ -273,6 +245,39 @@
                 <div class="feature-content">
                   <h4>Keamanan Berlapis</h4>
                   <p>File Anda dilindungi dengan enkripsi dan sistem autentikasi yang kuat.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="about-section vision-mission">
+              <div class="vm-grid">
+                <div class="vm-card">
+                  <div class="vm-icon">
+                    <i class="fa fa-eye"></i>
+                  </div>
+                  <h4>Visi Kami</h4>
+                  <p>Mewujudkan ruang berbagi file yang aman, pribadi, dan minimalis tanpa kompromi terhadap keamanan data pengguna.</p>
+                </div>
+                
+                <div class="vm-card">
+                  <div class="vm-icon">
+                    <i class="fa fa-target"></i>
+                  </div>
+                  <h4>Misi Kami</h4>
+                  <div class="mission-list">
+                    <div class="mission-item">
+                      <span class="mission-number">1</span>
+                      <span>Sistem berbagi file yang cepat dan bebas distraksi</span>
+                    </div>
+                    <div class="mission-item">
+                      <span class="mission-number">2</span>
+                      <span>Privasi melalui kredensial unik per-file</span>
+                    </div>
+                    <div class="mission-item">
+                      <span class="mission-number">3</span>
+                      <span>Lingkungan yang aman dan nyaman bagi semua pengguna</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -347,7 +352,7 @@
         </footer>
       </section>
 
-      <!-- ADMIN dashboard - SIMPLIFIED -->
+      <!-- ADMIN dashboard - MAINTENANCE SETTINGS DIPERBAIKI -->
       <section id="page-admin" class="page">
         <div class="card glass-card">
           <div class="card-header">
@@ -401,71 +406,11 @@
             </div>
           </div>
 
-          <!-- 2. Changelog Settings -->
-          <div class="admin-block">
-            <h4><i class="fa fa-newspaper-o"></i> Changelog Settings</h4>
-            <div class="admin-settings-card">
-              <p class="muted">Kelola pembaruan dan informasi versi untuk pengguna.</p>
-              
-              <div class="setting-group">
-                <div class="toggle-group">
-                  <label class="toggle">
-                    <input type="checkbox" id="changelog-enabled" />
-                    <span class="toggle-slider"></span>
-                  </label>
-                  <span class="toggle-label">Aktifkan Changelog</span>
-                </div>
-              </div>
-
-              <div id="changelog-settings" class="changelog-settings">
-                <div class="setting-group">
-                  <label class="setting-label">Judul Changelog</label>
-                  <input type="text" id="changelog-title" placeholder="Pembaruan Terbaru" />
-                </div>
-
-                <div class="setting-group">
-                  <label class="setting-label">Versi</label>
-                  <input type="text" id="changelog-version" placeholder="1.0.0" />
-                </div>
-
-                <div class="setting-group">
-                  <label class="setting-label">Konten Changelog</label>
-                  <textarea 
-                    id="changelog-content" 
-                    placeholder="Tuliskan pembaruan dan perbaikan..."
-                    rows="6"
-                  ></textarea>
-                </div>
-
-                <div class="setting-group">
-                  <div class="toggle-group">
-                    <label class="toggle">
-                      <input type="checkbox" id="changelog-startup" checked />
-                      <span class="toggle-slider"></span>
-                    </label>
-                    <span class="toggle-label">Tampilkan saat startup</span>
-                  </div>
-                </div>
-              </div>
-
-              <div class="setting-actions">
-                <button id="save-changelog-settings" class="btn primary">
-                  <i class="fa fa-floppy-o"></i> Simpan Changelog
-                </button>
-                <button id="test-changelog" class="btn ghost">
-                  <i class="fa fa-eye"></i> Test Changelog
-                </button>
-              </div>
-              
-              <div id="changelog-msg" class="settings-message"></div>
-            </div>
-          </div>
-
-          <!-- 3. Update Countdown Settings -->
+          <!-- 2. Update Countdown Settings -->
           <div class="admin-block">
             <h4><i class="fa fa-rocket"></i> Update Countdown</h4>
             <div class="admin-settings-card">
-              <p class="muted">Atur countdown untuk update berikutnya.</p>
+              <p class="muted">Atur countdown untuk update berikutnya. Countdown akan ditampilkan ke semua pengguna.</p>
               
               <div class="setting-group">
                 <label class="setting-label">Jadwal Update Berikutnya</label>
@@ -505,7 +450,19 @@
                     <input type="checkbox" id="update-banner-toggle" checked />
                     <span class="toggle-slider"></span>
                   </label>
-                  <span class="toggle-label">Tampilkan banner countdown</span>
+                  <span class="toggle-label">Tampilkan banner countdown di bagian atas website</span>
+                </div>
+              </div>
+
+              <div class="preview-section">
+                <h5>Preview Countdown:</h5>
+                <div class="preview-card">
+                  <div class="preview-header">
+                    <i class="fa fa-rocket"></i>
+                    <span>Update Berikutnya</span>
+                  </div>
+                  <div class="preview-countdown" id="preview-update-countdown">00h 00m 00d</div>
+                  <div class="preview-message" id="preview-update-message">Pembaruan sistem untuk pengalaman yang lebih baik!</div>
                 </div>
               </div>
 
@@ -522,7 +479,7 @@
             </div>
           </div>
 
-          <!-- 4. Maintenance Settings -->
+          <!-- 3. Maintenance Settings - DIPERBAIKI -->
           <div class="admin-block">
             <h4><i class="fa fa-wrench"></i> Maintenance Settings</h4>
             <div class="admin-settings-card">
@@ -564,6 +521,18 @@
                     rows="3"
                   >Sistem dalam perbaikan. Terima kasih atas pengertiannya.</textarea>
                 </div>
+
+                <div class="preview-section">
+                  <h5>Preview Maintenance:</h5>
+                  <div class="preview-card maintenance">
+                    <div class="preview-header">
+                      <i class="fa fa-wrench"></i>
+                      <span>Sedang Maintenance</span>
+                    </div>
+                    <div class="preview-countdown" id="preview-maintenance-countdown">00h 00m 00d</div>
+                    <div class="preview-message" id="preview-maintenance-message">Sistem dalam perbaikan. Terima kasih atas pengertiannya.</div>
+                  </div>
+                </div>
               </div>
 
               <div class="setting-actions">
@@ -576,10 +545,29 @@
             </div>
           </div>
 
+          <!-- 4. Manage Files -->
+          <div class="admin-block">
+            <h4><i class="fa fa-files-o"></i> Manage Files</h4>
+            <div class="files-management">
+              <div class="files-header">
+                <span>Daftar File (<span id="files-count">0</span>)</span>
+                <button id="refresh-files" class="btn ghost small">
+                  <i class="fa fa-refresh"></i> Refresh
+                </button>
+              </div>
+              <div id="files-list" class="files-list">
+                <!-- File rows will be inserted here -->
+              </div>
+            </div>
+          </div>
+
           <!-- 5. System Actions -->
           <div class="admin-block">
             <h4><i class="fa fa-cogs"></i> System Actions</h4>
             <div class="system-actions">
+              <button id="cleanup-files" class="btn ghost">
+                <i class="fa fa-trash"></i> Bersihkan File Expired
+              </button>
               <button id="clear-cache" class="btn ghost">
                 <i class="fa fa-eraser"></i> Clear Cache
               </button>
@@ -595,14 +583,9 @@
     <!-- Bottom floating navbar -->
     <nav class="bottom-nav glass-nav" role="navigation" aria-label="Main navigation">
       <div class="nav-inner">
-        <button class="nav-btn" data-target="page-download" id="nav-download" aria-label="Login">
-          <div class="icon-wrap"><i class="fa fa-sign-in"></i></div>
-          <div class="label">Login</div>
-        </button>
-
-        <button class="nav-btn" data-target="page-dashboard" id="nav-dashboard" aria-label="Dashboard">
-          <div class="icon-wrap"><i class="fa fa-dashboard"></i></div>
-          <div class="label">Dashboard</div>
+        <button class="nav-btn" data-target="page-download" id="nav-download" aria-label="Download">
+          <div class="icon-wrap"><i class="fa fa-download"></i></div>
+          <div class="label">Download</div>
         </button>
 
         <button class="nav-btn center" data-target="page-upload" id="nav-upload" aria-label="Upload">
@@ -614,41 +597,8 @@
           <div class="icon-wrap"><i class="fa fa-info-circle"></i></div>
           <div class="label">About</div>
         </button>
-
-        <button class="nav-btn" data-target="page-admin" id="nav-admin" aria-label="Admin">
-          <div class="icon-wrap"><i class="fa fa-lock"></i></div>
-          <div class="label">Admin</div>
-        </button>
       </div>
     </nav>
-  </div>
-
-  <!-- Changelog Modal -->
-  <div id="changelogModal" class="global-maintenance-overlay hide">
-    <div class="changelog-modal">
-      <div class="changelog-header">
-        <div class="changelog-icon">
-          <i class="fa fa-newspaper-o"></i>
-        </div>
-        <div class="changelog-title-content">
-          <h3 id="changelogModalTitle">Pembaruan Terbaru</h3>
-          <span class="changelog-version" id="changelogModalVersion">v1.0.0</span>
-        </div>
-        <button class="changelog-close" onclick="hideChangelogModal()">
-          <i class="fa fa-times"></i>
-        </button>
-      </div>
-      <div class="changelog-content">
-        <div id="changelogModalContent" class="changelog-text">
-          <!-- Konten changelog akan dimuat di sini -->
-        </div>
-      </div>
-      <div class="changelog-actions">
-        <button class="btn primary changelog-ok" onclick="hideChangelogModal()">
-          <i class="fa fa-check"></i> Mengerti
-        </button>
-      </div>
-    </div>
   </div>
 
   <!-- Enhanced Global Maintenance Overlay -->

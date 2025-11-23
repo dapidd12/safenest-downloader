@@ -1,4 +1,4 @@
-// app.js — Safenest dengan Dashboard Admin yang Lebih Sederhana
+// app.js — Safenest dengan Tampilan Upload yang Lebih Clean
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
 
 // ========== CONFIG ==========
@@ -15,7 +15,6 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 let updateCountdownInterval = null
 let maintenanceCountdownInterval = null
 let currentUpdateEndsAt = null
-let currentUser = null
 
 // ----------------- Optimized Helpers -----------------
 const $ = id => document.getElementById(id)
@@ -86,149 +85,29 @@ const cache = {
   }
 }
 
-// ----------------- User Session -----------------
-function setUserSession(username, ttl = 24 * 60 * 60 * 1000) {
-  const session = {
-    username: username,
-    created: Date.now(),
-    expiry: Date.now() + ttl
-  }
-  localStorage.setItem('sn_user_session', JSON.stringify(session))
-  currentUser = username
-}
-
-function clearUserSession() {
-  localStorage.removeItem('sn_user_session')
-  currentUser = null
-  cache.clear('user_files')
-}
-
-function getUserSession() {
-  const session = localStorage.getItem('sn_user_session')
-  if (!session) return null
-  
-  try {
-    const { username, expiry } = JSON.parse(session)
-    if (expiry && Date.now() > expiry) {
-      clearUserSession()
-      return null
-    }
-    currentUser = username
-    return username
-  } catch {
-    clearUserSession()
-    return null
-  }
-}
-
-// ----------------- Changelog System -----------------
-async function getChangelog() {
-  const cacheKey = 'changelog'
-  const cached = cache.get(cacheKey)
-  if (cached) return cached
-
-  try {
-    const setting = await getSetting('changelog')
-    const changelog = {
-      enabled: false,
-      title: 'Pembaruan Terbaru',
-      content: '',
-      version: '1.0.0',
-      show_on_startup: true
-    }
-
-    if (setting?.value) {
-      changelog.enabled = setting.value.enabled || false
-      changelog.title = setting.value.title || changelog.title
-      changelog.content = setting.value.content || changelog.content
-      changelog.version = setting.value.version || changelog.version
-      changelog.show_on_startup = setting.value.show_on_startup !== false
-    }
-
-    cache.set(cacheKey, changelog, 30 * 1000)
-    return changelog
-  } catch (error) {
-    console.warn('Failed to get changelog:', error)
-    return {
-      enabled: false,
-      title: 'Pembaruan Terbaru',
-      content: '',
-      version: '1.0.0',
-      show_on_startup: true
-    }
-  }
-}
-
-async function upsertChangelog(settings) {
-  const payload = { 
-    key: 'changelog',
-    value: {
-      ...settings,
-      updated_at: new Date().toISOString()
-    }
-  }
-  
-  const { data, error } = await supabase
-    .from('settings')
-    .upsert([payload])
-    .select()
-    .single()
-
-  if (error) throw error
-  
-  cache.clear('changelog')
-  return data
-}
-
-function showChangelogModal() {
-  const modal = $('changelogModal')
-  if (modal) {
-    modal.classList.remove('hide')
-    setTimeout(() => modal.classList.add('active'), 10)
-  }
-}
-
-function hideChangelogModal() {
-  const modal = $('changelogModal')
-  if (modal) {
-    modal.classList.remove('active')
-    setTimeout(() => modal.classList.add('hide'), 300)
-  }
-}
-
 // ----------------- Update Countdown System -----------------
 async function getUpdateStatus() {
   const cacheKey = 'update_status'
   const cached = cache.get(cacheKey)
   if (cached) return cached
 
-  try {
-    const setting = await getSetting('update_countdown')
-    const status = {
-      enabled: false,
-      ends_at: null,
-      message: 'Pembaruan sistem untuk pengalaman yang lebih baik!',
-      show_banner: true
-    }
-
-    if (setting?.value) {
-      status.enabled = setting.value.enabled || false
-      status.ends_at = setting.value.ends_at || null
-      status.message = setting.value.message || status.message
-      status.show_banner = setting.value.show_banner !== false
-    }
-
-    cache.set(cacheKey, status, 30 * 1000)
-    return status
-  } catch (error) {
-    console.warn('Failed to get update status:', error)
-    return {
-      enabled: false,
-      ends_at: null,
-      message: 'Pembaruan sistem untuk pengalaman yang lebih baik!',
-      show_banner: true
-    }
+  const setting = await getSetting('update_countdown')
+  const status = {
+    enabled: false,
+    ends_at: null,
+    message: 'Pembaruan sistem untuk pengalaman yang lebih baik!',
+    show_banner: true
   }
+
+  if (setting?.value) {
+    status.enabled = setting.value.enabled || false
+    status.ends_at = setting.value.ends_at || null
+    status.message = setting.value.message || status.message
+    status.show_banner = setting.value.show_banner !== false
+  }
+
+  cache.set(cacheKey, status, 30 * 1000)
+  return status
 }
 
 async function upsertUpdateSettings(settings) {
@@ -358,30 +237,21 @@ async function getMaintenanceStatus() {
   const cached = cache.get(cacheKey)
   if (cached) return cached
 
-  try {
-    const setting = await getSetting('maintenance')
-    const status = {
-      enabled: false,
-      ends_at: null,
-      message: 'Sistem dalam perbaikan. Terima kasih atas pengertiannya.'
-    }
-
-    if (setting?.value) {
-      status.enabled = setting.value.enabled || false
-      status.ends_at = setting.value.ends_at || null
-      status.message = setting.value.message || status.message
-    }
-
-    cache.set(cacheKey, status, 30 * 1000)
-    return status
-  } catch (error) {
-    console.warn('Failed to get maintenance status:', error)
-    return {
-      enabled: false,
-      ends_at: null,
-      message: 'Sistem dalam perbaikan. Terima kasih atas pengertiannya.'
-    }
+  const setting = await getSetting('maintenance')
+  const status = {
+    enabled: false,
+    ends_at: null,
+    message: 'Sistem dalam perbaikan. Terima kasih atas pengertiannya.'
   }
+
+  if (setting?.value) {
+    status.enabled = setting.value.enabled || false
+    status.ends_at = setting.value.ends_at || null
+    status.message = setting.value.message || status.message
+  }
+
+  cache.set(cacheKey, status, 30 * 1000)
+  return status
 }
 
 function startMaintenanceCountdown(endsAt) {
@@ -511,34 +381,6 @@ async function getRecordByUsername(username){
   return data
 }
 
-async function getUserFiles(username) {
-  const cacheKey = `user_files_${username}`
-  const cached = cache.get(cacheKey)
-  if (cached) return cached
-
-  const { data, error } = await supabase
-    .from('files')
-    .select('*')
-    .eq('username', username)
-    .order('created_at', { ascending: false })
-
-  if (error) {
-    if (error.code === 'PGRST116') {
-      return []
-    }
-    throw error
-  }
-
-  // Filter out expired files
-  const now = new Date()
-  const validFiles = (data || []).filter(file => 
-    !file.expires_at || new Date(file.expires_at) > now
-  )
-  
-  cache.set(cacheKey, validFiles, 2 * 60 * 1000)
-  return validFiles
-}
-
 async function createSignedUrl(path, expires=300){
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, expires)
   if (error) throw error
@@ -576,7 +418,6 @@ async function deleteFile(file){
   
   // Clear relevant caches
   cache.clear(`file_${file.username}`)
-  cache.clear(`user_files_${file.username}`)
   cache.clear('files_list')
   cache.clear('stats')
   
@@ -658,7 +499,6 @@ async function upsertSetting(key, valueObj){
   cache.clear(`setting_${key}`)
   if (key === 'maintenance') cache.clear('maintenance_status')
   if (key === 'update_countdown') cache.clear('update_status')
-  if (key === 'changelog') cache.clear('changelog')
   
   return data
 }
@@ -750,12 +590,12 @@ function expiryToIso(selectVal){
   return expiryDate.toISOString()
 }
 
-// ----------------- Fixed Cleanup System -----------------
+// ----------------- Fixed Cleanup System - DIPERBAIKI -----------------
 async function cleanExpiredFiles(){
   try {
     const now = new Date().toISOString()
     
-    // Find expired files
+    // Find expired files - QUERY YANG LEBIH AMAN
     const { data: expiredFiles, error } = await supabase
       .from('files')
       .select('*')
@@ -776,7 +616,7 @@ async function cleanExpiredFiles(){
 
     for (const file of expiredFiles) {
       try {
-        // Check if file has any downloads
+        // Check if file has any downloads - QUERY TERPISAH YANG LEBIH AMAN
         const { data: downloads, error: downloadError } = await supabase
           .from('downloads')
           .select('id')
@@ -863,38 +703,20 @@ class UIManager {
     this.pages = Array.from($$('.page'))
     this.navButtons = Array.from($$('.nav-btn'))
     this.currentPage = 'page-download'
-    this.userFiles = []
     this.init()
   }
 
   init() {
     this.setupNavigation()
     this.setupEventListeners()
-    
-    // Check if user is already logged in
-    const userSession = getUserSession()
-    if (userSession) {
-      this.showPage('page-dashboard')
-      this.loadUserFiles()
-    } else {
-      this.showPage('page-download')
-    }
-    
+    this.showPage('page-download')
     this.initializeAdminSettings()
-    this.initializeChangelog()
   }
 
   setupNavigation() {
     this.navButtons.forEach(btn => {
       btn.addEventListener('click', async () => {
         const target = btn.dataset.target
-        
-        // Check if user needs to login for dashboard
-        if (target === 'page-dashboard' && !getUserSession()) {
-          this.showPage('page-download')
-          this.showMessage('cleanup-result', 'Silakan login terlebih dahulu untuk mengakses dashboard.', 'error')
-          return
-        }
         
         // Check maintenance before navigating to upload page
         if (target === 'page-upload') {
@@ -918,15 +740,11 @@ class UIManager {
     window.addEventListener('keydown', async e => {
       if (e.altKey || e.ctrlKey) return
       
-      const order = ['page-download', 'page-dashboard', 'page-upload', 'page-about', 'page-admin']
+      const order = ['page-download', 'page-upload', 'page-about', 'page-admin']
       const currentIndex = order.indexOf(this.currentPage)
       
       if (e.key === 'ArrowLeft' && currentIndex > 0) {
         const target = order[currentIndex - 1]
-        if (target === 'page-dashboard' && !getUserSession()) {
-          this.showMessage('cleanup-result', 'Silakan login terlebih dahulu untuk mengakses dashboard.', 'error')
-          return
-        }
         if (target === 'page-upload') {
           const isMaintenance = await checkMaintenanceForUpload()
           if (isMaintenance) return
@@ -934,10 +752,6 @@ class UIManager {
         this.showPage(target)
       } else if (e.key === 'ArrowRight' && currentIndex < order.length - 1) {
         const target = order[currentIndex + 1]
-        if (target === 'page-dashboard' && !getUserSession()) {
-          this.showMessage('cleanup-result', 'Silakan login terlebih dahulu untuk mengakses dashboard.', 'error')
-          return
-        }
         if (target === 'page-upload') {
           const isMaintenance = await checkMaintenanceForUpload()
           if (isMaintenance) return
@@ -949,11 +763,6 @@ class UIManager {
 
   showPage(id) {
     if (id === 'page-admin' && !isAdminSession()) {
-      id = 'page-download'
-    }
-
-    // Hide dashboard if user is not logged in
-    if (id === 'page-dashboard' && !getUserSession()) {
       id = 'page-download'
     }
 
@@ -971,8 +780,6 @@ class UIManager {
 
     if (id === 'page-admin') {
       this.loadAdminDashboard()
-    } else if (id === 'page-dashboard') {
-      this.loadUserFiles()
     }
   }
 
@@ -997,180 +804,211 @@ class UIManager {
       if ($('stat-downloads')) $('stat-downloads').textContent = stats.downloads
       if ($('stat-files')) $('stat-files').textContent = stats.files
 
-      await this.loadChangelogSettings()
+      await this.loadFilesList()
+      await this.loadMaintenanceSettings()
+      await this.loadUpdateSettings()
 
     } catch (e) {
       console.error('Admin dashboard error:', e)
     }
   }
 
-  async loadUserFiles() {
-    const username = getUserSession()
-    if (!username) {
-      this.showMessage('user-files-message', 'Silakan login terlebih dahulu.', 'error')
-      return
-    }
-
+  async loadFilesList() {
     try {
-      this.userFiles = await getUserFiles(username)
-      this.renderUserFiles()
-    } catch (error) {
-      console.error('Error loading user files:', error)
-      this.showMessage('user-files-message', 'Gagal memuat file.', 'error')
-    }
-  }
+      const files = await listFiles()
+      const filesListEl = $('files-list')
+      const filesCountEl = $('files-count')
+      
+      if (!filesListEl) return
 
-  renderUserFiles() {
-    const container = $('userFilesList')
-    if (!container) return
+      filesListEl.innerHTML = ''
+      
+      if (filesCountEl) filesCountEl.textContent = files.length
 
-    if (this.userFiles.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <i class="fa fa-folder-open"></i>
-          <h3>Belum ada file</h3>
-          <p>Upload file pertama Anda untuk mulai mengelolanya</p>
-        </div>
-      `
-      return
-    }
+      if (files.length === 0) {
+        filesListEl.innerHTML = '<div class="muted text-center" style="padding: 40px;">Tidak ada file</div>'
+        return
+      }
 
-    container.innerHTML = this.userFiles.map(file => `
-      <div class="file-item" data-file-id="${file.id}">
-        <div class="file-icon">
-          <i class="fa fa-file"></i>
-        </div>
-        <div class="file-info">
-          <h4 class="file-name">${escapeHtml(file.filename)}</h4>
-          <div class="file-meta">
-            <span class="file-size">${niceBytes(file.size)}</span>
-            <span class="file-uploaded">Diunggah: ${new Date(file.created_at).toLocaleDateString()}</span>
-            ${file.expires_at ? `<span class="file-expires">Kadaluarsa: ${new Date(file.expires_at).toLocaleDateString()}</span>` : ''}
+      files.forEach(file => {
+        const row = document.createElement('div')
+        row.className = 'file-row'
+
+        const meta = document.createElement('div')
+        meta.className = 'file-meta'
+        
+        const expiresText = file.expires_at ? 
+          ` • Expires: ${new Date(file.expires_at).toLocaleString()}` : 
+          ''
+        
+        const isExpired = file.expires_at && new Date(file.expires_at) < new Date()
+        if (isExpired) {
+          row.classList.add('expired')
+        }
+        
+        meta.innerHTML = `
+          <div class="name ${isExpired ? 'expired-text' : ''}">${escapeHtml(file.filename || file.storage_path)}</div>
+          <div class="sub">
+            <span>${niceBytes(file.size || 0)}</span>
+            <span>•</span>
+            <span>${file.created_at ? new Date(file.created_at).toLocaleString() : '-'}</span>
+            ${expiresText}
+            ${isExpired ? '<span class="expired-badge">EXPIRED</span>' : ''}
           </div>
-        </div>
-        <div class="file-actions">
-          <button class="btn-action download" onclick="uiManager.downloadUserFile('${file.username}')" title="Download">
-            <i class="fa fa-download"></i>
-          </button>
-          <button class="btn-action delete" onclick="uiManager.deleteUserFile('${file.username}')" title="Hapus">
-            <i class="fa fa-trash"></i>
-          </button>
-        </div>
-      </div>
-    `).join('')
-  }
+        `
 
-  async downloadUserFile(username) {
-    try {
-      const file = this.userFiles.find(f => f.username === username)
-      if (!file) return
+        const actions = document.createElement('div')
+        actions.className = 'file-actions'
 
-      this.showMessage('user-files-message', `Mengunduh ${file.filename}...`, 'info')
-      
-      // Get signed URL
-      let signedUrl = null
-      try {
-        signedUrl = await createSignedUrl(file.storage_path, 300)
-      } catch (e) {
-        console.warn('Signed URL failed:', e)
-      }
+        const btnView = document.createElement('button')
+        btnView.className = `btn ghost small ${isExpired ? 'disabled' : ''}`
+        btnView.innerHTML = '<i class="fa fa-eye"></i> View'
+        btnView.disabled = isExpired
+        btnView.onclick = async () => {
+          if (isExpired) return
+          
+          try {
+            const signed = await createSignedUrl(file.storage_path, 300)
+            const url = signed || `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(file.storage_path)}`
+            window.open(url, '_blank')
+          } catch (e) {
+            alert('Gagal membuka file: ' + e.message)
+          }
+        }
 
-      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(file.storage_path)}`
-      const finalUrl = signedUrl || publicUrl
+        const btnDel = document.createElement('button')
+        btnDel.className = 'btn ghost small'
+        btnDel.innerHTML = '<i class="fa fa-trash"></i> Hapus'
+        btnDel.onclick = async () => {
+          if (!confirm('Hapus file ini secara permanen?')) return
+          try {
+            await deleteFile(file)
+            row.style.opacity = '0'
+            setTimeout(() => row.remove(), 300)
+          } catch (e) {
+            alert('Gagal menghapus: ' + e.message)
+          }
+        }
 
-      await forceDownloadUrl(finalUrl, file.filename)
-      await recordDownload({
-        file_id: file.id,
-        filename: file.filename,
-        username: file.username
+        actions.appendChild(btnView)
+        actions.appendChild(btnDel)
+        row.appendChild(meta)
+        row.appendChild(actions)
+        filesListEl.appendChild(row)
       })
-      
-      this.showMessage('user-files-message', `Berhasil mengunduh ${file.filename}`, 'success')
-    } catch (error) {
-      console.error('Download error:', error)
-      this.showMessage('user-files-message', 'Gagal mengunduh file.', 'error')
-    }
-  }
-
-  async deleteUserFile(username) {
-    const file = this.userFiles.find(f => f.username === username)
-    if (!file) return
-
-    if (confirm(`Yakin ingin menghapus ${file.filename}?`)) {
-      try {
-        await deleteFile(file)
-        this.userFiles = this.userFiles.filter(f => f.username !== username)
-        this.renderUserFiles()
-        this.showMessage('user-files-message', `File ${file.filename} berhasil dihapus`, 'success')
-      } catch (error) {
-        console.error('Delete error:', error)
-        this.showMessage('user-files-message', 'Gagal menghapus file.', 'error')
-      }
-    }
-  }
-
-  async loadChangelogSettings() {
-    try {
-      const changelog = await getChangelog()
-      const titleInput = $('changelog-title')
-      const contentInput = $('changelog-content')
-      const versionInput = $('changelog-version')
-      const enabledToggle = $('changelog-enabled')
-      const startupToggle = $('changelog-startup')
-
-      if (titleInput) titleInput.value = changelog.title
-      if (contentInput) contentInput.value = changelog.content
-      if (versionInput) versionInput.value = changelog.version
-      if (enabledToggle) enabledToggle.checked = changelog.enabled
-      if (startupToggle) startupToggle.checked = changelog.show_on_startup
-
-      this.updateChangelogDisplay(changelog)
 
     } catch (e) {
-      console.error('Changelog settings error:', e)
+      console.error('Files list error:', e)
+      if ($('files-list')) {
+        $('files-list').innerHTML = '<div class="muted text-center" style="padding: 20px;">Gagal memuat file</div>'
+      }
     }
   }
 
-  updateChangelogDisplay(changelog) {
-    const msgEl = $('changelog-msg')
+  async loadMaintenanceSettings() {
+    try {
+      const maintenance = await getMaintenanceStatus()
+      const toggle = $('maintenance-toggle')
+      const daysInput = $('maintenance-days')
+      const hoursInput = $('maintenance-hours')
+      const endsInput = $('maintenance-ends')
+      const messageInput = $('maintenance-message')
+
+      if (toggle) toggle.checked = maintenance.enabled
+      if (daysInput) daysInput.value = ''
+      if (hoursInput) hoursInput.value = ''
+      if (endsInput && maintenance.ends_at) {
+        endsInput.value = new Date(maintenance.ends_at).toISOString().slice(0, 16)
+      }
+      if (messageInput) {
+        messageInput.value = maintenance.message || ''
+      }
+
+      this.updateMaintenanceDisplay(maintenance)
+
+    } catch (e) {
+      console.error('Maintenance settings error:', e)
+    }
+  }
+
+  async loadUpdateSettings() {
+    try {
+      const updateStatus = await getUpdateStatus()
+      const daysInput = $('update-days')
+      const hoursInput = $('update-hours')
+      const minutesInput = $('update-minutes')
+      const endsInput = $('update-ends')
+      const messageInput = $('update-message')
+      const bannerToggle = $('update-banner-toggle')
+
+      if (daysInput) daysInput.value = ''
+      if (hoursInput) hoursInput.value = ''
+      if (minutesInput) minutesInput.value = ''
+      if (endsInput && updateStatus.ends_at) {
+        endsInput.value = new Date(updateStatus.ends_at).toISOString().slice(0, 16)
+      }
+      if (messageInput) {
+        messageInput.value = updateStatus.message || ''
+      }
+      if (bannerToggle) {
+        bannerToggle.checked = updateStatus.show_banner !== false
+      }
+
+      this.updateUpdateDisplay(updateStatus)
+
+    } catch (e) {
+      console.error('Update settings error:', e)
+    }
+  }
+
+  updateMaintenanceDisplay(maintenance) {
+    const msgEl = $('maintenance-msg')
     if (!msgEl) return
 
-    if (changelog.enabled) {
-      msgEl.innerHTML = `
-        <div class="settings-message success">
-          <i class="fa fa-check-circle"></i> Changelog aktif - 
-          Versi: <strong>${changelog.version}</strong>
-        </div>
-      `
+    if (maintenance.enabled && maintenance.ends_at) {
+      const endsAt = new Date(maintenance.ends_at)
+      const now = new Date()
+      
+      if (endsAt > now) {
+        const diff = endsAt - now
+        msgEl.innerHTML = `
+          <div class="settings-message success">
+            <i class="fa fa-check-circle"></i> Maintenance aktif - Selesai dalam: 
+            <strong>${formatTime(diff)}</strong>
+          </div>
+        `
+        startMaintenanceCountdown(maintenance.ends_at)
+      } else {
+        msgEl.innerHTML = '<div class="settings-message error">Maintenance sudah berakhir</div>'
+      }
+    } else if (maintenance.enabled) {
+      msgEl.innerHTML = '<div class="settings-message success">Maintenance aktif (tanpa batas waktu)</div>'
     } else {
-      msgEl.innerHTML = '<div class="settings-message">Changelog tidak aktif</div>'
+      msgEl.innerHTML = '<div class="settings-message">Maintenance tidak aktif</div>'
     }
   }
 
-  async initializeChangelog() {
-    try {
-      const changelog = await getChangelog()
+  updateUpdateDisplay(updateStatus) {
+    const msgEl = $('update-settings-msg')
+    if (!msgEl) return
+
+    if (updateStatus.enabled && updateStatus.ends_at) {
+      const endsAt = new Date(updateStatus.ends_at)
+      const now = new Date()
       
-      // Check if changelog should be shown on startup
-      const changelogShown = localStorage.getItem('sn_changelog_shown')
-      const currentVersion = changelog.version
-      
-      if (changelog.enabled && changelog.show_on_startup && 
-          changelogShown !== currentVersion) {
-        
-        // Update modal content
-        if ($('changelogModalTitle')) $('changelogModalTitle').textContent = changelog.title
-        if ($('changelogModalContent')) $('changelogModalContent').innerHTML = changelog.content.replace(/\n/g, '<br>')
-        if ($('changelogModalVersion')) $('changelogModalVersion').textContent = `v${changelog.version}`
-        
-        // Show modal after a short delay
-        setTimeout(() => {
-          showChangelogModal()
-          localStorage.setItem('sn_changelog_shown', currentVersion)
-        }, 1000)
+      if (endsAt > now) {
+        const diff = endsAt - now
+        msgEl.innerHTML = `
+          <div class="settings-message success">
+            <i class="fa fa-check-circle"></i> Update countdown aktif - 
+            Selesai dalam: <strong>${formatTime(diff)}</strong>
+          </div>
+        `
+      } else {
+        msgEl.innerHTML = '<div class="settings-message error">Update countdown sudah berakhir</div>'
       }
-    } catch (error) {
-      console.warn('Failed to initialize changelog:', error)
+    } else {
+      msgEl.innerHTML = '<div class="settings-message">Update countdown tidak aktif</div>'
     }
   }
 
@@ -1204,14 +1042,40 @@ class UIManager {
       })
     }
 
-    // Changelog settings
-    if ($('save-changelog-settings')) {
-      $('save-changelog-settings').addEventListener('click', this.handleSaveChangelogSettings.bind(this))
+    // Refresh files
+    if ($('refresh-files')) {
+      $('refresh-files').addEventListener('click', () => {
+        this.loadFilesList()
+      })
     }
 
-    // Test changelog
-    if ($('test-changelog')) {
-      $('test-changelog').addEventListener('click', this.handleTestChangelog.bind(this))
+    // Cleanup files - DIPERBAIKI DENGAN ERROR HANDLING
+    if ($('cleanup-files')) {
+      $('cleanup-files').addEventListener('click', async () => {
+        const btn = $('cleanup-files')
+        const originalText = btn.innerHTML
+        btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Cleaning...'
+        btn.disabled = true
+        
+        try {
+          const result = await cleanExpiredFiles()
+          if (result.error) {
+            this.showMessage('cleanup-result', `Gagal membersihkan: ${result.error}`, 'error')
+          } else {
+            const message = result.cleaned > 0 
+              ? `Pembersihan selesai! ${result.cleaned}/${result.total} file expired dihapus.`
+              : `Tidak ada file expired yang perlu dihapus. ${result.total} file expired ditemukan, tetapi sudah pernah didownload.`
+            this.showMessage('cleanup-result', message, 'success')
+          }
+          this.loadFilesList()
+          this.loadAdminDashboard()
+        } catch (e) {
+          this.showMessage('cleanup-result', 'Gagal membersihkan file: ' + (e.message || e), 'error')
+        } finally {
+          btn.innerHTML = originalText
+          btn.disabled = false
+        }
+      })
     }
 
     // Clear cache
@@ -1247,15 +1111,6 @@ class UIManager {
       })
     }
 
-    // User logout
-    if ($('user-logout')) {
-      $('user-logout').addEventListener('click', () => {
-        clearUserSession()
-        this.showMessage('user-files-message', 'Logout berhasil', 'success')
-        setTimeout(() => this.showPage('page-download'), 1000)
-      })
-    }
-
     // Comment system
     if ($('cSend')) {
       $('cSend').addEventListener('click', this.handleCommentSubmit.bind(this))
@@ -1265,19 +1120,6 @@ class UIManager {
     const maintenanceOk = $('globalMaintenanceOverlay')?.querySelector('.maintenance-ok')
     if (maintenanceOk) {
       maintenanceOk.addEventListener('click', hideMaintenanceOverlay)
-    }
-
-    // Changelog close button
-    const changelogClose = $('changelogModal')?.querySelector('.changelog-close')
-    if (changelogClose) {
-      changelogClose.addEventListener('click', hideChangelogModal)
-    }
-
-    // Upload new file in dashboard
-    if ($('uploadNewFile')) {
-      $('uploadNewFile').addEventListener('click', () => {
-        this.showPage('page-upload')
-      })
     }
   }
 
@@ -1323,17 +1165,6 @@ class UIManager {
         maintenanceSettings.style.display = maintenanceToggle.checked ? 'block' : 'none'
       })
       maintenanceSettings.style.display = maintenanceToggle.checked ? 'block' : 'none'
-    }
-
-    // Changelog settings toggle
-    const changelogToggle = $('changelog-enabled')
-    const changelogSettings = $('changelog-settings')
-    
-    if (changelogToggle && changelogSettings) {
-      changelogToggle.addEventListener('change', () => {
-        changelogSettings.style.display = changelogToggle.checked ? 'block' : 'none'
-      })
-      changelogSettings.style.display = changelogToggle.checked ? 'block' : 'none'
     }
 
     // Real-time preview for maintenance message
@@ -1394,7 +1225,7 @@ class UIManager {
         expires_at: expiresIso
       })
 
-      // Show credentials
+      // Show credentials - PERBAIKAN: Pastikan elemen creds ditampilkan
       if ($('outUser')) $('outUser').textContent = username
       if ($('outPass')) $('outPass').textContent = password
       if ($('outLink')) $('outLink').textContent = `${BASE_LOGIN_LINK}/?user=${username}`
@@ -1402,7 +1233,7 @@ class UIManager {
         $('outExpire').textContent = expiresIso ? new Date(expiresIso).toLocaleString() : 'Tidak expired'
       }
       
-      // Tampilkan section kredensial
+      // PERBAIKAN PENTING: Tampilkan section kredensial
       const credsSection = $('creds')
       if (credsSection) {
         credsSection.classList.remove('hide')
@@ -1466,13 +1297,46 @@ class UIManager {
         return
       }
 
-      // Set user session and show dashboard
-      setUserSession(username)
-      this.showMessage('cleanup-result', 'Login berhasil! Membuka dashboard...', 'success')
-      setTimeout(() => {
-        this.showPage('page-dashboard')
-        this.loadUserFiles()
-      }, 1000)
+      // Get signed URL
+      let signedUrl = null
+      try {
+        signedUrl = await createSignedUrl(record.storage_path, 300)
+      } catch (e) {
+        console.warn('Signed URL failed:', e)
+      }
+
+      // Update UI
+      if ($('fileName')) $('fileName').textContent = record.filename || record.storage_path
+      if ($('fileSize')) $('fileSize').textContent = niceBytes(record.size)
+      if ($('fileTime')) $('fileTime').textContent = record.created_at ? 
+        new Date(record.created_at).toLocaleString() : '-'
+      if ($('dlInfo')) $('dlInfo').classList.remove('hide')
+
+      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(record.storage_path)}`
+      const finalUrl = signedUrl || publicUrl
+
+      // Setup download handler
+      if ($('btnDownload')) {
+        $('btnDownload').onclick = async () => {
+          try {
+            await forceDownloadUrl(finalUrl, record.filename || 'download')
+            await recordDownload({
+              file_id: record.id,
+              filename: record.filename,
+              username: record.username
+            })
+            this.showMessage('cleanup-result', 'Download berhasil!', 'success')
+          } catch (e) {
+            console.error('Download error:', e)
+            this.showMessage('cleanup-result', 'Gagal mengunduh: ' + e.message, 'error')
+          }
+        }
+      }
+
+      // Setup view handler
+      if ($('btnView')) {
+        $('btnView').onclick = () => window.open(finalUrl, '_blank')
+      }
 
     } catch (err) {
       console.error('Verification error:', err)
@@ -1503,61 +1367,6 @@ class UIManager {
     }).catch(() => {
       this.showMessage('cleanup-result', 'Gagal menyalin kredensial.', 'error')
     })
-  }
-
-  async handleSaveChangelogSettings() {
-    const titleInput = $('changelog-title')
-    const contentInput = $('changelog-content')
-    const versionInput = $('changelog-version')
-    const enabledToggle = $('changelog-enabled')
-    const startupToggle = $('changelog-startup')
-
-    const enabled = enabledToggle?.checked || false
-    const title = titleInput?.value || 'Pembaruan Terbaru'
-    const content = contentInput?.value || ''
-    const version = versionInput?.value || '1.0.0'
-    const showOnStartup = startupToggle?.checked !== false
-
-    if (enabled && (!content.trim())) {
-      this.showMessage('changelog-msg', 'Harap isi konten changelog!', 'error')
-      return
-    }
-
-    try {
-      await upsertChangelog({
-        enabled,
-        title,
-        content,
-        version,
-        show_on_startup: showOnStartup
-      })
-
-      this.showMessage('changelog-msg', 'Pengaturan changelog berhasil disimpan!', 'success')
-      
-      const changelog = await getChangelog()
-      this.updateChangelogDisplay(changelog)
-
-    } catch (e) {
-      this.showMessage('changelog-msg', 'Gagal menyimpan pengaturan: ' + e.message, 'error')
-    }
-  }
-
-  async handleTestChangelog() {
-    const changelog = await getChangelog()
-    
-    if (!changelog.enabled) {
-      this.showMessage('changelog-msg', 'Changelog belum diaktifkan!', 'error')
-      return
-    }
-
-    // Update modal content
-    if ($('changelogModalTitle')) $('changelogModalTitle').textContent = changelog.title
-    if ($('changelogModalContent')) $('changelogModalContent').innerHTML = changelog.content.replace(/\n/g, '<br>')
-    if ($('changelogModalVersion')) $('changelogModalVersion').textContent = `v${changelog.version}`
-    
-    // Show modal
-    showChangelogModal()
-    this.showMessage('changelog-msg', 'Changelog ditampilkan!', 'success')
   }
 
   async handleSaveMaintenanceSettings() {
@@ -1737,62 +1546,11 @@ class UIManager {
       }, 5000)
     }
   }
-
-  updateMaintenanceDisplay(maintenance) {
-    const msgEl = $('maintenance-msg')
-    if (!msgEl) return
-
-    if (maintenance.enabled && maintenance.ends_at) {
-      const endsAt = new Date(maintenance.ends_at)
-      const now = new Date()
-      
-      if (endsAt > now) {
-        const diff = endsAt - now
-        msgEl.innerHTML = `
-          <div class="settings-message success">
-            <i class="fa fa-check-circle"></i> Maintenance aktif - Selesai dalam: 
-            <strong>${formatTime(diff)}</strong>
-          </div>
-        `
-        startMaintenanceCountdown(maintenance.ends_at)
-      } else {
-        msgEl.innerHTML = '<div class="settings-message error">Maintenance sudah berakhir</div>'
-      }
-    } else if (maintenance.enabled) {
-      msgEl.innerHTML = '<div class="settings-message success">Maintenance aktif (tanpa batas waktu)</div>'
-    } else {
-      msgEl.innerHTML = '<div class="settings-message">Maintenance tidak aktif</div>'
-    }
-  }
-
-  updateUpdateDisplay(updateStatus) {
-    const msgEl = $('update-settings-msg')
-    if (!msgEl) return
-
-    if (updateStatus.enabled && updateStatus.ends_at) {
-      const endsAt = new Date(updateStatus.ends_at)
-      const now = new Date()
-      
-      if (endsAt > now) {
-        const diff = endsAt - now
-        msgEl.innerHTML = `
-          <div class="settings-message success">
-            <i class="fa fa-check-circle"></i> Update countdown aktif - 
-            Selesai dalam: <strong>${formatTime(diff)}</strong>
-          </div>
-        `
-      } else {
-        msgEl.innerHTML = '<div class="settings-message error'>Update countdown sudah berakhir</div>'
-      }
-    } else {
-      msgEl.innerHTML = '<div class="settings-message">Update countdown tidak aktif</div>'
-    }
-  }
 }
 
 // ----------------- Initialization -----------------
 document.addEventListener('DOMContentLoaded', () => {
-  window.uiManager = new UIManager()
+  const uiManager = new UIManager()
 
   initializeUpdateCountdown()
 
@@ -1834,4 +1592,3 @@ document.addEventListener('DOMContentLoaded', () => {
 
 window.hideUpdateBanner = hideUpdateBanner
 window.checkMaintenanceForUpload = checkMaintenanceForUpload
-window.hideChangelogModal = hideChangelogModal
