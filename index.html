@@ -6,10 +6,11 @@
   <title>Safenest — Private file sharing</title>
 
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-  <!-- FontAwesome v4 -->
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
-
   <link rel="stylesheet" href="styles.css" />
+  
+  <!-- 🔥 LOAD SUPABASE DULU SEBELUM APP.JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
   <div class="stars"></div>
@@ -65,17 +66,16 @@
           
           <p class="muted">Masukkan username & password yang diberikan uploader.</p>
 
-        <!-- Di dalam section download, modifikasi bagian input password -->
-<div class="grid-2">
-  <input id="dlUser" placeholder="username (sn-xxxx)" />
-  <div class="password-input-wrapper">
-    <input id="dlPass" placeholder="password" type="password" />
-    <button type="button" class="password-toggle" id="togglePassword">
-      <i class="fa fa-eye-slash"></i>
-      <span class="toggle-text">Show</span>
-    </button>
-  </div>
-</div>
+          <div class="grid-2">
+            <input id="dlUser" placeholder="username (sn-xxxx)" />
+            <div class="password-input-wrapper">
+              <input id="dlPass" placeholder="password" type="password" />
+              <button type="button" class="password-toggle" id="togglePassword">
+                <i class="fa fa-eye-slash"></i>
+                <span class="toggle-text">Show</span>
+              </button>
+            </div>
+          </div>
 
           <div class="row" style="margin-top:12px">
             <button id="btnVerify" class="btn primary"><i class="fa fa-check-circle"></i> Verify & Show</button>
@@ -642,7 +642,8 @@
     </div>
   </div>
 
+  <!-- 🔥 UBAH URUTAN LOADING: Firebase dulu, lalu app.js -->
   <script type="module" src="firebase.js"></script>
-  <script type="module" src="app.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 // app.js — Safenest dengan Tampilan Upload yang Lebih Clean
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+// 🔥 HAPUS IMPORT, GUNAKAN GLOBAL SUPABASE
 
 // ========== CONFIG ==========
 const SUPABASE_URL = 'https://rjsifamddfdhnlvrrwbb.supabase.co'
@@ -8,7 +8,161 @@ const BUCKET = 'piw-files'
 const BASE_LOGIN_LINK = window.location.origin
 // ============================
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
+// 🔥 PERBAIKI: Gunakan window.supabase jika tersedia
+let supabase
+
+// 🔥 FUNGSI UNTUK CLEAN UP AUTH TOKENS
+function cleanupAuthTokens() {
+  try {
+    console.log('🧹 Cleaning up auth tokens...');
+    const authKeys = [
+      'supabase.auth.token',
+      'sb-rjsifamddfdhnlvrrwbb-auth-token',
+      'supabase.auth.refresh-token',
+      'supabase.auth.session'
+    ];
+    
+    authKeys.forEach(key => {
+      if (localStorage.getItem(key)) {
+        localStorage.removeItem(key);
+        console.log(`Removed auth token: ${key}`);
+      }
+    });
+    
+    // Also clean sessionStorage
+    authKeys.forEach(key => {
+      if (sessionStorage.getItem(key)) {
+        sessionStorage.removeItem(key);
+        console.log(`Removed session auth token: ${key}`);
+      }
+    });
+    
+    return true;
+  } catch (error) {
+    console.warn('Auth token cleanup failed:', error);
+    return false;
+  }
+}
+
+// 🔥 INISIALISASI SUPABASE DENGAN ERROR HANDLING
+function initializeSupabase() {
+  try {
+    // Clean up old tokens first
+    cleanupAuthTokens();
+    
+    // Cek apakah Supabase sudah di-load dari CDN
+    if (window.supabase && window.supabase.createClient) {
+      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+        auth: {
+          // 🔥 TAMBAHKAN AUTH CONFIG UNTUK MENGATASI TOKEN ISSUES
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: false,
+          storage: {
+            getItem: (key) => {
+              try {
+                return localStorage.getItem(key);
+              } catch (e) {
+                console.warn('Error getting auth item:', e);
+                return null;
+              }
+            },
+            setItem: (key, value) => {
+              try {
+                localStorage.setItem(key, value);
+              } catch (e) {
+                console.warn('Error setting auth item:', e);
+              }
+            },
+            removeItem: (key) => {
+              try {
+                localStorage.removeItem(key);
+              } catch (e) {
+                console.warn('Error removing auth item:', e);
+              }
+            }
+          }
+        }
+      });
+      
+      console.log('✅ Supabase client created successfully');
+      
+      // 🔥 VERIFIKASI KONEKSI DENGAN QUERY SEDERHANA
+      setTimeout(async () => {
+        try {
+          const { data, error } = await supabase
+            .from('settings')
+            .select('key')
+            .limit(1);
+          
+          if (error) {
+            console.warn('Supabase connection test failed:', error.message);
+          } else {
+            console.log('✅ Supabase connection verified');
+          }
+        } catch (e) {
+          console.warn('Supabase test query failed:', e.message);
+        }
+      }, 1000);
+      
+      return supabase;
+    } else {
+      throw new Error('Supabase library not found');
+    }
+  } catch (error) {
+    console.error('❌ Failed to create Supabase client:', error);
+    
+    // Fallback ke fungsi kosong untuk mencegah crash
+    supabase = {
+      auth: {
+        getSession: () => {
+          console.log('⚠️ Using fallback auth (Supabase not available)');
+          return Promise.resolve({ 
+            data: { session: null }, 
+            error: null 
+          });
+        },
+        signInWithPassword: () => Promise.reject(new Error('Supabase not available')),
+        signOut: () => {
+          cleanupAuthTokens();
+          return Promise.resolve();
+        }
+      },
+      storage: {
+        from: () => ({
+          upload: () => Promise.reject(new Error('Supabase not available')),
+          createSignedUrl: () => Promise.reject(new Error('Supabase not available')),
+          remove: () => Promise.reject(new Error('Supabase not available'))
+        })
+      },
+      from: () => ({
+        insert: () => ({ 
+          select: () => ({ 
+            single: () => Promise.reject(new Error('Supabase not available')) 
+          }) 
+        }),
+        select: () => ({ 
+          eq: () => ({ 
+            single: () => Promise.reject(new Error('Supabase not available')) 
+          }) 
+        }),
+        delete: () => ({ 
+          eq: () => Promise.reject(new Error('Supabase not available')) 
+        }),
+        upsert: () => ({ 
+          select: () => ({ 
+            single: () => Promise.reject(new Error('Supabase not available')) 
+          }) 
+        })
+      })
+    };
+    
+    return supabase;
+  }
+}
+
+// Initialize Supabase
+supabase = initializeSupabase();
 
 // ----------------- Global State -----------------
 let updateCountdownInterval = null
@@ -316,12 +470,17 @@ function hideMaintenanceOverlay() {
 
 // ----------------- Supabase Helpers -----------------
 async function uploadFileToStorage(file, destName){
-  const { data, error } = await supabase.storage.from(BUCKET).upload(destName, file, {
-    cacheControl: '3600',
-    upsert: false
-  })
-  if (error) throw error
-  return data.path
+  try {
+    const { data, error } = await supabase.storage.from(BUCKET).upload(destName, file, {
+      cacheControl: '3600',
+      upsert: false
+    })
+    if (error) throw error
+    return data.path
+  } catch (error) {
+    console.error('Upload file error:', error)
+    throw error
+  }
 }
 
 async function insertFileRecord({ filename, storage_path, username, password_hash, size, expires_at = null }){
@@ -349,41 +508,51 @@ async function getRecordByUsername(username){
   const cached = cache.get(cacheKey)
   if (cached) return cached
 
-  const { data, error } = await supabase
-    .from('files')
-    .select('*')
-    .eq('username', username)
-    .single()
+  try {
+    const { data, error } = await supabase
+      .from('files')
+      .select('*')
+      .eq('username', username)
+      .single()
 
-  if (error) {
-    if (error.code === 'PGRST116') {
-      return null // No data found
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return null // No data found
+      }
+      throw error
     }
+    
+    if (data) {
+      // Check if file is expired
+      if (data.expires_at && new Date(data.expires_at) < new Date()) {
+        // File is expired, try to delete it
+        try {
+          await deleteFile(data)
+          cache.clear(cacheKey)
+          return null
+        } catch (deleteError) {
+          console.warn('Failed to delete expired file:', deleteError)
+          return null
+        }
+      }
+      cache.set(cacheKey, data, 2 * 60 * 1000)
+    }
+    return data
+  } catch (error) {
+    console.error('Get record error:', error)
     throw error
   }
-  
-  if (data) {
-    // Check if file is expired
-    if (data.expires_at && new Date(data.expires_at) < new Date()) {
-      // File is expired, try to delete it
-      try {
-        await deleteFile(data)
-        cache.clear(cacheKey)
-        return null
-      } catch (deleteError) {
-        console.warn('Failed to delete expired file:', deleteError)
-        return null
-      }
-    }
-    cache.set(cacheKey, data, 2 * 60 * 1000)
-  }
-  return data
 }
 
 async function createSignedUrl(path, expires=300){
-  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, expires)
-  if (error) throw error
-  return data?.signedUrl
+  try {
+    const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, expires)
+    if (error) throw error
+    return data?.signedUrl
+  } catch (error) {
+    console.error('Create signed URL error:', error)
+    throw error
+  }
 }
 
 async function forceDownloadUrl(url, filename){
@@ -404,23 +573,28 @@ async function forceDownloadUrl(url, filename){
 async function deleteFile(file){
   if(!file?.id || !file?.storage_path) throw new Error('Invalid file data')
   
-  // Delete from storage first
-  const { error: storageError } = await supabase.storage.from(BUCKET).remove([file.storage_path])
-  if (storageError) {
-    console.warn('Storage deletion warning:', storageError)
-    // Continue with DB deletion even if storage deletion fails
+  try {
+    // Delete from storage first
+    const { error: storageError } = await supabase.storage.from(BUCKET).remove([file.storage_path])
+    if (storageError) {
+      console.warn('Storage deletion warning:', storageError)
+      // Continue with DB deletion even if storage deletion fails
+    }
+    
+    // Delete from database
+    const { error: dbError } = await supabase.from('files').delete().eq('id', file.id)
+    if (dbError) throw dbError
+    
+    // Clear relevant caches
+    cache.clear(`file_${file.username}`)
+    cache.clear('files_list')
+    cache.clear('stats')
+    
+    return true
+  } catch (error) {
+    console.error('Delete file error:', error)
+    throw error
   }
-  
-  // Delete from database
-  const { error: dbError } = await supabase.from('files').delete().eq('id', file.id)
-  if (dbError) throw dbError
-  
-  // Clear relevant caches
-  cache.clear(`file_${file.username}`)
-  cache.clear('files_list')
-  cache.clear('stats')
-  
-  return true
 }
 
 async function listFiles(){
@@ -428,22 +602,27 @@ async function listFiles(){
   const cached = cache.get(cacheKey)
   if (cached) return cached
 
-  const { data, error } = await supabase
-    .from('files')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(500)
+  try {
+    const { data, error } = await supabase
+      .from('files')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(500)
 
-  if (error) throw error
-  
-  // Filter out expired files
-  const now = new Date()
-  const validFiles = (data || []).filter(file => 
-    !file.expires_at || new Date(file.expires_at) > now
-  )
-  
-  cache.set(cacheKey, validFiles, 30 * 1000)
-  return validFiles
+    if (error) throw error
+    
+    // Filter out expired files
+    const now = new Date()
+    const validFiles = (data || []).filter(file => 
+      !file.expires_at || new Date(file.expires_at) > now
+    )
+    
+    cache.set(cacheKey, validFiles, 30 * 1000)
+    return validFiles
+  } catch (error) {
+    console.error('List files error:', error)
+    throw error
+  }
 }
 
 async function recordDownload({ file_id = null, filename = null, username = null } = {}){
@@ -465,19 +644,24 @@ async function getSetting(key){
   const cached = cache.get(cacheKey)
   if (cached) return cached
 
-  const { data, error } = await supabase
-    .from('settings')
-    .select('*')
-    .eq('key', key)
-    .single()
+  try {
+    const { data, error } = await supabase
+      .from('settings')
+      .select('*')
+      .eq('key', key)
+      .single()
 
-  if (error && error.code !== 'PGRST116') {
-    console.warn('getSetting error:', error)
+    if (error && error.code !== 'PGRST116') {
+      console.warn('getSetting error:', error)
+      return null
+    }
+    
+    if (data) cache.set(cacheKey, data, 60 * 1000)
+    return data
+  } catch (error) {
+    console.error('Get setting error:', error)
     return null
   }
-  
-  if (data) cache.set(cacheKey, data, 60 * 1000)
-  return data
 }
 
 async function upsertSetting(key, valueObj){
@@ -487,19 +671,24 @@ async function upsertSetting(key, valueObj){
     updated_at: new Date().toISOString()
   }
   
-  const { data, error } = await supabase
-    .from('settings')
-    .upsert([payload])
-    .select()
-    .single()
+  try {
+    const { data, error } = await supabase
+      .from('settings')
+      .upsert([payload])
+      .select()
+      .single()
 
-  if (error) throw error
-  
-  cache.clear(`setting_${key}`)
-  if (key === 'maintenance') cache.clear('maintenance_status')
-  if (key === 'update_countdown') cache.clear('update_status')
-  
-  return data
+    if (error) throw error
+    
+    cache.clear(`setting_${key}`)
+    if (key === 'maintenance') cache.clear('maintenance_status')
+    if (key === 'update_countdown') cache.clear('update_status')
+    
+    return data
+  } catch (error) {
+    console.error('Upsert setting error:', error)
+    throw error
+  }
 }
 
 async function loadStats(){
@@ -533,9 +722,25 @@ async function loadStats(){
 // ----------------- Admin Session dengan Supabase Auth - DIPERBAIKI -----------------
 async function isAdminSession(){ 
   try {
+    // Cek apakah supabase tersedia
+    if (!supabase || !supabase.auth) {
+      console.warn('Supabase auth not available')
+      return false
+    }
+    
+    // 🔥 TAMBAHKAN ERROR HANDLING KHUSUS UNTUK TOKEN ISSUES
     const { data: { session }, error } = await supabase.auth.getSession()
+    
     if (error) {
-      console.warn('Session check error:', error)
+      console.warn('Session check error:', error.message)
+      
+      // 🔥 JIKA ERROR KARENA TOKEN, CLEAN UP DAN RETURN FALSE
+      if (error.message.includes('token') || error.message.includes('refresh')) {
+        console.log('🔄 Cleaning up invalid tokens...');
+        cleanupAuthTokens();
+        return false;
+      }
+      
       return false
     }
     
@@ -559,12 +764,25 @@ async function isAdminSession(){
     
   } catch (error) {
     console.warn('Admin session check failed:', error)
+    
+    // 🔥 CLEAN UP TOKENS JIKA ADA ERROR
+    if (error.message && (
+      error.message.includes('token') || 
+      error.message.includes('refresh') ||
+      error.message.includes('Auth')
+    )) {
+      cleanupAuthTokens();
+    }
+    
     return false
   }
 }
 
 async function setAdminSession(email, password) {
   try {
+    // 🔥 CLEAN UP TOKENS SEBELUM LOGIN BARU
+    cleanupAuthTokens();
+    
     const { data, error } = await supabase.auth.signInWithPassword({
       email: email,
       password: password
@@ -584,6 +802,7 @@ async function setAdminSession(email, password) {
     
     if (!adminEmails.includes(userEmail)) {
       await supabase.auth.signOut()
+      cleanupAuthTokens();
       throw new Error('Email tidak terdaftar sebagai admin')
     }
     
@@ -592,12 +811,18 @@ async function setAdminSession(email, password) {
     return true
   } catch (error) {
     console.error('Admin login failed:', error)
+    
+    // 🔥 CLEAN UP JIKA LOGIN GAGAL
+    cleanupAuthTokens();
     throw error
   }
 }
 
 function clearAdminSession() {
-  supabase.auth.signOut()
+  if (supabase && supabase.auth) {
+    supabase.auth.signOut()
+  }
+  cleanupAuthTokens();
   cache.clear('stats')
   cache.clear('files_list')
 }
@@ -754,9 +979,13 @@ class UIManager {
   }
 
   async checkExistingSession() {
-    const isAdmin = await isAdminSession()
-    if (isAdmin && this.currentPage === 'page-admin') {
-      this.loadAdminDashboard()
+    try {
+      const isAdmin = await isAdminSession()
+      if (isAdmin && this.currentPage === 'page-admin') {
+        this.loadAdminDashboard()
+      }
+    } catch (error) {
+      console.warn('Session check error:', error)
     }
   }
 
@@ -1659,6 +1888,16 @@ class UIManager {
 
 // ----------------- Initialization -----------------
 document.addEventListener('DOMContentLoaded', () => {
+  console.log('🚀 Safenest initializing...')
+  
+  // Cek Supabase availability
+  if (supabase) {
+    console.log('✅ Supabase ready')
+  } else {
+    console.warn('⚠️ Supabase not available, some features may not work')
+    // Don't show alert on initial load
+  }
+  
   const uiManager = new UIManager()
 
   initializeUpdateCountdown()
@@ -1673,9 +1912,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }, 2 * 60 * 1000)
 
   // Initial cleanup dengan error handling
-  cleanExpiredFiles().catch(e => {
-    console.warn('Initial cleanup failed:', e.message || e)
-  })
+  setTimeout(() => {
+    cleanExpiredFiles().catch(e => {
+      console.warn('Initial cleanup failed:', e.message || e)
+    })
+  }, 3000);
   
   $$('.nav-btn').forEach((btn, i) => {
     btn.animate([
@@ -1701,3 +1942,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
 window.hideUpdateBanner = hideUpdateBanner
 window.checkMaintenanceForUpload = checkMaintenanceForUpload
+window.supabase = supabase // Ekspos supabase untuk debugging
+window.cleanupAuthTokens = cleanupAuthTokens // 🔥 Ekspos fungsi cleanup untuk debugging

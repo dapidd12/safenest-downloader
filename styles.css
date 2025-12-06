@@ -152,7 +152,57 @@ html,body{
   background: rgba(255,255,255,0.3);
   transform: scale(1.1);
 }
+/* Tambahkan di bagian atas styles.css setelah reset */
+/* Critical CSS sudah dipindahkan ke inline style di HTML */
 
+/* Lazy loading styles */
+.lazy-load {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.6s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+.lazy-load.loaded {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Optimize animations untuk performa */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Content-visibility untuk sections yang tidak terlihat */
+.page:not(.active) {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 500px;
+}
+
+/* Optimize images dan background */
+.stars, .twinkling {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* Loading states yang lebih smooth */
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+  transform: none !important;
+}
+
+/* Tambahkan di responsive section */
+@media (max-width: 768px) {
+  .page:not(.active) {
+    contain-intrinsic-size: 0 300px;
+  }
+}
 /* UPDATE BADGES */
 .update-badge {
   background: linear-gradient(135deg, var(--accent1), var(--accent3));
