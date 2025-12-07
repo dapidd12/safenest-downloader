@@ -1,490 +1,649 @@
-[file name]: index.html
-[file content begin]
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SpaceTeam | Dev</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
-    <link rel="stylesheet" href="styles.css">
-    <!-- Anti Inspect Script -->
-    <script>
-        // Block right-click
-        document.addEventListener('contextmenu', function(e) {
-            e.preventDefault();
-            return false;
-        });
-        
-        // Block F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'F12' || 
-                (e.ctrlKey && e.shiftKey && e.key === 'I') ||
-                (e.ctrlKey && e.shiftKey && e.key === 'J') ||
-                (e.ctrlKey && e.key === 'U') ||
-                (e.ctrlKey && e.shiftKey && e.key === 'C')) {
-                e.preventDefault();
-                return false;
-            }
-        });
-        
-        // Block text selection on critical elements
-        document.addEventListener('DOMContentLoaded', function() {
-            const elements = document.querySelectorAll('.logo, .nav-links, .hero-title, .stat-number, .developer-name, .project-title, .blog-title, .footer-logo');
-            elements.forEach(el => {
-                el.style.userSelect = 'none';
-                el.style.webkitUserSelect = 'none';
-            });
-        });
-        
-        // Anti iframe
-        if (window.top !== window.self) {
-            window.top.location = window.self.location;
-        }
-    </script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Safenest — Private file sharing</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+  <link rel="stylesheet" href="styles.css" />
+  
+  <!-- 🔥 LOAD SUPABASE DULU SEBELUM APP.JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
-    <!-- Skip to Main Content (Accessibility) -->
-    <a href="#main-content" class="skip-to-main">
-        Skip to main content
-    </a>
-
-    <!-- Scroll Progress Bar -->
-    <div class="scroll-progress" id="scroll-progress"></div>
-
-    <!-- Running Text -->
-    <div class="running-text-container">
-        <div class="running-text" id="running-text">
-            🚀 SpaceTeam | Dev • 💻 Full-Stack Development • 🎨 UI/UX Design • 📱 Mobile Applications • 🌌 Cutting-edge Technology
-        </div>
+  <div class="stars"></div>
+  <div class="twinkling"></div>
+  
+  <!-- Global Update Countdown Banner -->
+  <div id="updateCountdownBanner" class="update-countdown-banner hide">
+    <div class="update-banner-content">
+      <div class="update-icon">
+        <i class="fa fa-rocket"></i>
+      </div>
+      <div class="update-text">
+        <strong>Update Berikutnya</strong>
+        <span>Akan datang dalam: <span id="globalUpdateCountdown">--:--:--</span></span>
+      </div>
+      <button class="update-close-btn" onclick="hideUpdateBanner()">
+        <i class="fa fa-times"></i>
+      </button>
     </div>
+  </div>
 
-    <!-- Navigation -->
-    <nav class="navbar" id="navbar">
-        <div class="container nav-container">
-            <a href="#home" class="logo">
-                <span class="logo-primary">Space</span>
-                <span class="logo-secondary">Team</span>
-                <span style="color: var(--gray); margin-left: 5px; font-size: 0.9rem;">| Dev</span>
-            </a>
-            
-            <ul class="nav-links">
-                <li><a href="#home" class="active">Home</a></li>
-                <li><a href="#developers">Team</a></li>
-                <li><a href="#projects">Projects</a></li>
-                <li><a href="#blog">Blog</a></li>
-                <li><a href="#contact">Contact</a></li>
-                <li><a href="#" id="admin-login-btn" class="btn btn-sm btn-outline">Admin</a></li>
-            </ul>
-            
-            <div class="nav-actions">
-                <button class="theme-toggle" id="theme-toggle" title="Toggle theme" aria-label="Toggle dark mode">
-                    <i class="fas fa-moon"></i>
-                </button>
-                <button class="mobile-menu-btn" id="mobile-menu-btn" aria-label="Toggle menu">
-                    <i class="fas fa-bars"></i>
-                </button>
-            </div>
+  <div class="app-shell">
+    <!-- Simplified Header -->
+    <header class="top-header glass">
+      <div class="brand">
+        <div class="brand-logo">
+          <i class="fa fa-shield"></i>
         </div>
-    </nav>
+        <div class="brand-text">
+          <div class="site-title">Safenest</div>
+          <div class="site-sub">Setiap unggahan mendapat rumah. Setiap rahasia mendapat penjaga.</div>
+        </div>
+      </div>
+      
+      <!-- Update Countdown Badge -->
+      <div id="headerUpdateBadge" class="update-badge hide">
+        <i class="fa fa-clock-o"></i>
+        <span id="headerUpdateCountdown">Update: --:--:--</span>
+      </div>
+    </header>
 
-    <!-- Main Content -->
-    <main id="main-content">
-        <!-- Hero Section -->
-        <section class="hero section" id="home">
-            <div class="container">
-                <div class="hero-content animate__animated animate__fadeInUp">
-                    <h1 class="hero-title">
-                        Launching Digital 
-                        <span class="text-gradient">Innovations Beyond Limits</span>
-                    </h1>
-                    <p class="hero-subtitle">
-                        We are SpaceTeam | Dev, a crew of elite developers exploring the frontiers of technology. 
-                        We build scalable, futuristic solutions that propel businesses into the digital cosmos.
-                    </p>
-                    <div class="hero-actions">
-                        <a href="#projects" class="btn btn-primary">
-                            <i class="fas fa-rocket"></i>
-                            Explore Projects
-                        </a>
-                        <a href="#contact" class="btn btn-outline">
-                            <i class="fas fa-satellite"></i>
-                            Mission Control
-                        </a>
-                    </div>
-                    
-                    <div class="hero-stats">
-                        <div class="stat-item">
-                            <div class="stat-number" id="projects-count">0</div>
-                            <div class="stat-label">Successful Missions</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-number">99%</div>
-                            <div class="stat-label">Client Satisfaction</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-number">7+</div>
-                            <div class="stat-label">Light Years Experience</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-number">24/7</div>
-                            <div class="stat-label">Mission Control</div>
-                        </div>
-                    </div>
-                </div>
+    <main class="main-area">
+      <!-- DOWNLOAD -->
+      <section id="page-download" class="page active">
+        <div class="card glass-card">
+          <div class="card-header">
+            <h2 class="page-title"><i class="fa fa-download"></i> Download</h2>
+            <div id="downloadUpdateBadge" class="page-update-badge hide">
+              <i class="fa fa-rocket"></i>
+              <span>Update dalam: <span id="downloadUpdateCountdown">--:--:--</span></span>
             </div>
-        </section>
+          </div>
+          
+          <p class="muted">Masukkan username & password yang diberikan uploader.</p>
 
-        <!-- Developers Section -->
-        <section class="section section-alt" id="developers">
-            <div class="container">
-                <div class="section-header">
-                    <h2>Mission Crew</h2>
-                    <p class="section-subtitle">
-                        Meet our elite team of space engineers, each specialized in different tech galaxies.
-                    </p>
+          <div class="grid-2">
+            <input id="dlUser" placeholder="username (sn-xxxx)" />
+            <div class="password-input-wrapper">
+              <input id="dlPass" placeholder="password" type="password" />
+              <button type="button" class="password-toggle" id="togglePassword">
+                <i class="fa fa-eye-slash"></i>
+                <span class="toggle-text">Show</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="row" style="margin-top:12px">
+            <button id="btnVerify" class="btn primary"><i class="fa fa-check-circle"></i> Verify & Show</button>
+            <button id="btnClear" class="btn ghost"><i class="fa fa-refresh"></i> Bersihkan</button>
+          </div>
+
+          <div id="dlInfo" class="file-info hide">
+            <h3 id="fileName">-</h3>
+            <p class="muted small">Ukuran: <span id="fileSize">-</span> • Diunggah: <span id="fileTime">-</span></p>
+
+            <div class="row" style="margin-top:12px">
+              <button id="btnView" class="btn ghost"><i class="fa fa-eye"></i> Lihat File</button>
+              <button id="btnDownload" class="btn primary"><i class="fa fa-download"></i> Download</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer Download yang Diperbaiki -->
+        <footer class="page-footer">
+          <div class="footer-content">
+            <p>copyright by safenest © 2025-2026</p>
+          </div>
+        </footer>
+      </section>
+
+      <!-- UPLOAD -->
+      <section id="page-upload" class="page">
+        <div class="card glass-card">
+          <div class="card-header">
+            <h2 class="page-title"><i class="fa fa-cloud-upload"></i> Upload</h2>
+            <div id="uploadUpdateBadge" class="page-update-badge hide">
+              <i class="fa fa-rocket"></i>
+              <span>Update dalam: <span id="uploadUpdateCountdown">--:--:--</span></span>
+            </div>
+          </div>
+          
+          <p class="muted">Upload file. Kamu akan menerima username & password sekali tampil.</p>
+
+          <!-- AREA UPLOAD YANG SUDAH DIPERBAIKI -->
+          <div class="upload-area">
+            <label class="filebox">
+              <input id="fileInput" type="file" class="hidden-file-input" />
+              <div class="filebox-inner">
+                <div class="filebox-icon">
+                  <i class="fa fa-cloud-upload"></i>
+                </div>
+                <div class="filebox-text">
+                  <strong>Upload File</strong>
+                  <small>pdf, png, jpg, mp3, mp4, zip, html, dll</small>
+                </div>
+              </div>
+            </label>
+            <!-- Tempat untuk menampilkan nama file yang dipilih -->
+            <div id="fileNameDisplay" class="file-name-display hide"></div>
+          </div>
+
+          <!-- EXPIRE SELECT -->
+          <div style="margin-top:16px">
+            <label for="expireSelect" class="form-label">Pilih masa expired</label>
+            <select id="expireSelect" class="select-expire">
+              <option value="never">Tidak expired</option>
+              <option value="2h">2 jam</option>
+              <option value="1d">1 hari</option>
+              <option value="5d">5 hari</option>
+              <option value="1m">1 bulan</option>
+            </select>
+          </div>
+
+          <div class="row" style="margin-top:16px">
+            <button id="btnUpload" class="btn primary"><i class="fa fa-upload"></i> Upload & Generate Credentials</button>
+          </div>
+
+          <!-- BAGIAN KREDENSIAL YANG DIPERBAIKI -->
+          <div id="creds" class="creds-box hide">
+            <div class="creds-header">
+              <h4><i class="fa fa-key"></i> Kredensial File</h4>
+              <small class="muted">Simpan informasi ini dengan aman - password hanya ditampilkan sekali!</small>
+            </div>
+            
+            <div class="creds-grid">
+              <div class="cred-item">
+                <label><i class="fa fa-user"></i> Username:</label>
+                <code id="outUser" class="cred-value">-</code>
+              </div>
+              <div class="cred-item">
+                <label><i class="fa fa-lock"></i> Password:</label>
+                <code id="outPass" class="cred-value">-</code>
+              </div>
+              <div class="cred-item">
+                <label><i class="fa fa-clock-o"></i> Expired:</label>
+                <code id="outExpire" class="cred-value">-</code>
+              </div>
+              <div class="cred-item">
+                <label><i class="fa fa-link"></i> Link:</label>
+                <code id="outLink" class="cred-value">-</code>
+              </div>
+            </div>
+            
+            <div class="row" style="margin-top:20px; justify-content: center;">
+              <button id="copyCreds" class="btn primary">
+                <i class="fa fa-clipboard"></i> Salin Semua Kredensial
+              </button>
+            </div>
+
+            <div style="margin-top:16px; text-align: center;">
+              <small class="muted">
+                <i class="fa fa-exclamation-triangle"></i>
+                Simpan informasi ini di tempat yang aman. Password tidak dapat dipulihkan!
+              </small>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer Upload yang Diperbaiki -->
+        <footer class="page-footer">
+          <div class="footer-content">
+            <p>copyright by safenest © 2025-2026</p>
+          </div>
+        </footer>
+      </section>
+
+      <!-- ABOUT - LAYOUT DIPERBAIKI -->
+      <section id="page-about" class="page">
+        <div class="card glass-card">
+          <div class="card-header">
+            <h2 class="page-title"><i class="fa fa-info-circle"></i> About</h2>
+            <div id="aboutUpdateBadge" class="page-update-badge hide">
+              <i class="fa fa-rocket"></i>
+              <span>Update dalam: <span id="aboutUpdateCountdown">--:--:--</span></span>
+            </div>
+          </div>
+          
+          <div class="about-content">
+            <div class="about-hero">
+              <div class="hero-icon">
+                <i class="fa fa-shield"></i>
+              </div>
+              <div class="hero-text">
+                <h1>Safenest</h1>
+                <p class="hero-subtitle">Setiap unggahan mendapat rumah. Setiap rahasia mendapat penjaga.</p>
+              </div>
+            </div>
+
+            <div class="about-section">
+              <h3>Tentang Safenest</h3>
+              <p><strong>Safenest</strong> adalah ruang privat untuk berbagi file dengan cara yang sederhana, tenang, dan aman. Dirancang untuk penggunaan personal, platform ini menjaga setiap unggahan dengan kredensial unik dan akses yang sepenuhnya berada dalam kendali pengguna.</p>
+            </div>
+
+            <div class="features-grid">
+              <div class="feature-card">
+                <div class="feature-icon privacy">
+                  <i class="fa fa-eye-slash"></i>
+                </div>
+                <div class="feature-content">
+                  <h4>Privasi Terjamin</h4>
+                  <p>Setiap file dilindungi dengan kredensial unik yang hanya diketahui oleh Anda dan penerima file.</p>
+                </div>
+              </div>
+              
+              <div class="feature-card">
+                <div class="feature-icon expiry">
+                  <i class="fa fa-clock-o"></i>
+                </div>
+                <div class="feature-content">
+                  <h4>Kontrol Masa Aktif</h4>
+                  <p>Atur waktu kadaluarsa file sesuai kebutuhan, dari 2 jam hingga 1 bulan atau tanpa batas waktu.</p>
+                </div>
+              </div>
+              
+              <div class="feature-card">
+                <div class="feature-icon speed">
+                  <i class="fa fa-bolt"></i>
+                </div>
+                <div class="feature-content">
+                  <h4>Kecepatan Optimal</h4>
+                  <p>Upload dan download yang cepat dengan infrastruktur modern dan optimisasi performa.</p>
+                </div>
+              </div>
+
+              <div class="feature-card">
+                <div class="feature-icon security">
+                  <i class="fa fa-lock"></i>
+                </div>
+                <div class="feature-content">
+                  <h4>Keamanan Berlapis</h4>
+                  <p>File Anda dilindungi dengan enkripsi dan sistem autentikasi yang kuat.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="about-section vision-mission">
+              <div class="vm-grid">
+                <div class="vm-card">
+                  <div class="vm-icon">
+                    <i class="fa fa-eye"></i>
+                  </div>
+                  <h4>Visi Kami</h4>
+                  <p>Mewujudkan ruang berbagi file yang aman, pribadi, dan minimalis tanpa kompromi terhadap keamanan data pengguna.</p>
                 </div>
                 
-                <div class="developers-grid" id="developers-container">
-                    <!-- Developers will be loaded here -->
-                </div>
-                
-                <!-- Skills Visualization -->
-                <div class="skills-section">
-                    <div class="section-header">
-                        <h3>Tech Galaxy Map</h3>
-                        <p class="section-subtitle">
-                            Our expertise spans across multiple technology constellations
-                        </p>
+                <div class="vm-card">
+                  <div class="vm-icon">
+                    <i class="fa fa-target"></i>
+                  </div>
+                  <h4>Misi Kami</h4>
+                  <div class="mission-list">
+                    <div class="mission-item">
+                      <span class="mission-number">1</span>
+                      <span>Sistem berbagi file yang cepat dan bebas distraksi</span>
                     </div>
-                    <div class="skills-chart-container">
-                        <canvas id="skillsChart"></canvas>
+                    <div class="mission-item">
+                      <span class="mission-number">2</span>
+                      <span>Privasi melalui kredensial unik per-file</span>
                     </div>
+                    <div class="mission-item">
+                      <span class="mission-number">3</span>
+                      <span>Lingkungan yang aman dan nyaman bagi semua pengguna</span>
+                    </div>
+                  </div>
                 </div>
+              </div>
             </div>
-        </section>
 
-        <!-- Projects Section -->
-        <section class="section" id="projects">
-            <div class="container">
-                <div class="section-header">
-                    <h2>Mission Log</h2>
-                    <p class="section-subtitle">
-                        Explore our portfolio of successful missions across the digital universe
-                    </p>
-                </div>
+            <div class="creators-section">
+              <h3>Dibuat dengan ❤️ oleh:</h3>
+              <div class="creators-grid">
+                <a href="https://aryapiw.pages.dev" target="_blank" class="creator-card">
+                  <div class="creator-avatar">
+                    <span>A</span>
+                  </div>
+                  <div class="creator-info">
+                    <h4>Aryapiw</h4>
+                    <p>Full Stack Developer</p>
+                    <span class="creator-link">aryapiw.pages.dev</span>
+                  </div>
+                  <div class="creator-arrow">
+                    <i class="fa fa-external-link"></i>
+                  </div>
+                </a>
                 
-                <div class="projects-filter">
-                    <button class="filter-btn active" data-filter="all" aria-label="Show all projects">All Missions</button>
-                    <button class="filter-btn" data-filter="web" aria-label="Filter web projects">Web Systems</button>
-                    <button class="filter-btn" data-filter="mobile" aria-label="Filter mobile projects">Mobile Apps</button>
-                    <button class="filter-btn" data-filter="design" aria-label="Filter design projects">UI/UX Design</button>
-                </div>
-                
-                <div class="projects-grid" id="projects-container">
-                    <!-- Projects will be loaded here -->
-                </div>
+                <a href="https://dapid.my.id" target="_blank" class="creator-card">
+                  <div class="creator-avatar">
+                    <span>D</span>
+                  </div>
+                  <div class="creator-info">
+                    <h4>Dapid</h4>
+                    <p>System Architect</p>
+                    <span class="creator-link">dapid.my.id</span>
+                  </div>
+                  <div class="creator-arrow">
+                    <i class="fa fa-external-link"></i>
+                  </div>
+                </a>
+              </div>
             </div>
-        </section>
 
-        <!-- Blog Section -->
-        <section class="section section-alt" id="blog">
-            <div class="container">
-                <div class="section-header">
-                    <h2>Mission Briefings</h2>
-                    <p class="section-subtitle">
-                        Latest updates and discoveries from our tech expeditions
-                    </p>
+            <div class="comments-section">
+              <div class="section-header">
+                <h3><i class="fa fa-comments"></i> Komentar & Feedback</h3>
+                <p class="section-subtitle">Bagikan pendapat Anda tentang Safenest</p>
+              </div>
+
+              <div class="comment-form">
+                <div class="form-group">
+                  <input id="cName" placeholder="Nama Anda (opsional)" />
+                </div>
+                <div class="form-group">
+                  <textarea id="cMsg" placeholder="Tulis komentar atau saran Anda..." rows="4"></textarea>
+                </div>
+                <div class="form-actions">
+                  <button id="cSend" class="btn primary">
+                    <i class="fa fa-paper-plane"></i> Kirim Komentar
+                  </button>
+                </div>
+              </div>
+
+              <div id="commentsBox" class="comments-box"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer About yang Diperbaiki -->
+        <footer class="page-footer">
+          <div class="footer-content">
+            <p>copyright by safenest © 2025-2026</p>
+          </div>
+        </footer>
+      </section>
+
+      <!-- ADMIN dashboard - MAINTENANCE SETTINGS DIPERBAIKI -->
+      <section id="page-admin" class="page">
+        <div class="card glass-card">
+          <div class="card-header">
+            <h2 class="page-title"><i class="fa fa-lock"></i> Admin Dashboard</h2>
+            <div class="admin-status">
+              <span class="status-badge active"><i class="fa fa-circle"></i> Online</span>
+            </div>
+          </div>
+
+          <div id="admin-welcome" class="admin-welcome">
+            <div class="welcome-icon">
+              <i class="fa fa-shield"></i>
+            </div>
+            <div class="welcome-text">
+              <h3>Selamat datang, Admin!</h3>
+              <p class="muted">Kelola sistem Safenest dari sini</p>
+            </div>
+          </div>
+
+          <!-- 1. Statistik -->
+          <div class="admin-block">
+            <h4><i class="fa fa-bar-chart"></i> Statistik Sistem</h4>
+            <div id="stat-box" class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-icon uploads">
+                  <i class="fa fa-upload"></i>
+                </div>
+                <div class="stat-content">
+                  <div class="stat-num" id="stat-uploads">0</div>
+                  <div class="stat-label">Total Uploads</div>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon downloads">
+                  <i class="fa fa-download"></i>
+                </div>
+                <div class="stat-content">
+                  <div class="stat-num" id="stat-downloads">0</div>
+                  <div class="stat-label">Total Downloads</div>
+                </div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-icon files">
+                  <i class="fa fa-files-o"></i>
+                </div>
+                <div class="stat-content">
+                  <div class="stat-num" id="stat-files">0</div>
+                  <div class="stat-label">File Aktif</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. Update Countdown Settings -->
+          <div class="admin-block">
+            <h4><i class="fa fa-rocket"></i> Update Countdown</h4>
+            <div class="admin-settings-card">
+              <p class="muted">Atur countdown untuk update berikutnya. Countdown akan ditampilkan ke semua pengguna.</p>
+              
+              <div class="setting-group">
+                <label class="setting-label">Jadwal Update Berikutnya</label>
+                <div class="time-inputs-grid">
+                  <div class="time-input">
+                    <input type="number" id="update-days" placeholder="0" min="0" />
+                    <label>Hari</label>
+                  </div>
+                  <div class="time-input">
+                    <input type="number" id="update-hours" placeholder="0" min="0" max="23" />
+                    <label>Jam</label>
+                  </div>
+                  <div class="time-input">
+                    <input type="number" id="update-minutes" placeholder="0" min="0" max="59" />
+                    <label>Menit</label>
+                  </div>
                 </div>
                 
-                <div class="blog-grid" id="blog-container">
-                    <!-- Blog posts will be loaded here -->
+                <div class="datetime-input">
+                  <label>Atau tentukan waktu pasti:</label>
+                  <input type="datetime-local" id="update-ends" />
                 </div>
-            </div>
-        </section>
+              </div>
 
-        <!-- Contact Section -->
-        <section class="section" id="contact">
-            <div class="container">
-                <div class="section-header">
-                    <h2>Mission Control</h2>
-                    <p class="section-subtitle">
-                        Ready to launch your next project? Connect with mission control.
-                    </p>
-                </div>
-                
-                <div class="contact-container">
-                    <div class="contact-info">
-                        <div class="info-card">
-                            <div class="info-icon">
-                                <i class="fas fa-satellite-dish"></i>
-                            </div>
-                            <h3>Transmit Signal</h3>
-                            <p id="contact-email-display">mission@spaceteam.dev</p>
-                            <p>Response within 24 light-minutes</p>
-                        </div>
-                        
-                        <div class="info-card">
-                            <div class="info-icon">
-                                <i class="fas fa-broadcast-tower"></i>
-                            </div>
-                            <h3>Transmission Frequency</h3>
-                            <p id="contact-phone-display">+62 821 3830 5820</p>
-                            <p>Available for transmissions</p>
-                        </div>
-                        
-                        <div class="info-card">
-                            <div class="info-icon">
-                                <i class="fas fa-globe-americas"></i>
-                            </div>
-                            <h3>Ground Station</h3>
-                            <p>Jakarta, Indonesia</p>
-                            <p>Orbital meetings available</p>
-                        </div>
-                    </div>
-                    
-                    <div class="contact-form">
-                        <form id="contact-form">
-                            <div class="form-group">
-                                <label class="form-label" for="contact-name">Astronaut Name *</label>
-                                <input type="text" class="form-control" id="contact-name" required aria-required="true">
-                                <div class="form-error" id="name-error"></div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label class="form-label" for="contact-email">Transmission Address *</label>
-                                <input type="email" class="form-control" id="contact-email" required aria-required="true">
-                                <div class="form-error" id="email-error"></div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label class="form-label" for="contact-subject">Mission Type *</label>
-                                <input type="text" class="form-control" id="contact-subject" required aria-required="true">
-                                <div class="form-error" id="subject-error"></div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label class="form-label" for="contact-message">Mission Briefing *</label>
-                                <textarea class="form-control" id="contact-message" rows="5" required aria-required="true"></textarea>
-                                <div class="form-error" id="message-error"></div>
-                            </div>
-                            
-                            <button type="submit" class="btn btn-primary btn-lg" id="contact-submit-btn">
-                                <i class="fas fa-paper-plane"></i>
-                                Launch Transmission
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </section>
+              <div class="setting-group">
+                <label class="setting-label">Pesan Update</label>
+                <textarea 
+                  id="update-message" 
+                  placeholder="Jelaskan update yang akan datang..."
+                  rows="3"
+                >Pembaruan sistem untuk pengalaman yang lebih baik!</textarea>
+              </div>
 
-        <!-- Stats Section -->
-        <section class="section section-alt">
-            <div class="container">
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-icon">
-                            <i class="fas fa-satellite"></i>
-                        </div>
-                        <div class="stat-number" id="stats-projects">0</div>
-                        <div class="stat-label">Missions Completed</div>
-                    </div>
-                    
-                    <div class="stat-card">
-                        <div class="stat-icon">
-                            <i class="fas fa-user-astronaut"></i>
-                        </div>
-                        <div class="stat-number" id="stats-clients">0</div>
-                        <div class="stat-label">Satisfied Cosmonauts</div>
-                    </div>
-                    
-                    <div class="stat-card">
-                        <div class="stat-icon">
-                            <i class="fas fa-clock"></i>
-                        </div>
-                        <div class="stat-number" id="stats-experience">7+</div>
-                        <div class="stat-label">Light Years Experience</div>
-                    </div>
-                    
-                    <div class="stat-card">
-                        <div class="stat-icon">
-                            <i class="fas fa-newspaper"></i>
-                        </div>
-                        <div class="stat-number" id="stats-articles">0</div>
-                        <div class="stat-label">Mission Logs</div>
-                    </div>
+              <div class="setting-group">
+                <div class="toggle-group">
+                  <label class="toggle">
+                    <input type="checkbox" id="update-banner-toggle" checked />
+                    <span class="toggle-slider"></span>
+                  </label>
+                  <span class="toggle-label">Tampilkan banner countdown di bagian atas website</span>
                 </div>
+              </div>
+
+              <div class="preview-section">
+                <h5>Preview Countdown:</h5>
+                <div class="preview-card">
+                  <div class="preview-header">
+                    <i class="fa fa-rocket"></i>
+                    <span>Update Berikutnya</span>
+                  </div>
+                  <div class="preview-countdown" id="preview-update-countdown">00h 00m 00d</div>
+                  <div class="preview-message" id="preview-update-message">Pembaruan sistem untuk pengalaman yang lebih baik!</div>
+                </div>
+              </div>
+
+              <div class="setting-actions">
+                <button id="save-update-settings" class="btn primary">
+                  <i class="fa fa-floppy-o"></i> Simpan Pengaturan Update
+                </button>
+                <button id="clear-update" class="btn ghost">
+                  <i class="fa fa-times"></i> Hapus Countdown
+                </button>
+              </div>
+              
+              <div id="update-settings-msg" class="settings-message"></div>
             </div>
-        </section>
+          </div>
+
+          <!-- 3. Maintenance Settings - DIPERBAIKI -->
+          <div class="admin-block">
+            <h4><i class="fa fa-wrench"></i> Maintenance Settings</h4>
+            <div class="admin-settings-card">
+              <div class="setting-group">
+                <div class="toggle-group">
+                  <label class="toggle">
+                    <input type="checkbox" id="maintenance-toggle" />
+                    <span class="toggle-slider"></span>
+                  </label>
+                  <span class="toggle-label">Aktifkan Maintenance Mode</span>
+                </div>
+              </div>
+
+              <div id="maintenance-settings" class="maintenance-settings">
+                <div class="setting-group">
+                  <label class="setting-label">Durasi Maintenance</label>
+                  <div class="time-inputs-grid">
+                    <div class="time-input">
+                      <input type="number" id="maintenance-days" placeholder="0" min="0" />
+                      <label>Hari</label>
+                    </div>
+                    <div class="time-input">
+                      <input type="number" id="maintenance-hours" placeholder="0" min="0" max="23" />
+                      <label>Jam</label>
+                    </div>
+                  </div>
+                  
+                  <div class="datetime-input">
+                    <label>Atau tentukan waktu akhir:</label>
+                    <input type="datetime-local" id="maintenance-ends" />
+                  </div>
+                </div>
+
+                <div class="setting-group">
+                  <label class="setting-label">Pesan Maintenance</label>
+                  <textarea 
+                    id="maintenance-message" 
+                    placeholder="Pesan yang akan ditampilkan kepada pengguna..."
+                    rows="3"
+                  >Sistem dalam perbaikan. Terima kasih atas pengertiannya.</textarea>
+                </div>
+
+                <div class="preview-section">
+                  <h5>Preview Maintenance:</h5>
+                  <div class="preview-card maintenance">
+                    <div class="preview-header">
+                      <i class="fa fa-wrench"></i>
+                      <span>Sedang Maintenance</span>
+                    </div>
+                    <div class="preview-countdown" id="preview-maintenance-countdown">00h 00m 00d</div>
+                    <div class="preview-message" id="preview-maintenance-message">Sistem dalam perbaikan. Terima kasih atas pengertiannya.</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="setting-actions">
+                <button id="save-maintenance-settings" class="btn primary">
+                  <i class="fa fa-floppy-o"></i> Simpan Pengaturan Maintenance
+                </button>
+              </div>
+              
+              <div id="maintenance-msg" class="settings-message"></div>
+            </div>
+          </div>
+
+          <!-- 4. Manage Files -->
+          <div class="admin-block">
+            <h4><i class="fa fa-files-o"></i> Manage Files</h4>
+            <div class="files-management">
+              <div class="files-header">
+                <span>Daftar File (<span id="files-count">0</span>)</span>
+                <button id="refresh-files" class="btn ghost small">
+                  <i class="fa fa-refresh"></i> Refresh
+                </button>
+              </div>
+              <div id="files-list" class="files-list">
+                <!-- File rows will be inserted here -->
+              </div>
+            </div>
+          </div>
+
+          <!-- 5. System Actions -->
+          <div class="admin-block">
+            <h4><i class="fa fa-cogs"></i> System Actions</h4>
+            <div class="system-actions">
+              <button id="cleanup-files" class="btn ghost">
+                <i class="fa fa-trash"></i> Bersihkan File Expired
+              </button>
+              <button id="clear-cache" class="btn ghost">
+                <i class="fa fa-eraser"></i> Clear Cache
+              </button>
+              <button id="admin-logout" class="btn ghost">
+                <i class="fa fa-sign-out"></i> Logout Admin
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
     </main>
 
-    <!-- Footer -->
-    <footer class="footer" id="footer">
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-col">
-                    <div class="footer-logo">
-                        <span class="logo-primary">Space</span>
-                        <span class="logo-secondary">Team</span>
-                        <span style="color: var(--gray);"> | Dev</span>
-                    </div>
-                    <p class="footer-description">
-                        We explore the digital universe, building solutions that reach beyond the stars. 
-                        Our mission is to propel businesses into the future with cutting-edge technology.
-                    </p>
-                    <div class="social-links">
-                        <a href="#" class="social-link" aria-label="GitHub">
-                            <i class="fab fa-github"></i>
-                        </a>
-                        <a href="#" class="social-link" aria-label="LinkedIn">
-                            <i class="fab fa-linkedin-in"></i>
-                        </a>
-                        <a href="#" class="social-link" aria-label="Twitter">
-                            <i class="fab fa-twitter"></i>
-                        </a>
-                        <a href="#" class="social-link" aria-label="Discord">
-                            <i class="fab fa-discord"></i>
-                        </a>
-                    </div>
-                </div>
-                
-                <div class="footer-col">
-                    <h3 class="footer-heading">Flight Path</h3>
-                    <ul class="footer-links">
-                        <li><a href="#home">Command Center</a></li>
-                        <li><a href="#developers">Mission Crew</a></li>
-                        <li><a href="#projects">Mission Log</a></li>
-                        <li><a href="#blog">Briefings</a></li>
-                        <li><a href="#contact">Control Room</a></li>
-                    </ul>
-                </div>
-                
-                <div class="footer-col">
-                    <h3 class="footer-heading">Services</h3>
-                    <ul class="footer-links">
-                        <li><a href="#">Web Development</a></li>
-                        <li><a href="#">Mobile Apps</a></li>
-                        <li><a href="#">UI/UX Design</a></li>
-                        <li><a href="#">Cloud Systems</a></li>
-                        <li><a href="#">AI Integration</a></li>
-                    </ul>
-                </div>
-                
-                <div class="footer-col">
-                    <h3 class="footer-heading">Ground Control</h3>
-                    <ul class="footer-links">
-                        <li><i class="fas fa-map-marker-alt"></i> Jakarta, Indonesia</li>
-                        <li><i class="fas fa-satellite"></i> <span id="footer-phone">+62 821 3830 5820</span></li>
-                        <li><i class="fas fa-envelope"></i> <span id="footer-email">mission@spaceteam.dev</span></li>
-                    </ul>
-                </div>
-            </div>
-            
-            <div class="footer-bottom">
-                <p>&copy; <span id="current-year"></span> SpaceTeam | Dev. All systems operational.</p>
-            </div>
-        </div>
-    </footer>
+    <!-- Bottom floating navbar -->
+    <nav class="bottom-nav glass-nav" role="navigation" aria-label="Main navigation">
+      <div class="nav-inner">
+        <button class="nav-btn" data-target="page-download" id="nav-download" aria-label="Download">
+          <div class="icon-wrap"><i class="fa fa-download"></i></div>
+          <div class="label">Download</div>
+        </button>
 
-    <!-- Chat Widget -->
-    <button class="chat-toggle" id="chat-toggle" aria-label="Open chat">
-        <i class="fas fa-robot"></i>
-    </button>
-    
-    <div class="chat-widget hidden" id="chat-widget">
-        <div class="chat-header">
-            <h3>SpaceTeam AI Assistant</h3>
-            <button class="btn btn-icon btn-sm" id="close-chat" aria-label="Close chat">
-                <i class="fas fa-times"></i>
-            </button>
+        <button class="nav-btn center" data-target="page-upload" id="nav-upload" aria-label="Upload">
+          <div class="circle-plus"><i class="fa fa-plus"></i></div>
+          <div class="label">Upload</div>
+        </button>
+
+        <button class="nav-btn" data-target="page-about" id="nav-about" aria-label="About">
+          <div class="icon-wrap"><i class="fa fa-info-circle"></i></div>
+          <div class="label">About</div>
+        </button>
+      </div>
+    </nav>
+  </div>
+
+  <!-- Enhanced Global Maintenance Overlay -->
+  <div id="globalMaintenanceOverlay" class="global-maintenance-overlay hide">
+    <div class="maintenance-modal">
+      <div class="maintenance-icon">
+        <i class="fa fa-wrench"></i>
+      </div>
+      <div class="maintenance-content">
+        <h3>Sedang Maintenance</h3>
+        <p id="maintenance-modal-message">Sistem sedang dalam perbaikan untuk pengalaman yang lebih baik.</p>
+        <div class="maintenance-countdown">
+          <i class="fa fa-clock-o"></i>
+          <span>Selesai dalam: <strong id="maintenance-modal-countdown">--:--:--</strong></span>
         </div>
-        <div class="chat-body" id="chat-body">
-            <div class="chat-message bot">
-                Greetings, astronaut! I'm your SpaceTeam AI assistant. How can I assist with your mission today? You can ask about our services, mission logs, or request a briefing.
-            </div>
-        </div>
-        <div class="chat-input">
-            <input type="text" id="chat-input" placeholder="Type your transmission..." aria-label="Chat message">
-            <button class="btn btn-sm btn-primary" id="send-chat" style="margin-top: 10px;">
-                <i class="fas fa-paper-plane"></i> Transmit
-            </button>
-        </div>
+        <button class="btn primary maintenance-ok">
+          <i class="fa fa-check"></i> Mengerti
+        </button>
+      </div>
     </div>
+  </div>
 
-    <!-- Login Modal -->
-    <div class="modal hidden" id="login-modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Mission Control Access</h2>
-                <button class="modal-close" id="close-login" aria-label="Close login">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <form id="login-form">
-                <div class="form-group">
-                    <label class="form-label" for="username">Access Code *</label>
-                    <input type="email" class="form-control" id="username" required aria-required="true">
-                    <div class="form-error" id="login-email-error"></div>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="password">Security Key *</label>
-                    <input type="password" class="form-control" id="password" required aria-required="true">
-                    <div class="form-error" id="login-password-error"></div>
-                </div>
-                <button type="submit" class="btn btn-primary btn-lg" id="login-submit-btn">
-                    <i class="fas fa-sign-in-alt"></i>
-                    Access Control
-                </button>
-            </form>
-        </div>
+  <!-- Global Loader -->
+  <div id="globalLoader" class="global-loader">
+    <div class="loader-content">
+      <div class="loader-spinner"></div>
+      <div class="loader-text">Memuat Safenest...</div>
     </div>
+  </div>
 
-    <!-- Admin Panel -->
-    <div id="admin-panel" class="hidden">
-        <div class="admin-header">
-            <div class="container">
-                <nav class="admin-nav">
-                    <a href="#" class="logo">
-                        <span class="logo-primary">Mission</span>
-                        <span class="logo-secondary">Control</span>
-                    </a>
-                    <ul class="admin-nav-links">
-                        <li><a href="#dashboard" class="admin-nav-btn active" data-section="dashboard">Dashboard</a></li>
-                        <li><a href="#developers" class="admin-nav-btn" data-section="developers">Crew</a></li>
-                        <li><a href="#projects" class="admin-nav-btn" data-section="projects">Missions</a></li>
-                        <li><a href="#blog" class="admin-nav-btn" data-section="blog">Logs</a></li>
-                        <li><a href="#messages" class="admin-nav-btn" data-section="messages">Transmissions</a></li>
-                        <li><a href="#settings" class="admin-nav-btn" data-section="settings">Systems</a></li>
-                        <li><a href="#" id="admin-logout" class="btn btn-sm btn-danger">Logout</a></li>
-                    </ul>
-                </nav>
-            </div>
-        </div>
-        
-        <div class="admin-content">
-            <div class="container">
-                <!-- Admin sections will be loaded dynamically -->
-                <div id="admin-sections"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Notification Container -->
-    <div id="notification-container"></div>
-
-    <!-- Loading Overlay -->
-    <div class="loading-overlay hidden" id="loading-overlay">
-        <div class="loading-spinner"></div>
-        <p>Initializing systems...</p>
-    </div>
-
-    <!-- External Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="config.js"></script>
-    <script src="app.js"></script>
+  <!-- 🔥 UBAH URUTAN LOADING: Firebase dulu, lalu app.js -->
+  <script type="module" src="firebase.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
-[file content end]
