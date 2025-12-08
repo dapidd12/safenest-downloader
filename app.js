@@ -1,1946 +1,3258 @@
-// app.js — Safenest dengan Tampilan Upload yang Lebih Clean
-// 🔥 HAPUS IMPORT, GUNAKAN GLOBAL SUPABASE
+[file name]: app.js
+[file content begin]
+// Main Application - SpaceTeam | Dev - FIXED VERSION
+class SpaceTeamApp {
+    constructor() {
+        try {
+            // Fix: Proper dark mode initialization
+            const savedDarkMode = localStorage.getItem('darkMode');
+            const defaultDarkMode = true; // Default to dark mode
+            
+            // Get saved language or use default
+            const savedLanguage = localStorage.getItem('language') || CONFIG.defaultLanguage;
+            
+            this.state = {
+                darkMode: savedDarkMode !== null ? savedDarkMode === 'true' : defaultDarkMode,
+                language: savedLanguage,
+                chatOpen: false,
+                isAdmin: false,
+                currentAdminSection: 'dashboard',
+                editingId: null,
+                developers: [],
+                projects: [],
+                websiteProjects: [],
+                blogPosts: [],
+                settings: {},
+                messages: [],
+                chatMessages: [],
+                skillsChart: null,
+                projectIdCounter: 1,
+                developerIdCounter: 1,
+                websiteIdCounter: 1,
+                blogIdCounter: 1,
+                messageIdCounter: 1,
+                resizeObserver: null,
+                chartObserver: null,
+                loadingStartTime: null,
+                isMobileMenuOpen: false
+            };
 
-// ========== CONFIG ==========
-const SUPABASE_URL = 'https://rjsifamddfdhnlvrrwbb.supabase.co'
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJqc2lmYW1kZGZkaG5sdnJyd2JiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2Mjc2ODM5NiwiZXhwIjoyMDc4MzQ0Mzk2fQ.RwHToh53bF3iqWLomtBQczrkErqjXRxprIhvT4RB-1k'
-const BUCKET = 'piw-files'
-const BASE_LOGIN_LINK = window.location.origin
-// ============================
+            // Bind methods to maintain context
+            this.init = this.init.bind(this);
+            this.toggleDarkMode = this.toggleDarkMode.bind(this);
+            this.toggleMobileMenu = this.toggleMobileMenu.bind(this);
+            this.closeMobileMenu = this.closeMobileMenu.bind(this);
+            this.handleContactSubmit = this.handleContactSubmit.bind(this);
+            this.handleAdminLogin = this.handleAdminLogin.bind(this);
+            this.toggleChat = this.toggleChat.bind(this);
+            this.sendChatMessage = this.sendChatMessage.bind(this);
+            this.showAdminSection = this.showAdminSection.bind(this);
+            this.switchAdminTab = this.switchAdminTab.bind(this);
+            this.handleDeveloperFormSubmit = this.handleDeveloperFormSubmit.bind(this);
+            this.handleProjectFormSubmit = this.handleProjectFormSubmit.bind(this);
+            this.handleWebsiteFormSubmit = this.handleWebsiteFormSubmit.bind(this);
+            this.handleBlogFormSubmit = this.handleBlogFormSubmit.bind(this);
+            this.handleSettingsFormSubmit = this.handleSettingsFormSubmit.bind(this);
+            this.switchLanguage = this.switchLanguage.bind(this);
+            this.updateLanguage = this.updateLanguage.bind(this);
+            this.handleNavClick = this.handleNavClick.bind(this);
+            this.handleScroll = this.handleScroll.bind(this);
+            this.initLazyLoading = this.initLazyLoading.bind(this);
+            this.safeParseJSON = this.safeParseJSON.bind(this);
+            
+            this.init();
+        } catch (error) {
+            console.error('App constructor error:', error);
+            throw error;
+        }
+    }
 
-// 🔥 PERBAIKI: Gunakan window.supabase jika tersedia
-let supabase
-
-// 🔥 FUNGSI UNTUK CLEAN UP AUTH TOKENS
-function cleanupAuthTokens() {
-  try {
-    console.log('🧹 Cleaning up auth tokens...');
-    const authKeys = [
-      'supabase.auth.token',
-      'sb-rjsifamddfdhnlvrrwbb-auth-token',
-      'supabase.auth.refresh-token',
-      'supabase.auth.session'
-    ];
-    
-    authKeys.forEach(key => {
-      if (localStorage.getItem(key)) {
-        localStorage.removeItem(key);
-        console.log(`Removed auth token: ${key}`);
-      }
-    });
-    
-    // Also clean sessionStorage
-    authKeys.forEach(key => {
-      if (sessionStorage.getItem(key)) {
-        sessionStorage.removeItem(key);
-        console.log(`Removed session auth token: ${key}`);
-      }
-    });
-    
-    return true;
-  } catch (error) {
-    console.warn('Auth token cleanup failed:', error);
-    return false;
-  }
-}
-
-// 🔥 INISIALISASI SUPABASE DENGAN ERROR HANDLING
-function initializeSupabase() {
-  try {
-    // Clean up old tokens first
-    cleanupAuthTokens();
-    
-    // Cek apakah Supabase sudah di-load dari CDN
-    if (window.supabase && window.supabase.createClient) {
-      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-        auth: {
-          // 🔥 TAMBAHKAN AUTH CONFIG UNTUK MENGATASI TOKEN ISSUES
-          autoRefreshToken: true,
-          persistSession: true,
-          detectSessionInUrl: false,
-          storage: {
-            getItem: (key) => {
-              try {
-                return localStorage.getItem(key);
-              } catch (e) {
-                console.warn('Error getting auth item:', e);
-                return null;
-              }
-            },
-            setItem: (key, value) => {
-              try {
-                localStorage.setItem(key, value);
-              } catch (e) {
-                console.warn('Error setting auth item:', e);
-              }
-            },
-            removeItem: (key) => {
-              try {
-                localStorage.removeItem(key);
-              } catch (e) {
-                console.warn('Error removing auth item:', e);
-              }
+    async init() {
+        try {
+            // Set current year
+            const yearElement = document.getElementById('current-year');
+            if (yearElement) {
+                yearElement.textContent = new Date().getFullYear();
             }
-          }
+            
+            // Apply dark mode if enabled
+            if (this.state.darkMode) {
+                document.body.classList.add('dark-theme');
+                const themeIcon = document.querySelector('#theme-toggle i');
+                if (themeIcon) {
+                    themeIcon.className = 'fas fa-sun';
+                }
+            }
+            
+            // Apply language
+            await this.updateLanguage(this.state.language);
+            
+            // Setup event listeners
+            this.setupEventListeners();
+            
+            // Load data
+            await this.loadData();
+            
+            // Initialize UI
+            this.initUI();
+            
+            // Check admin session
+            this.checkAdminSession();
+            
+            // Setup animations
+            this.setupScrollAnimations();
+            this.setupScrollProgress();
+            
+            // Initialize lazy loading
+            this.initLazyLoading();
+            
+        } catch (error) {
+            console.error('Initialization error:', error);
+            this.showNotification('Error initializing application', 'error');
         }
-      });
-      
-      console.log('✅ Supabase client created successfully');
-      
-      // 🔥 VERIFIKASI KONEKSI DENGAN QUERY SEDERHANA
-      setTimeout(async () => {
-        try {
-          const { data, error } = await supabase
-            .from('settings')
-            .select('key')
-            .limit(1);
-          
-          if (error) {
-            console.warn('Supabase connection test failed:', error.message);
-          } else {
-            console.log('✅ Supabase connection verified');
-          }
-        } catch (e) {
-          console.warn('Supabase test query failed:', e.message);
-        }
-      }, 1000);
-      
-      return supabase;
-    } else {
-      throw new Error('Supabase library not found');
     }
-  } catch (error) {
-    console.error('❌ Failed to create Supabase client:', error);
-    
-    // Fallback ke fungsi kosong untuk mencegah crash
-    supabase = {
-      auth: {
-        getSession: () => {
-          console.log('⚠️ Using fallback auth (Supabase not available)');
-          return Promise.resolve({ 
-            data: { session: null }, 
-            error: null 
-          });
-        },
-        signInWithPassword: () => Promise.reject(new Error('Supabase not available')),
-        signOut: () => {
-          cleanupAuthTokens();
-          return Promise.resolve();
-        }
-      },
-      storage: {
-        from: () => ({
-          upload: () => Promise.reject(new Error('Supabase not available')),
-          createSignedUrl: () => Promise.reject(new Error('Supabase not available')),
-          remove: () => Promise.reject(new Error('Supabase not available'))
-        })
-      },
-      from: () => ({
-        insert: () => ({ 
-          select: () => ({ 
-            single: () => Promise.reject(new Error('Supabase not available')) 
-          }) 
-        }),
-        select: () => ({ 
-          eq: () => ({ 
-            single: () => Promise.reject(new Error('Supabase not available')) 
-          }) 
-        }),
-        delete: () => ({ 
-          eq: () => Promise.reject(new Error('Supabase not available')) 
-        }),
-        upsert: () => ({ 
-          select: () => ({ 
-            single: () => Promise.reject(new Error('Supabase not available')) 
-          }) 
-        })
-      })
-    };
-    
-    return supabase;
-  }
-}
 
-// Initialize Supabase
-supabase = initializeSupabase();
-
-// ----------------- Global State -----------------
-let updateCountdownInterval = null
-let maintenanceCountdownInterval = null
-let currentUpdateEndsAt = null
-
-// ----------------- Optimized Helpers -----------------
-const $ = id => document.getElementById(id)
-const $$ = selector => document.querySelectorAll(selector)
-const rand = (n=6) => [...Array(n)].map(()=> 'abcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random()*36)]).join('')
-const sha256 = async s => {
-  const buf = new TextEncoder().encode(s)
-  const h = await crypto.subtle.digest('SHA-256', buf)
-  return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('')
-}
-const niceBytes = b => {
-  if (!b && b !== 0) return '-'
-  const u=['B','KB','MB','GB']
-  let i=0, val=b
-  while(val>1024 && i<u.length-1){ val/=1024; i++ }
-  return `${val.toFixed(1)} ${u[i]}`
-}
-const formatTime = ms => {
-  if (ms <= 0) return '00:00:00'
-  
-  const days = Math.floor(ms / (1000 * 60 * 60 * 24))
-  const hours = Math.floor((ms % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60))
-  const seconds = Math.floor((ms % (1000 * 60)) / 1000)
-  
-  if (days > 0) {
-    return `${days}h ${hours.toString().padStart(2, '0')}j ${minutes.toString().padStart(2, '0')}m ${seconds.toString().padStart(2, '0')}d`
-  }
-  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-}
-const log = (...a) => console.log('[safenest]',...a)
-
-function escapeHtml(s=''){ 
-  return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;') 
-}
-
-// ----------------- Cache System -----------------
-const cache = {
-  get: (key) => {
-    try {
-      const item = localStorage.getItem(`sn_${key}`)
-      if (!item) return null
-      const { value, expiry } = JSON.parse(item)
-      if (expiry && Date.now() > expiry) {
-        localStorage.removeItem(`sn_${key}`)
-        return null
-      }
-      return value
-    } catch {
-      return null
-    }
-  },
-  
-  set: (key, value, ttl = 5 * 60 * 1000) => {
-    try {
-      const item = {
-        value,
-        expiry: ttl ? Date.now() + ttl : null
-      }
-      localStorage.setItem(`sn_${key}`, JSON.stringify(item))
-    } catch (e) {
-      console.warn('Cache set failed:', e)
-    }
-  },
-  
-  clear: (key) => {
-    localStorage.removeItem(`sn_${key}`)
-  }
-}
-
-// ----------------- Update Countdown System -----------------
-async function getUpdateStatus() {
-  const cacheKey = 'update_status'
-  const cached = cache.get(cacheKey)
-  if (cached) return cached
-
-  const setting = await getSetting('update_countdown')
-  const status = {
-    enabled: false,
-    ends_at: null,
-    message: 'Pembaruan sistem untuk pengalaman yang lebih baik!',
-    show_banner: true
-  }
-
-  if (setting?.value) {
-    status.enabled = setting.value.enabled || false
-    status.ends_at = setting.value.ends_at || null
-    status.message = setting.value.message || status.message
-    status.show_banner = setting.value.show_banner !== false
-  }
-
-  cache.set(cacheKey, status, 30 * 1000)
-  return status
-}
-
-async function upsertUpdateSettings(settings) {
-  const payload = { 
-    key: 'update_countdown',
-    value: {
-      ...settings,
-      updated_at: new Date().toISOString()
-    }
-  }
-  
-  const { data, error } = await supabase
-    .from('settings')
-    .upsert([payload])
-    .select()
-    .single()
-
-  if (error) throw error
-  
-  cache.clear('update_status')
-  return data
-}
-
-function startUpdateCountdown(endsAt) {
-  if (updateCountdownInterval) {
-    clearInterval(updateCountdownInterval)
-  }
-  
-  currentUpdateEndsAt = endsAt
-  
-  updateCountdownInterval = setInterval(() => {
-    const now = new Date()
-    const ends = new Date(endsAt)
-    const diff = ends - now
-    
-    if (diff <= 0) {
-      clearInterval(updateCountdownInterval)
-      updateCountdownInterval = null
-      hideUpdateBanner()
-      cache.clear('update_status')
-      return
-    }
-    
-    // Update all countdown displays
-    const countdownText = formatTime(diff)
-    
-    // Global banner
-    const globalCountdown = $('globalUpdateCountdown')
-    if (globalCountdown) globalCountdown.textContent = countdownText
-    
-    // Header badge
-    const headerCountdown = $('headerUpdateCountdown')
-    if (headerCountdown) headerCountdown.textContent = `Update: ${countdownText}`
-    
-    // Page badges
-    const pageCountdowns = ['download', 'upload', 'about']
-    pageCountdowns.forEach(page => {
-      const element = $(`${page}UpdateCountdown`)
-      if (element) element.textContent = countdownText
-    })
-    
-    // Admin preview
-    const adminPreview = $('preview-update-countdown')
-    if (adminPreview) adminPreview.textContent = countdownText
-    
-  }, 1000)
-}
-
-function hideUpdateBanner() {
-  const banner = $('updateCountdownBanner')
-  if (banner) {
-    banner.classList.add('hide')
-  }
-}
-
-function showUpdateBanner() {
-  const banner = $('updateCountdownBanner')
-  if (banner) {
-    banner.classList.remove('hide')
-  }
-}
-
-async function initializeUpdateCountdown() {
-  try {
-    const updateStatus = await getUpdateStatus()
-    
-    if (updateStatus.enabled && updateStatus.ends_at) {
-      const endsAt = new Date(updateStatus.ends_at)
-      const now = new Date()
-      
-      if (endsAt > now) {
-        // Show banner if enabled
-        if (updateStatus.show_banner) {
-          showUpdateBanner()
-        }
+    async loadData() {
+        this.state.loadingStartTime = Date.now();
+        this.showLoading();
         
-        // Show header badge
-        const headerBadge = $('headerUpdateBadge')
-        if (headerBadge) headerBadge.classList.remove('hide')
-        
-        // Show page badges
-        const pages = ['download', 'upload', 'about']
-        pages.forEach(page => {
-          const badge = $(`${page}UpdateBadge`)
-          if (badge) badge.classList.remove('hide')
-        })
-        
-        // Start countdown
-        startUpdateCountdown(updateStatus.ends_at)
-        
-      } else {
-        // Update has passed, disable it
-        await upsertUpdateSettings({ enabled: false })
-        cache.clear('update_status')
-      }
-    } else {
-      hideUpdateBanner()
-    }
-  } catch (error) {
-    console.warn('Failed to initialize update countdown:', error)
-  }
-}
-
-// ----------------- Enhanced Maintenance System -----------------
-async function getMaintenanceStatus() {
-  const cacheKey = 'maintenance_status'
-  const cached = cache.get(cacheKey)
-  if (cached) return cached
-
-  const setting = await getSetting('maintenance')
-  const status = {
-    enabled: false,
-    ends_at: null,
-    message: 'Sistem dalam perbaikan. Terima kasih atas pengertiannya.'
-  }
-
-  if (setting?.value) {
-    status.enabled = setting.value.enabled || false
-    status.ends_at = setting.value.ends_at || null
-    status.message = setting.value.message || status.message
-  }
-
-  cache.set(cacheKey, status, 30 * 1000)
-  return status
-}
-
-function startMaintenanceCountdown(endsAt) {
-  if (maintenanceCountdownInterval) {
-    clearInterval(maintenanceCountdownInterval)
-  }
-  
-  maintenanceCountdownInterval = setInterval(() => {
-    const now = new Date()
-    const ends = new Date(endsAt)
-    const diff = ends - now
-    
-    if (diff <= 0) {
-      clearInterval(maintenanceCountdownInterval)
-      maintenanceCountdownInterval = null
-      hideMaintenanceOverlay()
-      cache.clear('maintenance_status')
-      return
-    }
-    
-    // Update maintenance countdown displays
-    const countdownText = formatTime(diff)
-    
-    const modalCountdown = $('maintenance-modal-countdown')
-    if (modalCountdown) modalCountdown.textContent = countdownText
-    
-    const adminPreview = $('preview-maintenance-countdown')
-    if (adminPreview) adminPreview.textContent = countdownText
-    
-  }, 1000)
-}
-
-function showMaintenanceOverlay(message, endsAt = null) {
-  const overlay = $('globalMaintenanceOverlay')
-  const messageEl = $('maintenance-modal-message')
-  const countdownEl = $('maintenance-modal-countdown')
-  
-  if (overlay && messageEl) {
-    messageEl.textContent = message
-    
-    if (endsAt) {
-      const diff = new Date(endsAt) - new Date()
-      countdownEl.textContent = formatTime(diff)
-      startMaintenanceCountdown(endsAt)
-    } else {
-      countdownEl.textContent = '--:--:--'
-    }
-    
-    overlay.classList.remove('hide')
-    setTimeout(() => overlay.classList.add('active'), 10)
-  }
-}
-
-function hideMaintenanceOverlay() {
-  const overlay = $('globalMaintenanceOverlay')
-  if (overlay) {
-    overlay.classList.remove('active')
-    setTimeout(() => {
-      overlay.classList.add('hide')
-    }, 300)
-  }
-}
-
-// ----------------- Supabase Helpers -----------------
-async function uploadFileToStorage(file, destName){
-  try {
-    const { data, error } = await supabase.storage.from(BUCKET).upload(destName, file, {
-      cacheControl: '3600',
-      upsert: false
-    })
-    if (error) throw error
-    return data.path
-  } catch (error) {
-    console.error('Upload file error:', error)
-    throw error
-  }
-}
-
-async function insertFileRecord({ filename, storage_path, username, password_hash, size, expires_at = null }){
-  const payload = { 
-    filename, 
-    storage_path, 
-    username, 
-    password_hash, 
-    size,
-    expires_at: expires_at || null
-  }
-  
-  const { data, error } = await supabase
-    .from('files')
-    .insert([payload])
-    .select()
-    .single()
-  
-  if (error) throw error
-  return data
-}
-
-async function getRecordByUsername(username){
-  const cacheKey = `file_${username}`
-  const cached = cache.get(cacheKey)
-  if (cached) return cached
-
-  try {
-    const { data, error } = await supabase
-      .from('files')
-      .select('*')
-      .eq('username', username)
-      .single()
-
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return null // No data found
-      }
-      throw error
-    }
-    
-    if (data) {
-      // Check if file is expired
-      if (data.expires_at && new Date(data.expires_at) < new Date()) {
-        // File is expired, try to delete it
-        try {
-          await deleteFile(data)
-          cache.clear(cacheKey)
-          return null
-        } catch (deleteError) {
-          console.warn('Failed to delete expired file:', deleteError)
-          return null
-        }
-      }
-      cache.set(cacheKey, data, 2 * 60 * 1000)
-    }
-    return data
-  } catch (error) {
-    console.error('Get record error:', error)
-    throw error
-  }
-}
-
-async function createSignedUrl(path, expires=300){
-  try {
-    const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, expires)
-    if (error) throw error
-    return data?.signedUrl
-  } catch (error) {
-    console.error('Create signed URL error:', error)
-    throw error
-  }
-}
-
-async function forceDownloadUrl(url, filename){
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`Download failed: ${res.status}`)
-  const blob = await res.blob()
-  
-  const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
-  a.download = filename || 'download'
-  a.style.display = 'none'
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(a.href)
-}
-
-async function deleteFile(file){
-  if(!file?.id || !file?.storage_path) throw new Error('Invalid file data')
-  
-  try {
-    // Delete from storage first
-    const { error: storageError } = await supabase.storage.from(BUCKET).remove([file.storage_path])
-    if (storageError) {
-      console.warn('Storage deletion warning:', storageError)
-      // Continue with DB deletion even if storage deletion fails
-    }
-    
-    // Delete from database
-    const { error: dbError } = await supabase.from('files').delete().eq('id', file.id)
-    if (dbError) throw dbError
-    
-    // Clear relevant caches
-    cache.clear(`file_${file.username}`)
-    cache.clear('files_list')
-    cache.clear('stats')
-    
-    return true
-  } catch (error) {
-    console.error('Delete file error:', error)
-    throw error
-  }
-}
-
-async function listFiles(){
-  const cacheKey = 'files_list'
-  const cached = cache.get(cacheKey)
-  if (cached) return cached
-
-  try {
-    const { data, error } = await supabase
-      .from('files')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(500)
-
-    if (error) throw error
-    
-    // Filter out expired files
-    const now = new Date()
-    const validFiles = (data || []).filter(file => 
-      !file.expires_at || new Date(file.expires_at) > now
-    )
-    
-    cache.set(cacheKey, validFiles, 30 * 1000)
-    return validFiles
-  } catch (error) {
-    console.error('List files error:', error)
-    throw error
-  }
-}
-
-async function recordDownload({ file_id = null, filename = null, username = null } = {}){
-  try {
-    await supabase.from('downloads').insert([{ 
-      file_id, 
-      filename, 
-      username,
-      downloaded_at: new Date().toISOString()
-    }])
-    cache.clear('stats')
-  } catch(e) {
-    console.warn('Download recording failed:', e)
-  }
-}
-
-async function getSetting(key){
-  const cacheKey = `setting_${key}`
-  const cached = cache.get(cacheKey)
-  if (cached) return cached
-
-  try {
-    const { data, error } = await supabase
-      .from('settings')
-      .select('*')
-      .eq('key', key)
-      .single()
-
-    if (error && error.code !== 'PGRST116') {
-      console.warn('getSetting error:', error)
-      return null
-    }
-    
-    if (data) cache.set(cacheKey, data, 60 * 1000)
-    return data
-  } catch (error) {
-    console.error('Get setting error:', error)
-    return null
-  }
-}
-
-async function upsertSetting(key, valueObj){
-  const payload = { 
-    key, 
-    value: valueObj,
-    updated_at: new Date().toISOString()
-  }
-  
-  try {
-    const { data, error } = await supabase
-      .from('settings')
-      .upsert([payload])
-      .select()
-      .single()
-
-    if (error) throw error
-    
-    cache.clear(`setting_${key}`)
-    if (key === 'maintenance') cache.clear('maintenance_status')
-    if (key === 'update_countdown') cache.clear('update_status')
-    
-    return data
-  } catch (error) {
-    console.error('Upsert setting error:', error)
-    throw error
-  }
-}
-
-async function loadStats(){
-  const cacheKey = 'stats'
-  const cached = cache.get(cacheKey)
-  if (cached) return cached
-
-  try {
-    const [upResult, dlResult, filesResult] = await Promise.all([
-      supabase.from('files').select('*', { count: 'exact', head: true }),
-      supabase.from('downloads').select('*', { count: 'exact', head: true }),
-      supabase.from('files').select('id', { count: 'exact', head: true })
-        .is('expires_at', null) // Only count non-expired files
-        .or('expires_at.gt.' + new Date().toISOString())
-    ])
-    
-    const stats = {
-      uploads: upResult?.count ?? 0,
-      downloads: dlResult?.count ?? 0,
-      files: filesResult?.count ?? 0
-    }
-    
-    cache.set(cacheKey, stats, 2 * 60 * 1000)
-    return stats
-  } catch(e) {
-    console.warn('loadStats error:', e)
-    return { uploads: 0, downloads: 0, files: 0 }
-  }
-}
-
-// ----------------- Admin Session dengan Supabase Auth - DIPERBAIKI -----------------
-async function isAdminSession(){ 
-  try {
-    // Cek apakah supabase tersedia
-    if (!supabase || !supabase.auth) {
-      console.warn('Supabase auth not available')
-      return false
-    }
-    
-    // 🔥 TAMBAHKAN ERROR HANDLING KHUSUS UNTUK TOKEN ISSUES
-    const { data: { session }, error } = await supabase.auth.getSession()
-    
-    if (error) {
-      console.warn('Session check error:', error.message)
-      
-      // 🔥 JIKA ERROR KARENA TOKEN, CLEAN UP DAN RETURN FALSE
-      if (error.message.includes('token') || error.message.includes('refresh')) {
-        console.log('🔄 Cleaning up invalid tokens...');
-        cleanupAuthTokens();
-        return false;
-      }
-      
-      return false
-    }
-    
-    if (!session) {
-      return false
-    }
-    
-    // Cek metadata user langsung dari session (lebih sederhana)
-    const user = session.user
-    const userEmail = user.email
-    
-    // Daftar email admin yang diizinkan (bisa disesuaikan)
-    const adminEmails = [
-      'admin@safenest.dev',
-      'aryapiw@safenest.dev',
-      'dapid@safenest.dev'
-      // Tambahkan email admin lain di sini
-    ]
-    
-    return adminEmails.includes(userEmail)
-    
-  } catch (error) {
-    console.warn('Admin session check failed:', error)
-    
-    // 🔥 CLEAN UP TOKENS JIKA ADA ERROR
-    if (error.message && (
-      error.message.includes('token') || 
-      error.message.includes('refresh') ||
-      error.message.includes('Auth')
-    )) {
-      cleanupAuthTokens();
-    }
-    
-    return false
-  }
-}
-
-async function setAdminSession(email, password) {
-  try {
-    // 🔥 CLEAN UP TOKENS SEBELUM LOGIN BARU
-    cleanupAuthTokens();
-    
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: email,
-      password: password
-    })
-    
-    if (error) {
-      throw error
-    }
-    
-    // Verifikasi email termasuk dalam daftar admin
-    const userEmail = data.user.email
-    const adminEmails = [
-      'admin@safenest.dev',
-      'aryapiw@safenest.dev',
-      'dapid@safenest.dev'
-    ]
-    
-    if (!adminEmails.includes(userEmail)) {
-      await supabase.auth.signOut()
-      cleanupAuthTokens();
-      throw new Error('Email tidak terdaftar sebagai admin')
-    }
-    
-    cache.clear('stats')
-    cache.clear('files_list')
-    return true
-  } catch (error) {
-    console.error('Admin login failed:', error)
-    
-    // 🔥 CLEAN UP JIKA LOGIN GAGAL
-    cleanupAuthTokens();
-    throw error
-  }
-}
-
-function clearAdminSession() {
-  if (supabase && supabase.auth) {
-    supabase.auth.signOut()
-  }
-  cleanupAuthTokens();
-  cache.clear('stats')
-  cache.clear('files_list')
-}
-
-// ----------------- Fixed Expiry System -----------------
-function expiryToIso(selectVal){
-  if(!selectVal || selectVal === 'never') return null
-  
-  const now = new Date()
-  let expiryDate = new Date(now)
-  
-  switch(selectVal){
-    case '2h':
-      expiryDate.setHours(expiryDate.getHours() + 2)
-      break
-    case '1d':
-      expiryDate.setDate(expiryDate.getDate() + 1)
-      break
-    case '5d':
-      expiryDate.setDate(expiryDate.getDate() + 5)
-      break
-    case '1m':
-      expiryDate.setMonth(expiryDate.getMonth() + 1)
-      break
-    default:
-      return null
-  }
-  
-  return expiryDate.toISOString()
-}
-
-// ----------------- Fixed Cleanup System - DIPERBAIKI -----------------
-async function cleanExpiredFiles(){
-  try {
-    const now = new Date().toISOString()
-    
-    // Find expired files - QUERY YANG LEBIH AMAN
-    const { data: expiredFiles, error } = await supabase
-      .from('files')
-      .select('*')
-      .lt('expires_at', now)
-      .not('expires_at', 'is', null)
-
-    if (error) {
-      console.warn('Cleanup query error:', error.message || error)
-      return { cleaned: 0, total: 0, error: error.message }
-    }
-
-    if (!expiredFiles?.length) {
-      return { cleaned: 0, total: 0 }
-    }
-
-    let cleanedCount = 0
-    let totalExpired = expiredFiles.length
-
-    for (const file of expiredFiles) {
-      try {
-        // Check if file has any downloads - QUERY TERPISAH YANG LEBIH AMAN
-        const { data: downloads, error: downloadError } = await supabase
-          .from('downloads')
-          .select('id')
-          .eq('file_id', file.id)
-          .limit(1)
-
-        if (downloadError) {
-          console.warn(`Download check error for file ${file.id}:`, downloadError)
-          continue
-        }
-        
-        const downloadCount = downloads?.length || 0
-        
-        if (downloadCount === 0) {
-          // File has never been downloaded, safe to delete
-          await deleteFile(file)
-          cleanedCount++
-          log(`Deleted expired file: ${file.filename} (ID: ${file.id})`)
-        } else {
-          log(`Skipping expired file with downloads: ${file.filename} (Downloads: ${downloadCount})`)
-        }
-      } catch (e) {
-        console.warn(`Error processing file ${file.id}:`, e.message || e)
-      }
-    }
-    
-    // Clear cache after cleanup
-    if (cleanedCount > 0) {
-      cache.clear('files_list')
-      cache.clear('stats')
-      log(`Cleanup completed: ${cleanedCount}/${totalExpired} files deleted`)
-    }
-    
-    return { cleaned: cleanedCount, total: totalExpired }
-    
-  } catch (e) {
-    console.warn('Cleanup system error:', e.message || e)
-    return { cleaned: 0, total: 0, error: e.message }
-  }
-}
-
-// ----------------- Enhanced File Verification -----------------
-async function verifyFileAccess(fileRecord) {
-  if (!fileRecord) return { valid: false, reason: 'File tidak ditemukan' }
-  
-  // Check if file is expired
-  if (fileRecord.expires_at) {
-    const expiryDate = new Date(fileRecord.expires_at)
-    const now = new Date()
-    
-    if (expiryDate <= now) {
-      // File is expired, try to delete it
-      try {
-        await deleteFile(fileRecord)
-      } catch (deleteError) {
-        console.warn('Failed to delete expired file:', deleteError)
-      }
-      return { valid: false, reason: 'File sudah kadaluarsa' }
-    }
-  }
-  
-  return { valid: true }
-}
-
-// ----------------- Enhanced Maintenance Check -----------------
-async function checkMaintenanceForUpload() {
-  try {
-    const maintenance = await getMaintenanceStatus()
-    
-    if (maintenance.enabled) {
-      showMaintenanceOverlay(maintenance.message, maintenance.ends_at)
-      return true
-    }
-    return false
-  } catch (error) {
-    console.warn('Maintenance check failed:', error)
-    return false
-  }
-}
-
-// ----------------- UI Manager -----------------
-class UIManager {
-  constructor() {
-    this.pages = Array.from($$('.page'))
-    this.navButtons = Array.from($$('.nav-btn'))
-    this.currentPage = 'page-download'
-    this.init()
-  }
-
-  init() {
-    this.setupNavigation()
-    this.setupEventListeners()
-    this.showPage('page-download')
-    this.initializeAdminSettings()
-    this.checkExistingSession()
-  }
-
-  async checkExistingSession() {
-    try {
-      const isAdmin = await isAdminSession()
-      if (isAdmin && this.currentPage === 'page-admin') {
-        this.loadAdminDashboard()
-      }
-    } catch (error) {
-      console.warn('Session check error:', error)
-    }
-  }
-
-  setupNavigation() {
-    this.navButtons.forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const target = btn.dataset.target
-        
-        // Check maintenance before navigating to upload page
-        if (target === 'page-upload') {
-          const isMaintenance = await checkMaintenanceForUpload()
-          if (isMaintenance) return
-        }
-        
-        this.showPage(target)
-        
-        btn.animate([
-          { transform: 'translateY(0)' },
-          { transform: 'translateY(-8px)' },
-          { transform: 'translateY(0)' }
-        ], {
-          duration: 360,
-          easing: 'cubic-bezier(.2,.9,.3,1)'
-        })
-      })
-    })
-
-    window.addEventListener('keydown', async e => {
-      if (e.altKey || e.ctrlKey) return
-      
-      const order = ['page-download', 'page-upload', 'page-about', 'page-admin']
-      const currentIndex = order.indexOf(this.currentPage)
-      
-      if (e.key === 'ArrowLeft' && currentIndex > 0) {
-        const target = order[currentIndex - 1]
-        if (target === 'page-upload') {
-          const isMaintenance = await checkMaintenanceForUpload()
-          if (isMaintenance) return
-        }
-        this.showPage(target)
-      } else if (e.key === 'ArrowRight' && currentIndex < order.length - 1) {
-        const target = order[currentIndex + 1]
-        if (target === 'page-upload') {
-          const isMaintenance = await checkMaintenanceForUpload()
-          if (isMaintenance) return
-        }
-        this.showPage(target)
-      }
-    })
-  }
-
-  async showPage(id) {
-    if (id === 'page-admin') {
-      const isAdmin = await isAdminSession()
-      if (!isAdmin) {
-        id = 'page-download'
-        this.showMessage('cleanup-result', 'Anda harus login sebagai admin untuk mengakses dashboard.', 'error')
-      }
-    }
-
-    this.currentPage = id
-    
-    this.pages.forEach(page => {
-      page.classList.toggle('active', page.id === id)
-    })
-
-    this.navButtons.forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.target === id)
-    })
-
-    this.animatePageEntrance(id)
-
-    if (id === 'page-admin') {
-      this.loadAdminDashboard()
-    }
-  }
-
-  animatePageEntrance(pageId) {
-    const page = $(pageId)
-    if (!page) return
-
-    const elements = page.querySelectorAll('.glass-card, .page-title, .filebox, input, textarea, .row, .comments-box')
-    elements.forEach((el, i) => {
-      el.classList.add('fade-in')
-      el.style.animationDelay = `${i * 40}ms`
-      setTimeout(() => el.style.animationDelay = '', 800)
-    })
-  }
-
-  async loadAdminDashboard() {
-    if (!(await isAdminSession())) return
-
-    try {
-      const stats = await loadStats()
-      if ($('stat-uploads')) $('stat-uploads').textContent = stats.uploads
-      if ($('stat-downloads')) $('stat-downloads').textContent = stats.downloads
-      if ($('stat-files')) $('stat-files').textContent = stats.files
-
-      await this.loadFilesList()
-      await this.loadMaintenanceSettings()
-      await this.loadUpdateSettings()
-
-    } catch (e) {
-      console.error('Admin dashboard error:', e)
-    }
-  }
-
-  async loadFilesList() {
-    try {
-      const files = await listFiles()
-      const filesListEl = $('files-list')
-      const filesCountEl = $('files-count')
-      
-      if (!filesListEl) return
-
-      filesListEl.innerHTML = ''
-      
-      if (filesCountEl) filesCountEl.textContent = files.length
-
-      if (files.length === 0) {
-        filesListEl.innerHTML = '<div class="muted text-center" style="padding: 40px;">Tidak ada file</div>'
-        return
-      }
-
-      files.forEach(file => {
-        const row = document.createElement('div')
-        row.className = 'file-row'
-
-        const meta = document.createElement('div')
-        meta.className = 'file-meta'
-        
-        const expiresText = file.expires_at ? 
-          ` • Expires: ${new Date(file.expires_at).toLocaleString()}` : 
-          ''
-        
-        const isExpired = file.expires_at && new Date(file.expires_at) < new Date()
-        if (isExpired) {
-          row.classList.add('expired')
-        }
-        
-        meta.innerHTML = `
-          <div class="name ${isExpired ? 'expired-text' : ''}">${escapeHtml(file.filename || file.storage_path)}</div>
-          <div class="sub">
-            <span>${niceBytes(file.size || 0)}</span>
-            <span>•</span>
-            <span>${file.created_at ? new Date(file.created_at).toLocaleString() : '-'}</span>
-            ${expiresText}
-            ${isExpired ? '<span class="expired-badge">EXPIRED</span>' : ''}
-          </div>
-        `
-
-        const actions = document.createElement('div')
-        actions.className = 'file-actions'
-
-        const btnView = document.createElement('button')
-        btnView.className = `btn ghost small ${isExpired ? 'disabled' : ''}`
-        btnView.innerHTML = '<i class="fa fa-eye"></i> View'
-        btnView.disabled = isExpired
-        btnView.onclick = async () => {
-          if (isExpired) return
-          
-          try {
-            const signed = await createSignedUrl(file.storage_path, 300)
-            const url = signed || `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(file.storage_path)}`
-            window.open(url, '_blank')
-          } catch (e) {
-            alert('Gagal membuka file: ' + e.message)
-          }
-        }
-
-        const btnDel = document.createElement('button')
-        btnDel.className = 'btn ghost small'
-        btnDel.innerHTML = '<i class="fa fa-trash"></i> Hapus'
-        btnDel.onclick = async () => {
-          if (!confirm('Hapus file ini secara permanen?')) return
-          try {
-            await deleteFile(file)
-            row.style.opacity = '0'
-            setTimeout(() => row.remove(), 300)
-          } catch (e) {
-            alert('Gagal menghapus: ' + e.message)
-          }
-        }
-
-        actions.appendChild(btnView)
-        actions.appendChild(btnDel)
-        row.appendChild(meta)
-        row.appendChild(actions)
-        filesListEl.appendChild(row)
-      })
-
-    } catch (e) {
-      console.error('Files list error:', e)
-      if ($('files-list')) {
-        $('files-list').innerHTML = '<div class="muted text-center" style="padding: 20px;">Gagal memuat file</div>'
-      }
-    }
-  }
-
-  async loadMaintenanceSettings() {
-    try {
-      const maintenance = await getMaintenanceStatus()
-      const toggle = $('maintenance-toggle')
-      const daysInput = $('maintenance-days')
-      const hoursInput = $('maintenance-hours')
-      const endsInput = $('maintenance-ends')
-      const messageInput = $('maintenance-message')
-
-      if (toggle) toggle.checked = maintenance.enabled
-      if (daysInput) daysInput.value = ''
-      if (hoursInput) hoursInput.value = ''
-      if (endsInput && maintenance.ends_at) {
-        endsInput.value = new Date(maintenance.ends_at).toISOString().slice(0, 16)
-      }
-      if (messageInput) {
-        messageInput.value = maintenance.message || ''
-      }
-
-      this.updateMaintenanceDisplay(maintenance)
-
-    } catch (e) {
-      console.error('Maintenance settings error:', e)
-    }
-  }
-
-  async loadUpdateSettings() {
-    try {
-      const updateStatus = await getUpdateStatus()
-      const daysInput = $('update-days')
-      const hoursInput = $('update-hours')
-      const minutesInput = $('update-minutes')
-      const endsInput = $('update-ends')
-      const messageInput = $('update-message')
-      const bannerToggle = $('update-banner-toggle')
-
-      if (daysInput) daysInput.value = ''
-      if (hoursInput) hoursInput.value = ''
-      if (minutesInput) minutesInput.value = ''
-      if (endsInput && updateStatus.ends_at) {
-        endsInput.value = new Date(updateStatus.ends_at).toISOString().slice(0, 16)
-      }
-      if (messageInput) {
-        messageInput.value = updateStatus.message || ''
-      }
-      if (bannerToggle) {
-        bannerToggle.checked = updateStatus.show_banner !== false
-      }
-
-      this.updateUpdateDisplay(updateStatus)
-
-    } catch (e) {
-      console.error('Update settings error:', e)
-    }
-  }
-
-  updateMaintenanceDisplay(maintenance) {
-    const msgEl = $('maintenance-msg')
-    if (!msgEl) return
-
-    if (maintenance.enabled && maintenance.ends_at) {
-      const endsAt = new Date(maintenance.ends_at)
-      const now = new Date()
-      
-      if (endsAt > now) {
-        const diff = endsAt - now
-        msgEl.innerHTML = `
-          <div class="settings-message success">
-            <i class="fa fa-check-circle"></i> Maintenance aktif - Selesai dalam: 
-            <strong>${formatTime(diff)}</strong>
-          </div>
-        `
-        startMaintenanceCountdown(maintenance.ends_at)
-      } else {
-        msgEl.innerHTML = '<div class="settings-message error">Maintenance sudah berakhir</div>'
-      }
-    } else if (maintenance.enabled) {
-      msgEl.innerHTML = '<div class="settings-message success">Maintenance aktif (tanpa batas waktu)</div>'
-    } else {
-      msgEl.innerHTML = '<div class="settings-message">Maintenance tidak aktif</div>'
-    }
-  }
-
-  updateUpdateDisplay(updateStatus) {
-    const msgEl = $('update-settings-msg')
-    if (!msgEl) return
-
-    if (updateStatus.enabled && updateStatus.ends_at) {
-      const endsAt = new Date(updateStatus.ends_at)
-      const now = new Date()
-      
-      if (endsAt > now) {
-        const diff = endsAt - now
-        msgEl.innerHTML = `
-          <div class="settings-message success">
-            <i class="fa fa-check-circle"></i> Update countdown aktif - 
-            Selesai dalam: <strong>${formatTime(diff)}</strong>
-          </div>
-        `
-      } else {
-        msgEl.innerHTML = '<div class="settings-message error">Update countdown sudah berakhir</div>'
-      }
-    } else {
-      msgEl.innerHTML = '<div class="settings-message">Update countdown tidak aktif</div>'
-    }
-  }
-
-  setupEventListeners() {
-    // Upload handler
-    if ($('btnUpload')) {
-      $('btnUpload').addEventListener('click', this.handleUpload.bind(this))
-    }
-
-    // Verify handler
-    if ($('btnVerify')) {
-      $('btnVerify').addEventListener('click', this.handleVerify.bind(this))
-    }
-
-    // File input change handler untuk clean display
-    if ($('fileInput')) {
-      $('fileInput').addEventListener('change', this.handleFileSelect.bind(this));
-    }
-
-    // Copy credentials
-    if ($('copyCreds')) {
-      $('copyCreds').addEventListener('click', this.handleCopyCreds.bind(this))
-    }
-
-    // Clear form
-    if ($('btnClear')) {
-      $('btnClear').addEventListener('click', () => {
-        if ($('dlUser')) $('dlUser').value = ''
-        if ($('dlPass')) $('dlPass').value = ''
-        if ($('dlInfo')) $('dlInfo').classList.add('hide')
-      })
-    }
-
-    // Password toggle handler
-    if ($('togglePassword')) {
-      $('togglePassword').addEventListener('click', this.togglePasswordVisibility.bind(this));
-    }
-
-    // Refresh files
-    if ($('refresh-files')) {
-      $('refresh-files').addEventListener('click', () => {
-        this.loadFilesList()
-      })
-    }
-
-    // Cleanup files - DIPERBAIKI DENGAN ERROR HANDLING
-    if ($('cleanup-files')) {
-      $('cleanup-files').addEventListener('click', async () => {
-        const btn = $('cleanup-files')
-        const originalText = btn.innerHTML
-        btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Cleaning...'
-        btn.disabled = true
+        // Add minimum loading time for better UX
+        await new Promise(resolve => setTimeout(resolve, 800));
         
         try {
-          const result = await cleanExpiredFiles()
-          if (result.error) {
-            this.showMessage('cleanup-result', `Gagal membersihkan: ${result.error}`, 'error')
-          } else {
-            const message = result.cleaned > 0 
-              ? `Pembersihan selesai! ${result.cleaned}/${result.total} file expired dihapus.`
-              : `Tidak ada file expired yang perlu dihapus. ${result.total} file expired ditemukan, tetapi sudah pernah didownload.`
-            this.showMessage('cleanup-result', message, 'success')
-          }
-          this.loadFilesList()
-          this.loadAdminDashboard()
-        } catch (e) {
-          this.showMessage('cleanup-result', 'Gagal membersihkan file: ' + (e.message || e), 'error')
+            // Try to load from Supabase first
+            if (window.supabaseClient && CONFIG.supabaseUrl !== 'https://your-project.supabase.co') {
+                await this.loadFromSupabase();
+            } else {
+                // Fallback to localStorage
+                this.loadFromLocalStorage();
+                this.showNotification('Using local storage mode. Set up Supabase for cloud storage.', 'warning');
+            }
+            
+            // Update UI with loaded data
+            this.updateUI();
+            
+        } catch (error) {
+            console.error('Error loading data:', error);
+            this.loadFromLocalStorage();
+            this.updateUI();
+            this.showNotification('Failed to load cloud data. Using local storage.', 'warning');
         } finally {
-          btn.innerHTML = originalText
-          btn.disabled = false
+            // Ensure minimum loading time of 1 second for good UX
+            const elapsed = Date.now() - this.state.loadingStartTime;
+            const remaining = Math.max(1000 - elapsed, 0);
+            setTimeout(() => this.hideLoading(), remaining);
         }
-      })
     }
 
-    // Clear cache
-    if ($('clear-cache')) {
-      $('clear-cache').addEventListener('click', () => {
-        const keys = Object.keys(localStorage).filter(key => key.startsWith('sn_'))
-        keys.forEach(key => localStorage.removeItem(key))
-        this.showMessage('cleanup-result', 'Cache berhasil dibersihkan!', 'success')
-      })
-    }
-
-    // Maintenance settings
-    if ($('save-maintenance-settings')) {
-      $('save-maintenance-settings').addEventListener('click', this.handleSaveMaintenanceSettings.bind(this))
-    }
-
-    // Update settings
-    if ($('save-update-settings')) {
-      $('save-update-settings').addEventListener('click', this.handleSaveUpdateSettings.bind(this))
-    }
-
-    // Clear update
-    if ($('clear-update')) {
-      $('clear-update').addEventListener('click', this.handleClearUpdate.bind(this))
-    }
-
-    // Admin logout
-    if ($('admin-logout')) {
-      $('admin-logout').addEventListener('click', async () => {
-        clearAdminSession()
-        this.showMessage('cleanup-result', 'Logout admin berhasil', 'success')
-        setTimeout(() => this.showPage('page-download'), 1000)
-      })
-    }
-
-    // Comment system
-    if ($('cSend')) {
-      $('cSend').addEventListener('click', this.handleCommentSubmit.bind(this))
-    }
-
-    // Maintenance OK button
-    const maintenanceOk = $('globalMaintenanceOverlay')?.querySelector('.maintenance-ok')
-    if (maintenanceOk) {
-      maintenanceOk.addEventListener('click', hideMaintenanceOverlay)
-    }
-  }
-
-  // NEW METHOD: Toggle Password Visibility
-  togglePasswordVisibility() {
-    const passwordInput = $('dlPass');
-    const toggleButton = $('togglePassword');
-    const icon = toggleButton.querySelector('i');
-    const text = toggleButton.querySelector('.toggle-text');
-    
-    if (!passwordInput || !toggleButton) return;
-
-    // Add multiple animation classes
-    toggleButton.classList.add('animating', 'pulse');
-    
-    // Toggle dengan delay untuk efek yang lebih smooth
-    setTimeout(() => {
-      if (passwordInput.type === 'password') {
-        passwordInput.type = 'text';
-        icon.className = 'fa fa-eye';
-        text.textContent = 'Hide';
-        
-        // Success state styling
-        toggleButton.style.color = 'var(--success)';
-        toggleButton.style.borderColor = 'var(--success)';
-        toggleButton.style.background = 'rgba(16, 185, 129, 0.1)';
-        
-      } else {
-        passwordInput.type = 'password';
-        icon.className = 'fa fa-eye-slash';
-        text.textContent = 'Show';
-        
-        // Reset to default
-        toggleButton.style.color = '';
-        toggleButton.style.borderColor = '';
-        toggleButton.style.background = '';
-      }
-    }, 150);
-    
-    // Clean up animation classes
-    setTimeout(() => {
-      toggleButton.classList.remove('animating', 'pulse');
-    }, 600);
-    
-    // Maintain focus for better UX
-    setTimeout(() => {
-      passwordInput.focus();
-    }, 200);
-  }
-
-  // NEW METHOD: Handle file selection for clean display
-  handleFileSelect(event) {
-    const file = event.target.files[0];
-    const filebox = $('fileInput').closest('.filebox');
-    
-    // Hapus display nama file sebelumnya jika ada
-    const existingDisplay = filebox.querySelector('.file-name-display');
-    if (existingDisplay) {
-      existingDisplay.remove();
-    }
-    
-    if (file) {
-      // Tampilkan nama file yang dipilih
-      const fileNameDisplay = document.createElement('div');
-      fileNameDisplay.className = 'file-name-display';
-      fileNameDisplay.innerHTML = `
-        <i class="fa fa-check-circle"></i> 
-        ${escapeHtml(file.name)} 
-        <small>(${niceBytes(file.size)})</small>
-      `;
-      filebox.appendChild(fileNameDisplay);
-      
-      // Update style filebox untuk menunjukkan file dipilih
-      filebox.style.borderColor = 'var(--accent1)';
-      filebox.style.background = 'rgba(107, 142, 252, 0.05)';
-    } else {
-      // Reset style filebox jika tidak ada file
-      filebox.style.borderColor = '';
-      filebox.style.background = '';
-    }
-  }
-
-  initializeAdminSettings() {
-    // Maintenance settings toggle
-    const maintenanceToggle = $('maintenance-toggle')
-    const maintenanceSettings = $('maintenance-settings')
-    
-    if (maintenanceToggle && maintenanceSettings) {
-      maintenanceToggle.addEventListener('change', () => {
-        maintenanceSettings.style.display = maintenanceToggle.checked ? 'block' : 'none'
-      })
-      maintenanceSettings.style.display = maintenanceToggle.checked ? 'block' : 'none'
-    }
-
-    // Real-time preview for maintenance message
-    const maintenanceMessage = $('maintenance-message')
-    const maintenancePreview = $('preview-maintenance-message')
-    
-    if (maintenanceMessage && maintenancePreview) {
-      maintenanceMessage.addEventListener('input', () => {
-        maintenancePreview.textContent = maintenanceMessage.value || 'Sistem dalam perbaikan. Terima kasih atas pengertiannya.'
-      })
-    }
-
-    // Real-time preview for update message
-    const updateMessage = $('update-message')
-    const updatePreview = $('preview-update-message')
-    
-    if (updateMessage && updatePreview) {
-      updateMessage.addEventListener('input', () => {
-        updatePreview.textContent = updateMessage.value || 'Pembaruan sistem untuk pengalaman yang lebih baik!'
-      })
-    }
-  }
-
-  async handleUpload() {
-    // Check maintenance before upload
-    const isMaintenance = await checkMaintenanceForUpload()
-    if (isMaintenance) return
-
-    const btnUpload = $('btnUpload')
-    const fileInput = $('fileInput')
-    const file = fileInput?.files?.[0]
-
-    if (!file) {
-      this.showMessage('cleanup-result', 'Pilih file terlebih dahulu.', 'error')
-      return
-    }
-
-    btnUpload.disabled = true
-    btnUpload.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Uploading...'
-
-    try {
-      const dest = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`
-      const storage_path = await uploadFileToStorage(file, dest)
-
-      const expirySelect = $('expireSelect')
-      const expiresIso = expirySelect ? expiryToIso(expirySelect.value) : null
-
-      const username = 'sn-' + rand(6)
-      const password = 'sn-' + rand(10)
-      const hash = await sha256(password)
-
-      const record = await insertFileRecord({
-        filename: file.name,
-        storage_path,
-        username,
-        password_hash: hash,
-        size: file.size,
-        expires_at: expiresIso
-      })
-
-      // Show credentials - PERBAIKAN: Pastikan elemen creds ditampilkan
-      if ($('outUser')) $('outUser').textContent = username
-      if ($('outPass')) $('outPass').textContent = password
-      if ($('outLink')) $('outLink').textContent = `${BASE_LOGIN_LINK}/?user=${username}`
-      if ($('outExpire')) {
-        $('outExpire').textContent = expiresIso ? new Date(expiresIso).toLocaleString() : 'Tidak expired'
-      }
-      
-      // PERBAIKAN PENTING: Tampilkan section kredensial
-      const credsSection = $('creds')
-      if (credsSection) {
-        credsSection.classList.remove('hide')
-        // Scroll ke section kredensial untuk memastikan user melihatnya
-        credsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-      }
-
-      this.showMessage('cleanup-result', 'Upload berhasil! Simpan kredensial Anda - password hanya ditampilkan sekali.', 'success')
-
-      // Reset form dan file display
-      fileInput.value = ''
-      const filebox = $('fileInput').closest('.filebox');
-      const fileNameDisplay = filebox.querySelector('.file-name-display');
-      if (fileNameDisplay) {
-        fileNameDisplay.remove();
-      }
-      filebox.style.borderColor = '';
-      filebox.style.background = '';
-
-      // Cleanup expired files in background
-      cleanExpiredFiles().catch(() => {})
-
-    } catch (err) {
-      console.error('Upload error:', err)
-      this.showMessage('cleanup-result', 'Upload gagal: ' + (err.message || err), 'error')
-    } finally {
-      btnUpload.disabled = false
-      btnUpload.innerHTML = '<i class="fa fa-upload"></i> Upload & Generate Credentials'
-    }
-  }
-
-  async handleVerify() {
-    const username = ($('dlUser')?.value || '').trim()
-    const password = ($('dlPass')?.value || '').trim()
-
-    if (!username || !password) {
-      this.showMessage('cleanup-result', 'Harap isi username dan password.', 'error')
-      return
-    }
-
-    // Admin login dengan Supabase Auth
-    if (username.includes('@')) {
-      // Assume this is an email login attempt for admin
-      try {
-        await setAdminSession(username, password)
-        this.showMessage('cleanup-result', 'Admin login berhasil - membuka dashboard', 'success')
-        setTimeout(() => this.showPage('page-admin'), 1000)
-        return
-      } catch (err) {
-        this.showMessage('cleanup-result', 'Login admin gagal: ' + err.message, 'error')
-        return
-      }
-    }
-
-    try {
-      const record = await getRecordByUsername(username)
-      
-      const verification = await verifyFileAccess(record)
-      if (!verification.valid) {
-        this.showMessage('cleanup-result', verification.reason, 'error')
-        return
-      }
-
-      const hash = await sha256(password)
-      if (hash !== record.password_hash) {
-        this.showMessage('cleanup-result', 'Password salah.', 'error')
-        return
-      }
-
-      // Get signed URL
-      let signedUrl = null
-      try {
-        signedUrl = await createSignedUrl(record.storage_path, 300)
-      } catch (e) {
-        console.warn('Signed URL failed:', e)
-      }
-
-      // Update UI
-      if ($('fileName')) $('fileName').textContent = record.filename || record.storage_path
-      if ($('fileSize')) $('fileSize').textContent = niceBytes(record.size)
-      if ($('fileTime')) $('fileTime').textContent = record.created_at ? 
-        new Date(record.created_at).toLocaleString() : '-'
-      if ($('dlInfo')) $('dlInfo').classList.remove('hide')
-
-      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(record.storage_path)}`
-      const finalUrl = signedUrl || publicUrl
-
-      // Setup download handler
-      if ($('btnDownload')) {
-        $('btnDownload').onclick = async () => {
-          try {
-            await forceDownloadUrl(finalUrl, record.filename || 'download')
-            await recordDownload({
-              file_id: record.id,
-              filename: record.filename,
-              username: record.username
-            })
-            this.showMessage('cleanup-result', 'Download berhasil!', 'success')
-          } catch (e) {
-            console.error('Download error:', e)
-            this.showMessage('cleanup-result', 'Gagal mengunduh: ' + e.message, 'error')
-          }
+    async loadFromSupabase() {
+        try {
+            // Load developers
+            const { data: developers, error: devError } = await supabaseClient
+                .from('developers')
+                .select('*')
+                .order('created_at', { ascending: false });
+            
+            if (devError) throw devError;
+            this.state.developers = developers || [];
+            this.state.developerIdCounter = this.state.developers.length > 0 
+                ? Math.max(...this.state.developers.map(d => d.id || 0), 0) + 1 
+                : 1;
+            
+            // Load projects
+            const { data: projects, error: projError } = await supabaseClient
+                .from('projects')
+                .select('*')
+                .order('created_at', { ascending: false });
+            
+            if (projError) throw projError;
+            this.state.projects = projects || [];
+            this.state.projectIdCounter = this.state.projects.length > 0
+                ? Math.max(...this.state.projects.map(p => p.id || 0), 0) + 1
+                : 1;
+            
+            // Load website projects
+            const { data: websiteProjects, error: websiteError } = await supabaseClient
+                .from('website_projects')
+                .select('*')
+                .order('created_at', { ascending: false });
+            
+            if (websiteError) throw websiteError;
+            this.state.websiteProjects = websiteProjects || [];
+            this.state.websiteIdCounter = this.state.websiteProjects.length > 0
+                ? Math.max(...this.state.websiteProjects.map(w => w.id || 0), 0) + 1
+                : 1;
+            
+            // Load blog posts
+            const { data: blogPosts, error: blogError } = await supabaseClient
+                .from('blog_posts')
+                .select('*')
+                .order('created_at', { ascending: false });
+            
+            if (blogError) throw blogError;
+            this.state.blogPosts = blogPosts || [];
+            this.state.blogIdCounter = this.state.blogPosts.length > 0
+                ? Math.max(...this.state.blogPosts.map(b => b.id || 0), 0) + 1
+                : 1;
+            
+            // Load settings
+            let settingsData = null;
+            try {
+                const { data: settings, error: settingsError } = await supabaseClient
+                    .from('settings')
+                    .select('*')
+                    .single();
+                
+                if (!settingsError) {
+                    settingsData = settings;
+                }
+            } catch (e) {
+                // Settings table might not exist
+                console.log('Settings table not found, using defaults');
+            }
+            
+            this.state.settings = settingsData || { ...CONFIG.defaults, ...JSON.parse(localStorage.getItem('spaceteam_settings') || '{}') };
+            
+            // Load messages
+            const { data: messages, error: msgError } = await supabaseClient
+                .from('messages')
+                .select('*')
+                .order('created_at', { ascending: false });
+            
+            if (msgError) throw msgError;
+            this.state.messages = messages || [];
+            this.state.messageIdCounter = this.state.messages.length > 0
+                ? Math.max(...this.state.messages.map(m => m.id || 0), 0) + 1
+                : 1;
+            
+        } catch (error) {
+            console.error('Supabase loading error:', error);
+            throw error;
         }
-      }
-
-      // Setup view handler
-      if ($('btnView')) {
-        $('btnView').onclick = () => window.open(finalUrl, '_blank')
-      }
-
-    } catch (err) {
-      console.error('Verification error:', err)
-      if (err.message.includes('PGRST116')) {
-        this.showMessage('cleanup-result', 'Username tidak ditemukan.', 'error')
-      } else {
-        this.showMessage('cleanup-result', 'Verifikasi gagal: ' + (err.message || err), 'error')
-      }
     }
-  }
 
-  handleCopyCreds() {
-    const username = $('outUser')?.textContent || ''
-    const password = $('outPass')?.textContent || ''
-    const link = $('outLink')?.textContent || ''
-    const expiry = $('outExpire')?.textContent || 'Tidak expired'
-
-    const text = `SAFENEST CREDENTIALS\n====================\nUsername: ${username}\nPassword: ${password}\nLink: ${link}\nExpired: ${expiry}\n====================\nSimpan informasi ini dengan aman!`
-
-    navigator.clipboard.writeText(text).then(() => {
-      $('copyCreds').animate([
-        { transform: 'scale(1)' },
-        { transform: 'scale(0.95)' },
-        { transform: 'scale(1)' }
-      ], { duration: 200 })
-      
-      this.showMessage('cleanup-result', 'Kredensial berhasil disalin ke clipboard!', 'success')
-    }).catch(() => {
-      this.showMessage('cleanup-result', 'Gagal menyalin kredensial.', 'error')
-    })
-  }
-
-  async handleSaveMaintenanceSettings() {
-    const toggle = $('maintenance-toggle')
-    const daysInput = $('maintenance-days')
-    const hoursInput = $('maintenance-hours')
-    const endsInput = $('maintenance-ends')
-    const messageInput = $('maintenance-message')
-
-    const enabled = toggle?.checked || false
-    let endsAt = null
-
-    if (enabled) {
-      if (endsInput?.value) {
-        endsAt = new Date(endsInput.value).toISOString()
-      } else {
-        const days = parseInt(daysInput?.value || '0')
-        const hours = parseInt(hoursInput?.value || '0')
-        const totalMs = (days * 24 * 60 * 60 * 1000) + (hours * 60 * 60 * 1000)
+    loadFromLocalStorage() {
+        this.state.developers = this.safeParseJSON(localStorage.getItem('spaceteam_developers')) || [];
+        this.state.projects = this.safeParseJSON(localStorage.getItem('spaceteam_projects')) || [];
+        this.state.websiteProjects = this.safeParseJSON(localStorage.getItem('spaceteam_websites')) || [];
+        this.state.blogPosts = this.safeParseJSON(localStorage.getItem('spaceteam_blog')) || [];
+        this.state.settings = this.safeParseJSON(localStorage.getItem('spaceteam_settings')) || { ...CONFIG.defaults };
+        this.state.messages = this.safeParseJSON(localStorage.getItem('spaceteam_messages')) || [];
         
-        if (totalMs > 0) {
-          endsAt = new Date(Date.now() + totalMs).toISOString()
+        // Update ID counters safely
+        this.state.developerIdCounter = this.state.developers.length > 0
+            ? Math.max(...this.state.developers.map(d => d.id || 0), 0) + 1
+            : 1;
+        this.state.projectIdCounter = this.state.projects.length > 0
+            ? Math.max(...this.state.projects.map(p => p.id || 0), 0) + 1
+            : 1;
+        this.state.websiteIdCounter = this.state.websiteProjects.length > 0
+            ? Math.max(...this.state.websiteProjects.map(w => w.id || 0), 0) + 1
+            : 1;
+        this.state.blogIdCounter = this.state.blogPosts.length > 0
+            ? Math.max(...this.state.blogPosts.map(b => b.id || 0), 0) + 1
+            : 1;
+        this.state.messageIdCounter = this.state.messages.length > 0
+            ? Math.max(...this.state.messages.map(m => m.id || 0), 0) + 1
+            : 1;
+    }
+
+    safeParseJSON(str) {
+        try {
+            return JSON.parse(str) || [];
+        } catch (e) {
+            console.error('Error parsing JSON:', e);
+            return [];
         }
-      }
     }
 
-    const message = messageInput?.value || 'Sistem dalam perbaikan. Terima kasih atas pengertiannya.'
+    async saveToSupabase(table, data) {
+        if (!window.supabaseClient || CONFIG.supabaseUrl === 'https://your-project.supabase.co') {
+            return this.saveToLocalStorage(table, data);
+        }
 
-    try {
-      await upsertSetting('maintenance', {
-        enabled,
-        ends_at: endsAt,
-        message,
-        updated_by: 'admin'
-      })
-
-      this.showMessage('maintenance-msg', 'Pengaturan maintenance berhasil disimpan!', 'success')
-      
-      const maintenance = await getMaintenanceStatus()
-      this.updateMaintenanceDisplay(maintenance)
-
-    } catch (e) {
-      this.showMessage('maintenance-msg', 'Gagal menyimpan pengaturan: ' + e.message, 'error')
-    }
-  }
-
-  async handleSaveUpdateSettings() {
-    const daysInput = $('update-days')
-    const hoursInput = $('update-hours')
-    const minutesInput = $('update-minutes')
-    const endsInput = $('update-ends')
-    const messageInput = $('update-message')
-    const bannerToggle = $('update-banner-toggle')
-
-    let endsAt = null
-
-    if (endsInput?.value) {
-      endsAt = new Date(endsInput.value).toISOString()
-    } else {
-      const days = parseInt(daysInput?.value || '0')
-      const hours = parseInt(hoursInput?.value || '0')
-      const minutes = parseInt(minutesInput?.value || '0')
-      const totalMs = (days * 24 * 60 * 60 * 1000) + (hours * 60 * 60 * 1000) + (minutes * 60 * 1000)
-      
-      if (totalMs > 0) {
-        endsAt = new Date(Date.now() + totalMs).toISOString()
-      }
-    }
-
-    if (!endsAt) {
-      this.showMessage('update-settings-msg', 'Harap tentukan waktu update!', 'error')
-      return
-    }
-
-    const message = messageInput?.value || 'Pembaruan sistem untuk pengalaman yang lebih baik!'
-    const showBanner = bannerToggle?.checked !== false
-
-    try {
-      await upsertUpdateSettings({
-        enabled: true,
-        ends_at: endsAt,
-        message,
-        show_banner: showBanner
-      })
-
-      this.showMessage('update-settings-msg', 'Update countdown berhasil diatur!', 'success')
-      
-      await initializeUpdateCountdown()
-      
-      const updateStatus = await getUpdateStatus()
-      this.updateUpdateDisplay(updateStatus)
-
-    } catch (e) {
-      this.showMessage('update-settings-msg', 'Gagal menyimpan pengaturan: ' + e.message, 'error')
-    }
-  }
-
-  async handleClearUpdate() {
-    try {
-      await upsertUpdateSettings({
-        enabled: false,
-        ends_at: null,
-        message: 'Pembaruan sistem untuk pengalaman yang lebih baik!',
-        show_banner: true
-      })
-
-      this.showMessage('update-settings-msg', 'Update countdown berhasil dihapus!', 'success')
-      
-      if (updateCountdownInterval) {
-        clearInterval(updateCountdownInterval)
-        updateCountdownInterval = null
-      }
-      
-      hideUpdateBanner()
-      
-      const headerBadge = $('headerUpdateBadge')
-      if (headerBadge) headerBadge.classList.add('hide')
-      
-      const pages = ['download', 'upload', 'about']
-      pages.forEach(page => {
-        const badge = $(`${page}UpdateBadge`)
-        if (badge) badge.classList.add('hide')
-      })
-      
-      const updateStatus = await getUpdateStatus()
-      this.updateUpdateDisplay(updateStatus)
-
-    } catch (e) {
-      this.showMessage('update-settings-msg', 'Gagal menghapus countdown: ' + e.message, 'error')
-    }
-  }
-
-  async handleCommentSubmit() {
-    const name = ($('cName')?.value || '').trim()
-    const message = ($('cMsg')?.value || '').trim()
-
-    if (!message) {
-      this.showMessage('cleanup-result', 'Tulis komentar terlebih dahulu.', 'error')
-      return
+        try {
+            let result;
+            
+            if (Array.isArray(data)) {
+                // For bulk updates (used for initial sync)
+                if (data.length === 0) return true;
+                
+                // Clear all and insert new data for reset operations
+                const { error: deleteError } = await supabaseClient
+                    .from(table)
+                    .delete()
+                    .neq('id', 0); // Delete all records
+                
+                if (deleteError) throw deleteError;
+                
+                if (data.length > 0) {
+                    const { error: insertError } = await supabaseClient
+                        .from(table)
+                        .insert(data);
+                    
+                    if (insertError) throw insertError;
+                }
+                
+                result = true;
+            } else {
+                // Single record - upsert
+                const { error } = await supabaseClient
+                    .from(table)
+                    .upsert([data], { onConflict: 'id' });
+                
+                if (error) throw error;
+                result = true;
+            }
+            
+            return result;
+        } catch (error) {
+            console.error(`Error saving to ${table}:`, error);
+            // Fallback to localStorage
+            return this.saveToLocalStorage(table, data);
+        }
     }
 
-    try {
-      await window.sendComment({
-        name: name || 'anon',
-        message: message
-      })
+    async deleteFromSupabase(table, id) {
+        if (!window.supabaseClient || CONFIG.supabaseUrl === 'https://your-project.supabase.co') {
+            return this.deleteFromLocalStorage(table, id);
+        }
 
-      if ($('cMsg')) $('cMsg').value = ''
-      if ($('cName')) $('cName').value = ''
-
-      const btn = $('cSend')
-      const originalText = btn.innerHTML
-      btn.innerHTML = '<i class="fa fa-check"></i> Terkirim!'
-      btn.disabled = true
-      
-      setTimeout(() => {
-        btn.innerHTML = originalText
-        btn.disabled = false
-      }, 2000)
-
-    } catch (e) {
-      this.showMessage('cleanup-result', 'Gagal mengirim komentar: ' + e.message, 'error')
+        try {
+            const { error } = await supabaseClient
+                .from(table)
+                .delete()
+                .eq('id', id);
+            
+            if (error) throw error;
+            return true;
+        } catch (error) {
+            console.error(`Error deleting from ${table}:`, error);
+            // Fallback to localStorage
+            return this.deleteFromLocalStorage(table, id);
+        }
     }
-  }
 
-  showMessage(elementId, message, type = 'info') {
-    const element = $(elementId)
-    if (!element) return
-
-    element.innerHTML = message
-    element.className = `settings-message ${type}`
-    
-    if (type === 'success') {
-      setTimeout(() => {
-        element.innerHTML = ''
-        element.className = 'settings-message'
-      }, 5000)
+    saveToLocalStorage(table, data) {
+        try {
+            switch(table) {
+                case 'developers':
+                    if (Array.isArray(data)) {
+                        localStorage.setItem('spaceteam_developers', JSON.stringify(data));
+                        this.state.developers = data;
+                    } else {
+                        let developers = [...this.state.developers];
+                        const index = developers.findIndex(d => d.id === data.id);
+                        if (index >= 0) {
+                            developers[index] = data;
+                        } else {
+                            developers.push(data);
+                        }
+                        localStorage.setItem('spaceteam_developers', JSON.stringify(developers));
+                        this.state.developers = developers;
+                    }
+                    break;
+                    
+                case 'projects':
+                    if (Array.isArray(data)) {
+                        localStorage.setItem('spaceteam_projects', JSON.stringify(data));
+                        this.state.projects = data;
+                    } else {
+                        let projects = [...this.state.projects];
+                        const index = projects.findIndex(p => p.id === data.id);
+                        if (index >= 0) {
+                            projects[index] = data;
+                        } else {
+                            projects.push(data);
+                        }
+                        localStorage.setItem('spaceteam_projects', JSON.stringify(projects));
+                        this.state.projects = projects;
+                    }
+                    break;
+                    
+                case 'website_projects':
+                    if (Array.isArray(data)) {
+                        localStorage.setItem('spaceteam_websites', JSON.stringify(data));
+                        this.state.websiteProjects = data;
+                    } else {
+                        let websites = [...this.state.websiteProjects];
+                        const index = websites.findIndex(w => w.id === data.id);
+                        if (index >= 0) {
+                            websites[index] = data;
+                        } else {
+                            websites.push(data);
+                        }
+                        localStorage.setItem('spaceteam_websites', JSON.stringify(websites));
+                        this.state.websiteProjects = websites;
+                    }
+                    break;
+                    
+                case 'blog_posts':
+                    if (Array.isArray(data)) {
+                        localStorage.setItem('spaceteam_blog', JSON.stringify(data));
+                        this.state.blogPosts = data;
+                    } else {
+                        let blogPosts = [...this.state.blogPosts];
+                        const index = blogPosts.findIndex(b => b.id === data.id);
+                        if (index >= 0) {
+                            blogPosts[index] = data;
+                        } else {
+                            blogPosts.push(data);
+                        }
+                        localStorage.setItem('spaceteam_blog', JSON.stringify(blogPosts));
+                        this.state.blogPosts = blogPosts;
+                    }
+                    break;
+                    
+                case 'settings':
+                    const mergedSettings = { ...this.state.settings, ...data };
+                    localStorage.setItem('spaceteam_settings', JSON.stringify(mergedSettings));
+                    this.state.settings = mergedSettings;
+                    break;
+                    
+                case 'messages':
+                    if (Array.isArray(data)) {
+                        localStorage.setItem('spaceteam_messages', JSON.stringify(data));
+                        this.state.messages = data;
+                    } else {
+                        let messages = [...this.state.messages];
+                        messages.unshift(data);
+                        if (messages.length > 100) messages = messages.slice(0, 100);
+                        localStorage.setItem('spaceteam_messages', JSON.stringify(messages));
+                        this.state.messages = messages;
+                    }
+                    break;
+            }
+            return true;
+        } catch (error) {
+            console.error(`Error saving to localStorage for ${table}:`, error);
+            return false;
+        }
     }
-  }
+
+    deleteFromLocalStorage(table, id) {
+        try {
+            switch(table) {
+                case 'developers':
+                    const developers = this.state.developers.filter(d => d.id !== id);
+                    localStorage.setItem('spaceteam_developers', JSON.stringify(developers));
+                    this.state.developers = developers;
+                    break;
+                    
+                case 'projects':
+                    const projects = this.state.projects.filter(p => p.id !== id);
+                    localStorage.setItem('spaceteam_projects', JSON.stringify(projects));
+                    this.state.projects = projects;
+                    break;
+                    
+                case 'website_projects':
+                    const websites = this.state.websiteProjects.filter(w => w.id !== id);
+                    localStorage.setItem('spaceteam_websites', JSON.stringify(websites));
+                    this.state.websiteProjects = websites;
+                    break;
+                    
+                case 'blog_posts':
+                    const blogPosts = this.state.blogPosts.filter(b => b.id !== id);
+                    localStorage.setItem('spaceteam_blog', JSON.stringify(blogPosts));
+                    this.state.blogPosts = blogPosts;
+                    break;
+                    
+                case 'messages':
+                    const messages = this.state.messages.filter(m => m.id !== id);
+                    localStorage.setItem('spaceteam_messages', JSON.stringify(messages));
+                    this.state.messages = messages;
+                    break;
+            }
+            return true;
+        } catch (error) {
+            console.error(`Error deleting from localStorage for ${table}:`, error);
+            return false;
+        }
+    }
+
+    updateUI() {
+        // Apply settings
+        this.applySettings();
+        
+        // Render data
+        this.renderDevelopers();
+        this.renderProjects();
+        this.renderWebsiteProjects();
+        this.renderBlogPosts();
+        this.updateStats();
+        
+        // Initialize skills chart
+        this.initSkillsChart();
+        
+        // Initialize lazy loading for new images
+        this.initLazyLoading();
+    }
+
+    applySettings() {
+        // Apply running text
+        const runningText = this.state.settings.runningText?.[this.state.language] || 
+                          CONFIG.defaults.runningText[this.state.language] || 
+                          CONFIG.defaults.runningText.en;
+        const runningTextElement = document.getElementById('running-text');
+        if (runningTextElement) {
+            runningTextElement.textContent = runningText;
+        }
+        
+        // Apply site title
+        const siteTitle = this.state.settings.siteTitle?.[this.state.language] || 
+                         CONFIG.defaults.siteTitle[this.state.language] || 
+                         CONFIG.defaults.siteTitle.en;
+        document.title = siteTitle;
+        
+        // Apply contact info
+        const contactEmail = this.state.settings.contactEmail || CONFIG.defaults.contactEmail;
+        const contactPhone = this.state.settings.contactPhone || CONFIG.defaults.contactPhone;
+        
+        const emailDisplay = document.getElementById('contact-email-display');
+        const phoneDisplay = document.getElementById('contact-phone-display');
+        const footerEmail = document.getElementById('footer-email');
+        const footerPhone = document.getElementById('footer-phone');
+        
+        if (emailDisplay) emailDisplay.textContent = contactEmail;
+        if (phoneDisplay) phoneDisplay.textContent = contactPhone;
+        if (footerEmail) footerEmail.textContent = contactEmail;
+        if (footerPhone) footerPhone.textContent = contactPhone;
+        
+        // Apply dark mode from settings
+        if (this.state.settings.darkMode !== undefined && this.state.settings.darkMode !== this.state.darkMode) {
+            this.toggleDarkMode();
+        }
+        
+        // Show/hide chat based on settings
+        const chatEnabled = this.state.settings.chatEnabled !== false;
+        const chatToggle = document.getElementById('chat-toggle');
+        if (chatToggle) {
+            chatToggle.classList.toggle('hidden', !chatEnabled);
+        }
+    }
+
+    async updateLanguage(lang) {
+        this.state.language = lang;
+        localStorage.setItem('language', lang);
+        
+        // Update language selector
+        const languageSelector = document.getElementById('language-selector');
+        if (languageSelector) {
+            languageSelector.value = lang;
+        }
+        
+        // Get translations
+        const translations = CONFIG.translations[lang] || CONFIG.translations.en;
+        
+        // Update all elements with data-i18n attribute
+        document.querySelectorAll('[data-i18n]').forEach(element => {
+            const key = element.getAttribute('data-i18n');
+            if (translations[key]) {
+                if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
+                    element.setAttribute('placeholder', translations[key]);
+                } else {
+                    element.textContent = translations[key];
+                }
+            }
+        });
+        
+        // Update placeholder elements
+        document.querySelectorAll('[data-i18n-ph]').forEach(element => {
+            const key = element.getAttribute('data-i18n-ph');
+            if (translations[key]) {
+                element.setAttribute('placeholder', translations[key]);
+            }
+        });
+        
+        // Apply settings for current language
+        this.applySettings();
+        
+        // Re-render content with new language
+        this.updateUI();
+    }
+
+    switchLanguage() {
+        const languageSelector = document.getElementById('language-selector');
+        if (languageSelector) {
+            const newLang = languageSelector.value;
+            this.updateLanguage(newLang);
+        }
+    }
+
+    renderDevelopers() {
+        const container = document.getElementById('developers-container');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        
+        const translations = CONFIG.translations[this.state.language] || CONFIG.translations.en;
+        
+        if (this.state.developers.length === 0) {
+            container.innerHTML = `
+                <div class="text-center" style="grid-column: 1/-1; padding: var(--space-2xl);">
+                    <div style="width: 80px; height: 80px; background: rgba(100, 255, 218, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto var(--space-md);">
+                        <i class="fas fa-user-astronaut fa-2x" style="color: var(--secondary);"></i>
+                    </div>
+                    <h3 style="color: var(--secondary);">${translations.emptyCrew || 'Mission Crew Assembling'}</h3>
+                    <p style="color: var(--text-secondary); max-width: 400px; margin: 0 auto;">${translations.emptyCrewText || 'Our elite space engineers are preparing for mission. Stand by for crew manifest!'}</p>
+                    ${this.state.isAdmin ? `
+                        <button class="btn btn-primary" onclick="app.showAdminSection('developers')" style="margin-top: var(--space-md);">
+                            <i class="fas fa-user-astronaut"></i> ${translations.emptyCrew ? 'Assign First Crew Member' : 'Assign First Crew Member'}
+                        </button>
+                    ` : ''}
+                </div>
+            `;
+            return;
+        }
+        
+        this.state.developers.forEach((dev, index) => {
+            const skills = Array.isArray(dev.skills) ? dev.skills : 
+                          typeof dev.skills === 'string' ? dev.skills.split(',').map(s => s.trim()) : [];
+            
+            const skillsHTML = skills.map(skill => 
+                `<span class="skill-tag">${skill}</span>`
+            ).join('');
+            
+            const developerHTML = `
+                <div class="developer-card animate__animated animate__fadeInUp" style="animation-delay: ${index * 100}ms">
+                    <div class="developer-header">
+                        <img src="${dev.image || 'https://images.unsplash.com/photo-1534796636910-9c1825470300?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80'}" 
+                             alt="${dev.name}" 
+                             class="developer-image"
+                             loading="lazy">
+                        <div class="developer-overlay">
+                            <h3 class="developer-name">${dev.name}</h3>
+                            <p class="developer-role">${dev.role}</p>
+                        </div>
+                    </div>
+                    <div class="developer-content">
+                        <div class="developer-skills">
+                            ${skillsHTML}
+                        </div>
+                        <p class="developer-bio">${dev.bio}</p>
+                        <div style="display: flex; gap: 10px; margin-top: 20px;">
+                            ${dev.email ? `<a href="mailto:${dev.email}" class="btn btn-sm btn-outline">
+                                <i class="fas fa-satellite"></i> Contact
+                            </a>` : ''}
+                            ${dev.github ? `<a href="https://github.com/${dev.github}" target="_blank" class="btn btn-sm btn-secondary">
+                                <i class="fab fa-github"></i> GitHub
+                            </a>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            container.insertAdjacentHTML('beforeend', developerHTML);
+        });
+    }
+
+    renderProjects(filter = 'all') {
+        const container = document.getElementById('projects-container');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        
+        const translations = CONFIG.translations[this.state.language] || CONFIG.translations.en;
+        const filteredProjects = filter === 'all' 
+            ? this.state.projects 
+            : this.state.projects.filter(project => project.type === filter);
+        
+        if (filteredProjects.length === 0) {
+            container.innerHTML = `
+                <div class="text-center" style="grid-column: 1/-1; padding: var(--space-2xl);">
+                    <div style="width: 80px; height: 80px; background: rgba(100, 255, 218, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto var(--space-md);">
+                        <i class="fas fa-satellite fa-2x" style="color: var(--secondary);"></i>
+                    </div>
+                    <h3 style="color: var(--secondary);">${translations.emptyProjects || 'Mission Log Empty'}</h3>
+                    <p style="color: var(--text-secondary); max-width: 400px; margin: 0 auto;">
+                        ${filter === 'all' 
+                            ? translations.emptyProjectsText || 'No missions completed yet. Preparing for launch!' 
+                            : translations[`emptyProjects${filter.charAt(0).toUpperCase() + filter.slice(1)}`] || `No ${filter} missions found. Adjust mission parameters!`}
+                    </p>
+                    ${this.state.isAdmin ? `
+                        <button class="btn btn-primary" onclick="app.showAdminSection('projects')" style="margin-top: var(--space-md);">
+                            <i class="fas fa-rocket"></i> ${translations.emptyProjects ? 'Log First Mission' : 'Log First Mission'}
+                        </button>
+                    ` : ''}
+                </div>
+            `;
+            return;
+        }
+        
+        filteredProjects.forEach((project, index) => {
+            const tech = Array.isArray(project.tech) ? project.tech : 
+                        typeof project.tech === 'string' ? project.tech.split(',').map(t => t.trim()) : [];
+            
+            const techHTML = tech.map(tech => 
+                `<span class="tech-tag">${tech}</span>`
+            ).join('');
+            
+            const typeMap = {
+                'web': translations.filterWeb || 'Web Systems',
+                'mobile': translations.filterMobile || 'Mobile App',
+                'design': translations.filterDesign || 'UI/UX Design'
+            };
+            
+            const projectHTML = `
+                <div class="project-card animate__animated animate__fadeInUp" style="animation-delay: ${index * 100}ms">
+                    <img src="${project.image || 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80'}" 
+                         alt="${project.title}" 
+                         class="project-image"
+                         loading="lazy">
+                    <div class="project-content">
+                        <h3 class="project-title">${project.title}</h3>
+                        <p class="project-description">${project.description}</p>
+                        <div class="project-tech">
+                            ${techHTML}
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
+                            <span class="project-category">${typeMap[project.type] || project.type}</span>
+                            ${project.link ? `
+                                <a href="${project.link}" target="_blank" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-external-link-alt"></i> ${translations.btnLaunch || 'Launch'}
+                                </a>
+                            ` : `
+                                <button class="btn btn-sm btn-primary" onclick="app.viewProjectDetails(${project.id})">
+                                    <i class="fas fa-eye"></i> ${translations.btnViewDetails || 'Mission Details'}
+                                </button>
+                            `}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            container.insertAdjacentHTML('beforeend', projectHTML);
+        });
+    }
+
+    renderWebsiteProjects() {
+        const container = document.getElementById('websites-container');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        
+        const translations = CONFIG.translations[this.state.language] || CONFIG.translations.en;
+        
+        if (this.state.websiteProjects.length === 0) {
+            container.innerHTML = `
+                <div class="text-center" style="grid-column: 1/-1; padding: var(--space-xl);">
+                    <div style="width: 80px; height: 80px; background: rgba(100, 255, 218, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto var(--space-md);">
+                        <i class="fas fa-globe fa-2x" style="color: var(--secondary);"></i>
+                    </div>
+                    <h3 style="color: var(--secondary);">${translations.emptyWebsites || 'No Websites Deployed'}</h3>
+                    <p style="color: var(--text-secondary); max-width: 400px; margin: 0 auto;">${translations.emptyWebsitesText || 'No website projects have been deployed yet.'}</p>
+                    ${this.state.isAdmin ? `
+                        <button class="btn btn-primary" onclick="app.showAdminSection('websites')" style="margin-top: var(--space-md);">
+                            <i class="fas fa-cloud-upload-alt"></i> ${translations.emptyWebsites ? 'Deploy First Website' : 'Deploy First Website'}
+                        </button>
+                    ` : ''}
+                </div>
+            `;
+            return;
+        }
+        
+        this.state.websiteProjects.forEach((website, index) => {
+            const statusText = {
+                'live': translations.websiteStatusLive || '🚀 Live',
+                'maintenance': translations.websiteStatusMaintenance || '🚧 Maintenance',
+                'development': translations.websiteStatusDev || '👨‍💻 Development'
+            };
+            
+            const websiteHTML = `
+                <div class="website-card animate__animated animate__fadeInUp" style="animation-delay: ${index * 100}ms">
+                    <div class="website-preview">
+                        <img src="${website.screenshot || 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80'}" 
+                             alt="${website.title}" 
+                             class="website-image"
+                             loading="lazy">
+                        <div class="website-status ${website.status || 'live'}">
+                            <span>${statusText[website.status] || statusText.live}</span>
+                        </div>
+                    </div>
+                    <div class="website-content">
+                        <h3 class="website-title">${website.title}</h3>
+                        <p class="website-description">${website.description}</p>
+                        
+                        <div class="website-meta">
+                            <span><i class="fas fa-calendar-alt"></i> ${new Date(website.created_at).toLocaleDateString()}</span>
+                            <span><i class="fas fa-eye"></i> ${website.views || 0} views</span>
+                        </div>
+                        
+                        <div class="website-tech">
+                            ${Array.isArray(website.technologies) ? website.technologies.map(tech => 
+                                `<span class="tech-tag">${tech}</span>`
+                            ).join('') : ''}
+                        </div>
+                        
+                        <div class="website-actions">
+                            <a href="${website.url}" target="_blank" class="btn btn-sm btn-primary">
+                                <i class="fas fa-external-link-alt"></i> ${translations.btnVisitSite || 'Visit Site'}
+                            </a>
+                            <button class="btn btn-sm btn-outline" onclick="app.viewWebsiteDetails(${website.id})">
+                                <i class="fas fa-info-circle"></i> Details
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            container.insertAdjacentHTML('beforeend', websiteHTML);
+        });
+    }
+
+    renderBlogPosts() {
+        const container = document.getElementById('blog-container');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        
+        const translations = CONFIG.translations[this.state.language] || CONFIG.translations.en;
+        
+        if (this.state.blogPosts.length === 0) {
+            container.innerHTML = `
+                <div class="text-center" style="grid-column: 1/-1; padding: var(--space-2xl);">
+                    <div style="width: 80px; height: 80px; background: rgba(100, 255, 218, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto var(--space-md);">
+                        <i class="fas fa-newspaper fa-2x" style="color: var(--secondary);"></i>
+                    </div>
+                    <h3 style="color: var(--secondary);">${translations.emptyBlog || 'Mission Briefings Pending'}</h3>
+                    <p style="color: var(--text-secondary); max-width: 400px; margin: 0 auto;">${translations.emptyBlogText || 'Stand by for mission briefings and tech discoveries!'}</p>
+                    ${this.state.isAdmin ? `
+                        <button class="btn btn-primary" onclick="app.showAdminSection('blog')" style="margin-top: var(--space-md);">
+                            <i class="fas fa-edit"></i> ${translations.emptyBlog ? 'Create First Briefing' : 'Create First Briefing'}
+                        </button>
+                    ` : ''}
+                </div>
+            `;
+            return;
+        }
+        
+        this.state.blogPosts.forEach((post, index) => {
+            const excerpt = post.excerpt || (post.content ? post.content.substring(0, 150) + '...' : 'Briefing details classified.');
+            
+            const blogHTML = `
+                <div class="blog-card animate__animated animate__fadeInUp" style="animation-delay: ${index * 100}ms">
+                    <img src="${post.image || 'https://images.unsplash.com/photo-1446776653964-20c1d3a81b06?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80'}" 
+                         alt="${post.title}" 
+                         class="blog-image"
+                         loading="lazy">
+                    <div class="blog-content">
+                        <span class="blog-category">${post.category || 'Mission Briefing'}</span>
+                        <h3 class="blog-title">${post.title}</h3>
+                        <p class="blog-excerpt">${excerpt}</p>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
+                            <span><i class="fas fa-user-astronaut"></i> ${post.author || 'Mission Control'}</span>
+                            <button class="btn btn-sm btn-outline" onclick="app.viewBlogPost(${post.id})">
+                                ${translations.btnReadMore || 'Read Briefing'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            container.insertAdjacentHTML('beforeend', blogHTML);
+        });
+    }
+
+    updateStats() {
+        const projectsCount = document.getElementById('projects-count');
+        const statsProjects = document.getElementById('stats-projects');
+        const statsClients = document.getElementById('stats-clients');
+        const statsArticles = document.getElementById('stats-articles');
+        
+        if (projectsCount) projectsCount.textContent = this.state.projects.length;
+        if (statsProjects) statsProjects.textContent = this.state.projects.length;
+        if (statsClients) statsClients.textContent = Math.floor(this.state.projects.length * 2.5);
+        if (statsArticles) statsArticles.textContent = this.state.blogPosts.length;
+    }
+
+    initSkillsChart() {
+        const ctx = document.getElementById('skillsChart');
+        if (!ctx) return;
+        
+        // Destroy existing chart if it exists
+        if (this.state.skillsChart) {
+            this.state.skillsChart.destroy();
+            this.state.skillsChart = null;
+        }
+        
+        // Cleanup existing observer
+        if (this.state.chartObserver) {
+            this.state.chartObserver.disconnect();
+            this.state.chartObserver = null;
+        }
+        
+        // Aggregate skills from all developers
+        const skillCounts = {};
+        this.state.developers.forEach(dev => {
+            const skills = Array.isArray(dev.skills) ? dev.skills : 
+                          typeof dev.skills === 'string' ? dev.skills.split(',').map(s => s.trim()) : [];
+            
+            skills.forEach(skill => {
+                if (skill.trim()) {
+                    skillCounts[skill] = (skillCounts[skill] || 0) + 1;
+                }
+            });
+        });
+        
+        const labels = Object.keys(skillCounts).slice(0, 8);
+        const data = labels.map(label => {
+            const count = skillCounts[label];
+            // Scale: 1 developer = 30, 2 = 50, 3+ = 70-100
+            return Math.min(30 + (count * 20), 100);
+        });
+        
+        if (labels.length === 0) {
+            ctx.parentElement.innerHTML = `
+                <div class="text-center" style="padding: var(--space-2xl);">
+                    <div style="width: 80px; height: 80px; background: rgba(100, 255, 218, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto var(--space-md);">
+                        <i class="fas fa-chart-network fa-2x" style="color: var(--secondary);"></i>
+                    </div>
+                    <h3 style="color: var(--secondary);">Tech Galaxy Map Unavailable</h3>
+                    <p style="color: var(--text-secondary);">Assign crew members with skills to map the tech galaxy</p>
+                    ${this.state.isAdmin ? `
+                        <button class="btn btn-primary" onclick="app.showAdminSection('developers')" style="margin-top: var(--space-md);">
+                            <i class="fas fa-user-astronaut"></i> Assign Crew Members
+                        </button>
+                    ` : ''}
+                </div>
+            `;
+            return;
+        }
+        
+        const isDark = document.body.classList.contains('dark-theme');
+        const gridColor = isDark ? 'rgba(100, 255, 218, 0.15)' : 'rgba(0, 0, 0, 0.1)';
+        const textColor = isDark ? '#e6f1ff' : '#1e293b';
+        const tickColor = isDark ? '#8892b0' : '#64748b';
+        
+        try {
+            this.state.skillsChart = new Chart(ctx.getContext('2d'), {
+                type: 'radar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Skill Proficiency',
+                        data: data,
+                        backgroundColor: 'rgba(100, 255, 218, 0.2)',
+                        borderColor: 'rgba(100, 255, 218, 0.8)',
+                        borderWidth: 2,
+                        pointBackgroundColor: 'rgba(100, 255, 218, 1)',
+                        pointBorderColor: isDark ? '#0a192f' : '#ffffff',
+                        pointHoverBackgroundColor: isDark ? '#0a192f' : '#ffffff',
+                        pointHoverBorderColor: 'rgba(100, 255, 218, 1)',
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    aspectRatio: window.innerWidth < 768 ? 1 : 2,
+                    scales: {
+                        r: {
+                            angleLines: {
+                                color: gridColor,
+                                lineWidth: 1
+                            },
+                            grid: {
+                                color: gridColor,
+                                circular: true
+                            },
+                            pointLabels: {
+                                font: {
+                                    size: window.innerWidth < 768 ? 10 : 12,
+                                    family: "'SF Mono', 'Fira Code', monospace"
+                                },
+                                color: textColor,
+                                padding: 15
+                            },
+                            ticks: {
+                                backdropColor: 'transparent',
+                                color: tickColor,
+                                stepSize: 20,
+                                font: {
+                                    size: 10
+                                }
+                            },
+                            suggestedMin: 0,
+                            suggestedMax: 100,
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: textColor,
+                                font: {
+                                    family: "'SF Mono', 'Fira Code', monospace",
+                                    size: 12
+                                },
+                                padding: 20
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: isDark ? 'rgba(10, 25, 47, 0.9)' : 'rgba(255, 255, 255, 0.9)',
+                            titleColor: textColor,
+                            bodyColor: textColor,
+                            borderColor: 'rgba(100, 255, 218, 0.5)',
+                            borderWidth: 1
+                        }
+                    },
+                    animation: {
+                        duration: 1000,
+                        easing: 'easeOutQuart'
+                    }
+                }
+            });
+            
+            // Use ResizeObserver for better performance
+            this.state.chartObserver = new ResizeObserver(() => {
+                if (this.state.skillsChart) {
+                    this.state.skillsChart.resize();
+                }
+            });
+            
+            this.state.chartObserver.observe(ctx.parentElement);
+            
+        } catch (error) {
+            console.error('Error creating skills chart:', error);
+            ctx.parentElement.innerHTML = `
+                <div class="text-center" style="padding: var(--space-xl);">
+                    <p style="color: var(--danger);">Unable to load skills visualization</p>
+                </div>
+            `;
+        }
+    }
+
+    initUI() {
+        // Initialize navigation active state
+        this.updateActiveNavOnScroll();
+        
+        // Initialize project filtering
+        this.setupProjectFiltering();
+        
+        // Mark sections as visible with delay
+        setTimeout(() => {
+            document.querySelectorAll('.section').forEach(section => {
+                section.classList.add('visible');
+            });
+        }, 100);
+    }
+
+    setupEventListeners() {
+        try {
+            // Theme toggle
+            const themeToggle = document.getElementById('theme-toggle');
+            if (themeToggle) {
+                themeToggle.addEventListener('click', this.toggleDarkMode);
+            }
+            
+            // Mobile menu
+            const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+            if (mobileMenuBtn) {
+                mobileMenuBtn.addEventListener('click', this.toggleMobileMenu);
+            }
+            
+            // Navigation scroll
+            document.querySelectorAll('.nav-links a[href^="#"]').forEach(link => {
+                link.addEventListener('click', (e) => this.handleNavClick(e, link));
+            });
+            
+            // Language selector
+            const languageSelector = document.getElementById('language-selector');
+            if (languageSelector) {
+                languageSelector.addEventListener('change', this.switchLanguage);
+            }
+            
+            // Contact form
+            const contactForm = document.getElementById('contact-form');
+            if (contactForm) {
+                contactForm.addEventListener('submit', this.handleContactSubmit);
+            }
+            
+            // Admin login
+            const adminLoginBtn = document.getElementById('admin-login-btn');
+            if (adminLoginBtn) {
+                adminLoginBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.showLoginModal();
+                });
+            }
+            
+            const closeLogin = document.getElementById('close-login');
+            if (closeLogin) {
+                closeLogin.addEventListener('click', () => this.hideLoginModal());
+            }
+            
+            const loginForm = document.getElementById('login-form');
+            if (loginForm) {
+                loginForm.addEventListener('submit', this.handleAdminLogin);
+            }
+            
+            // Chat widget
+            const chatToggle = document.getElementById('chat-toggle');
+            if (chatToggle) {
+                chatToggle.addEventListener('click', this.toggleChat);
+            }
+            
+            const closeChat = document.getElementById('close-chat');
+            if (closeChat) {
+                closeChat.addEventListener('click', this.toggleChat);
+            }
+            
+            const sendChat = document.getElementById('send-chat');
+            if (sendChat) {
+                sendChat.addEventListener('click', this.sendChatMessage);
+            }
+            
+            const chatInput = document.getElementById('chat-input');
+            if (chatInput) {
+                chatInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.sendChatMessage();
+                });
+            }
+            
+            // Scroll effect for navbar
+            window.addEventListener('scroll', this.handleScroll);
+            
+            // Close modals on outside click
+            document.addEventListener('click', (e) => {
+                if (e.target.classList.contains('modal')) {
+                    this.hideLoginModal();
+                }
+                
+                // Close mobile menu when clicking outside
+                if (this.state.isMobileMenuOpen && 
+                    !e.target.closest('.nav-links') && 
+                    !e.target.closest('#mobile-menu-btn')) {
+                    this.closeMobileMenu();
+                }
+            });
+            
+            // Escape key to close modal
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    this.hideLoginModal();
+                    if (this.state.isMobileMenuOpen) {
+                        this.closeMobileMenu();
+                    }
+                }
+            });
+            
+        } catch (error) {
+            console.error('Error setting up event listeners:', error);
+        }
+    }
+
+    initLazyLoading() {
+        const images = document.querySelectorAll('img[data-src]');
+        if (images.length === 0) return;
+        
+        if ('IntersectionObserver' in window) {
+            const imageObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        const src = img.getAttribute('data-src');
+                        if (src) {
+                            img.src = src;
+                            img.removeAttribute('data-src');
+                            img.classList.add('loaded');
+                        }
+                        imageObserver.unobserve(img);
+                    }
+                });
+            }, {
+                rootMargin: '50px 0px',
+                threshold: 0.1
+            });
+            
+            images.forEach(img => {
+                // Set placeholder if no src
+                if (!img.src || img.src.includes('data:')) {
+                    img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"%3E%3C/svg%3E';
+                }
+                imageObserver.observe(img);
+            });
+        } else {
+            // Fallback for older browsers
+            images.forEach(img => {
+                const src = img.getAttribute('data-src');
+                if (src) {
+                    img.src = src;
+                    img.removeAttribute('data-src');
+                    img.classList.add('loaded');
+                }
+            });
+        }
+    }
+
+    setupScrollAnimations() {
+        const sections = document.querySelectorAll('.section');
+        if (sections.length === 0) return;
+        
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, { 
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        });
+        
+        sections.forEach(section => observer.observe(section));
+    }
+
+    setupScrollProgress() {
+        const progressBar = document.getElementById('scroll-progress');
+        if (!progressBar) return;
+        
+        const scrollHandler = () => {
+            const windowHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+            const scrolled = windowHeight > 0 ? (window.scrollY / windowHeight) * 100 : 0;
+            progressBar.style.width = Math.min(scrolled, 100) + '%';
+        };
+        
+        window.addEventListener('scroll', scrollHandler);
+        // Initial call
+        scrollHandler();
+    }
+
+    toggleDarkMode() {
+        this.state.darkMode = !this.state.darkMode;
+        document.body.classList.toggle('dark-theme', this.state.darkMode);
+        localStorage.setItem('darkMode', this.state.darkMode);
+        
+        const icon = document.querySelector('#theme-toggle i');
+        if (icon) {
+            icon.className = this.state.darkMode ? 'fas fa-sun' : 'fas fa-moon';
+        }
+        
+        // Update chart colors with delay to ensure DOM is ready
+        setTimeout(() => {
+            if (this.state.skillsChart) {
+                this.initSkillsChart(); // Re-initialize for proper color update
+            }
+        }, 100);
+    }
+
+    toggleMobileMenu() {
+        this.state.isMobileMenuOpen = !this.state.isMobileMenuOpen;
+        const navLinks = document.querySelector('.nav-links');
+        const menuBtn = document.getElementById('mobile-menu-btn');
+        
+        if (!navLinks || !menuBtn) return;
+        
+        navLinks.classList.toggle('active');
+        
+        // Update icon
+        const icon = menuBtn.querySelector('i');
+        if (icon) {
+            icon.className = this.state.isMobileMenuOpen ? 'fas fa-times' : 'fas fa-bars';
+        }
+        
+        // Update accessibility
+        menuBtn.setAttribute('aria-expanded', this.state.isMobileMenuOpen);
+        
+        // Prevent body scroll when menu is open
+        document.body.style.overflow = this.state.isMobileMenuOpen ? 'hidden' : '';
+    }
+
+    closeMobileMenu() {
+        this.state.isMobileMenuOpen = false;
+        const navLinks = document.querySelector('.nav-links');
+        const menuBtn = document.getElementById('mobile-menu-btn');
+        
+        if (!navLinks || !menuBtn) return;
+        
+        navLinks.classList.remove('active');
+        
+        const icon = menuBtn.querySelector('i');
+        if (icon) {
+            icon.className = 'fas fa-bars';
+        }
+        
+        menuBtn.setAttribute('aria-expanded', 'false');
+        document.body.style.overflow = '';
+    }
+
+    handleNavClick(e, link) {
+        const href = link.getAttribute('href');
+        if (!href.startsWith('#')) return;
+        
+        e.preventDefault();
+        const target = document.querySelector(href);
+        
+        if (target) {
+            // Close mobile menu
+            this.closeMobileMenu();
+            
+            // Scroll to target
+            const offset = 80; // Navbar height
+            const targetPosition = target.offsetTop - offset;
+            
+            window.scrollTo({
+                top: targetPosition,
+                behavior: 'smooth'
+            });
+            
+            // Update active nav
+            document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+            link.classList.add('active');
+        }
+    }
+
+    setupProjectFiltering() {
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.renderProjects(btn.dataset.filter);
+            });
+        });
+    }
+
+    async handleContactSubmit(e) {
+        e.preventDefault();
+        
+        // Reset errors
+        this.clearFormErrors();
+        
+        const name = document.getElementById('contact-name')?.value.trim() || '';
+        const email = document.getElementById('contact-email')?.value.trim() || '';
+        const subject = document.getElementById('contact-subject')?.value.trim() || '';
+        const message = document.getElementById('contact-message')?.value.trim() || '';
+        
+        // Validation
+        let isValid = true;
+        const translations = CONFIG.translations[this.state.language] || CONFIG.translations.en;
+        
+        if (!name) {
+            this.showFormError('name-error', translations.errorNameRequired || 'Astronaut name is required');
+            isValid = false;
+        }
+        
+        if (!email) {
+            this.showFormError('email-error', translations.errorEmailRequired || 'Email is required');
+            isValid = false;
+        } else if (!this.validateEmail(email)) {
+            this.showFormError('email-error', translations.errorInvalidEmail || 'Please enter a valid email address');
+            isValid = false;
+        }
+        
+        if (!subject) {
+            this.showFormError('subject-error', translations.errorSubjectRequired || 'Subject is required');
+            isValid = false;
+        }
+        
+        if (!message) {
+            this.showFormError('message-error', translations.errorMessageRequired || 'Message is required');
+            isValid = false;
+        }
+        
+        if (!isValid) return;
+        
+        // Create message data
+        const formData = {
+            id: this.state.messageIdCounter++,
+            name: name,
+            email: email,
+            subject: subject,
+            message: message,
+            created_at: new Date().toISOString(),
+            read: false
+        };
+        
+        // Show loading state
+        const submitBtn = document.getElementById('contact-submit-btn');
+        if (!submitBtn) return;
+        
+        const originalText = submitBtn.innerHTML;
+        submitBtn.classList.add('loading');
+        submitBtn.disabled = true;
+        
+        try {
+            // Save message
+            const saved = await this.saveToSupabase('messages', formData);
+            
+            if (saved) {
+                this.state.messages.unshift(formData);
+                this.showNotification('Transmission sent successfully! Mission control will respond soon.', 'success');
+                e.target.reset();
+            } else {
+                this.showNotification('Failed to save transmission. Please try again.', 'error');
+            }
+        } catch (error) {
+            console.error('Error saving message:', error);
+            this.showNotification('Error sending transmission. Please try again.', 'error');
+        } finally {
+            submitBtn.classList.remove('loading');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        }
+    }
+
+    clearFormErrors() {
+        document.querySelectorAll('.form-error').forEach(error => {
+            error.classList.remove('visible');
+            error.textContent = '';
+        });
+        document.querySelectorAll('.form-control').forEach(input => {
+            input.classList.remove('invalid');
+        });
+    }
+
+    showFormError(id, message) {
+        const errorElement = document.getElementById(id);
+        if (errorElement) {
+            errorElement.textContent = message;
+            errorElement.classList.add('visible');
+            
+            // Mark corresponding input as invalid
+            const inputId = id.replace('-error', '');
+            const input = document.getElementById(inputId);
+            if (input) {
+                input.classList.add('invalid');
+            }
+        }
+    }
+
+    validateEmail(email) {
+        const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        return re.test(email) && email.length <= 254;
+    }
+
+    handleScroll() {
+        const navbar = document.getElementById('navbar');
+        if (!navbar) return;
+        
+        if (window.scrollY > 50) {
+            navbar.classList.add('scrolled');
+        } else {
+            navbar.classList.remove('scrolled');
+        }
+        
+        this.updateActiveNavOnScroll();
+    }
+
+    updateActiveNavOnScroll() {
+        const sections = document.querySelectorAll('section[id]');
+        const navLinks = document.querySelectorAll('.nav-links a[href^="#"]');
+        
+        if (sections.length === 0 || navLinks.length === 0) return;
+        
+        let current = '';
+        const scrollPosition = window.scrollY + 100;
+        
+        sections.forEach(section => {
+            const sectionTop = section.offsetTop;
+            const sectionHeight = section.clientHeight;
+            if (scrollPosition >= sectionTop && scrollPosition < sectionTop + sectionHeight) {
+                current = section.getAttribute('id');
+            }
+        });
+        
+        navLinks.forEach(link => {
+            link.classList.remove('active');
+            if (link.getAttribute('href') === `#${current}`) {
+                link.classList.add('active');
+            }
+        });
+    }
+
+    toggleChat() {
+        this.state.chatOpen = !this.state.chatOpen;
+        const chatWidget = document.getElementById('chat-widget');
+        if (chatWidget) {
+            chatWidget.classList.toggle('hidden', !this.state.chatOpen);
+        }
+        
+        if (this.state.chatOpen) {
+            const chatInput = document.getElementById('chat-input');
+            if (chatInput) {
+                setTimeout(() => chatInput.focus(), 100);
+            }
+        }
+    }
+
+    async sendChatMessage() {
+        const input = document.getElementById('chat-input');
+        if (!input) return;
+        
+        const message = input.value.trim();
+        if (!message) return;
+        
+        // Add user message
+        const chatBody = document.getElementById('chat-body');
+        if (!chatBody) return;
+        
+        const userMsg = document.createElement('div');
+        userMsg.className = 'chat-message user';
+        userMsg.textContent = message;
+        chatBody.appendChild(userMsg);
+        
+        // Clear input
+        input.value = '';
+        
+        // Add loading indicator
+        const loadingMsg = document.createElement('div');
+        loadingMsg.className = 'chat-message bot';
+        loadingMsg.innerHTML = '<i class="fas fa-satellite fa-spin"></i> Processing transmission...';
+        chatBody.appendChild(loadingMsg);
+        chatBody.scrollTop = chatBody.scrollHeight;
+        
+        try {
+            let response;
+            
+            // Try Gemini API if key is available
+            if (CONFIG.geminiApiKey && CONFIG.geminiApiKey !== '') {
+                try {
+                    const systemPrompt = this.state.language === 'id' 
+                        ? `You are SpaceTeam AI Assistant. Respond in Indonesian. ${CONFIG.aiSystemPrompt || 'You are a helpful AI assistant for SpaceTeam.'}`
+                        : CONFIG.aiSystemPrompt || 'You are a helpful AI assistant for SpaceTeam.';
+                    
+                    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${CONFIG.geminiApiKey}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            contents: [{
+                                parts: [{
+                                    text: `${systemPrompt}\n\nAstronaut: ${message}\n\nSpaceTeam AI:`
+                                }]
+                            }]
+                        })
+                    });
+
+                    if (geminiResponse.ok) {
+                        const data = await geminiResponse.json();
+                        if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+                            response = data.candidates[0].content.parts[0].text;
+                        }
+                    }
+                } catch (geminiError) {
+                    console.warn('Gemini API failed, using fallback:', geminiError);
+                }
+            }
+            
+            // If no response from Gemini or no API key, use fallback
+            if (!response) {
+                const responses = {
+                    en: [
+                        "Transmission received! SpaceTeam specializes in cutting-edge web and mobile development. Ready to discuss your mission parameters.",
+                        "Excellent inquiry! We offer mission briefings to plan your project. Would you like to schedule a transmission with mission control?",
+                        "Based on your transmission, I recommend checking our mission log for similar operations we've completed.",
+                        "We build digital solutions that push technological boundaries. How can we assist with your mission objectives?",
+                        "For mission estimates, we typically require mission parameters. Would you like to share more details about your operation?"
+                    ],
+                    id: [
+                        "Transmisi diterima! SpaceTeam mengkhususkan diri dalam pengembangan web dan mobile terkini. Siap mendiskusikan parameter misi Anda.",
+                        "Pertanyaan yang bagus! Kami menawarkan pengarahan misi untuk merencanakan proyek Anda. Apakah Anda ingin menjadwalkan transmisi dengan kontrol misi?",
+                        "Berdasarkan transmisi Anda, saya merekomendasikan untuk memeriksa log misi kami untuk operasi serupa yang telah kami selesaikan.",
+                        "Kami membangun solusi digital yang mendorong batas teknologi. Bagaimana kami dapat membantu dengan tujuan misi Anda?",
+                        "Untuk perkiraan misi, kami biasanya memerlukan parameter misi. Apakah Anda ingin berbagi lebih banyak detail tentang operasi Anda?"
+                    ]
+                };
+                
+                const langResponses = responses[this.state.language] || responses.en;
+                response = langResponses[Math.floor(Math.random() * langResponses.length)];
+            }
+            
+            // Remove loading indicator
+            loadingMsg.remove();
+            
+            // Add bot response
+            const botMsg = document.createElement('div');
+            botMsg.className = 'chat-message bot';
+            botMsg.textContent = response;
+            chatBody.appendChild(botMsg);
+        } catch (error) {
+            console.error('Chat error:', error);
+            loadingMsg.remove();
+            
+            const errorMsg = document.createElement('div');
+            errorMsg.className = 'chat-message bot';
+            errorMsg.textContent = "Transmission disrupted. Please contact mission control at " + (this.state.settings.contactEmail || CONFIG.defaults.contactEmail) + " for assistance.";
+            chatBody.appendChild(errorMsg);
+        }
+        
+        // Scroll to bottom
+        chatBody.scrollTop = chatBody.scrollHeight;
+    }
+
+    showLoginModal() {
+        const loginModal = document.getElementById('login-modal');
+        if (loginModal) {
+            loginModal.classList.remove('hidden');
+            const usernameInput = document.getElementById('username');
+            if (usernameInput) {
+                setTimeout(() => usernameInput.focus(), 100);
+            }
+        }
+    }
+
+    hideLoginModal() {
+        const loginModal = document.getElementById('login-modal');
+        if (loginModal) {
+            loginModal.classList.add('hidden');
+        }
+        
+        const loginForm = document.getElementById('login-form');
+        if (loginForm) {
+            loginForm.reset();
+        }
+        
+        this.clearFormErrors();
+    }
+
+    async handleAdminLogin(e) {
+        e.preventDefault();
+        
+        this.clearFormErrors();
+        
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        
+        if (!usernameInput || !passwordInput) return;
+        
+        const email = usernameInput.value.trim();
+        const password = passwordInput.value.trim();
+        
+        // Validation
+        if (!email) {
+            this.showFormError('login-email-error', 'Access code is required');
+            return;
+        }
+        
+        if (!password) {
+            this.showFormError('login-password-error', 'Security key is required');
+            return;
+        }
+        
+        // Show loading state
+        const submitBtn = document.getElementById('login-submit-btn');
+        if (!submitBtn) return;
+        
+        const originalText = submitBtn.innerHTML;
+        submitBtn.classList.add('loading');
+        submitBtn.disabled = true;
+        
+        try {
+            let authSuccess = false;
+            
+            // Try Supabase authentication first
+            if (window.supabaseClient && CONFIG.supabaseUrl !== 'https://your-project.supabase.co') {
+                try {
+                    const { data, error } = await supabaseClient.auth.signInWithPassword({
+                        email: email,
+                        password: password
+                    });
+                    
+                    if (!error && data.user) {
+                        authSuccess = true;
+                        this.state.isAdmin = true;
+                        localStorage.setItem('spaceteam_admin_token', data.session.access_token);
+                    }
+                } catch (supabaseError) {
+                    console.warn('Supabase auth failed:', supabaseError);
+                }
+            }
+            
+            // Fallback to local authentication
+            if (!authSuccess && email === CONFIG.adminEmail && password === CONFIG.adminPassword) {
+                authSuccess = true;
+                this.state.isAdmin = true;
+                localStorage.setItem('spaceteam_admin', 'true');
+            }
+            
+            if (authSuccess) {
+                this.hideLoginModal();
+                this.showAdminPanel();
+                this.showNotification('Mission control access granted!', 'success');
+            } else {
+                this.showNotification('Invalid access code or security key', 'error');
+            }
+        } catch (error) {
+            console.error('Login error:', error);
+            this.showNotification('Access denied. Please try again.', 'error');
+        } finally {
+            submitBtn.classList.remove('loading');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        }
+    }
+
+    checkAdminSession() {
+        const isAdminLoggedIn = localStorage.getItem('spaceteam_admin') === 'true' || 
+                               localStorage.getItem('spaceteam_admin_token');
+        
+        if (isAdminLoggedIn) {
+            this.state.isAdmin = true;
+            this.showAdminPanel();
+        }
+    }
+
+    showAdminPanel() {
+        const mainContent = document.getElementById('main-content');
+        const footer = document.getElementById('footer');
+        const runningText = document.querySelector('.running-text-container');
+        const adminPanel = document.getElementById('admin-panel');
+        const navbar = document.getElementById('navbar');
+        
+        if (mainContent) mainContent.classList.add('hidden');
+        if (footer) footer.classList.add('hidden');
+        if (runningText) runningText.classList.add('hidden');
+        if (navbar) navbar.classList.add('hidden');
+        if (adminPanel) adminPanel.classList.remove('hidden');
+        
+        this.loadAdminDashboard();
+        this.setupAdminEventListeners();
+    }
+
+    hideAdminPanel() {
+        const mainContent = document.getElementById('main-content');
+        const footer = document.getElementById('footer');
+        const runningText = document.querySelector('.running-text-container');
+        const adminPanel = document.getElementById('admin-panel');
+        const navbar = document.getElementById('navbar');
+        
+        if (mainContent) mainContent.classList.remove('hidden');
+        if (footer) footer.classList.remove('hidden');
+        if (runningText) runningText.classList.remove('hidden');
+        if (navbar) navbar.classList.remove('hidden');
+        if (adminPanel) adminPanel.classList.add('hidden');
+        
+        this.state.isAdmin = false;
+        localStorage.removeItem('spaceteam_admin');
+        localStorage.removeItem('spaceteam_admin_token');
+        
+        if (window.supabaseClient) {
+            supabaseClient.auth.signOut().catch(console.error);
+        }
+        
+        this.showNotification('Logged out from mission control', 'success');
+    }
+
+    setupAdminEventListeners() {
+        // Admin navigation
+        document.querySelectorAll('.admin-nav-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const section = btn.dataset.section;
+                this.showAdminSection(section);
+            });
+        });
+        
+        // Admin logout
+        const adminLogout = document.getElementById('admin-logout');
+        if (adminLogout) {
+            adminLogout.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.hideAdminPanel();
+            });
+        }
+    }
+
+    loadAdminDashboard() {
+        const sectionsContainer = document.getElementById('admin-sections');
+        if (!sectionsContainer) return;
+        
+        const translations = CONFIG.translations[this.state.language] || CONFIG.translations.en;
+        const unreadMessages = this.state.messages.filter(msg => !msg.read).length;
+        const recentMessages = this.state.messages.slice(0, 5);
+        
+        const dashboardHTML = `
+            <div class="admin-section">
+                <h2>${translations.adminDashboard || 'Mission Control Dashboard'}</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number">${this.state.developers.length}</div>
+                        <div class="stat-label">${translations.adminActiveCrew || 'Active Crew'}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${this.state.projects.length}</div>
+                        <div class="stat-label">${translations.adminActiveMissions || 'Active Missions'}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${this.state.blogPosts.length}</div>
+                        <div class="stat-label">${translations.adminMissionBriefings || 'Mission Briefings'}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${this.state.messages.length}</div>
+                        <div class="stat-label">${translations.adminTransmissions || 'Transmissions'}</div>
+                        ${unreadMessages > 0 ? `<span style="position: absolute; top: 10px; right: 10px; background: var(--danger); color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem;">${unreadMessages}</span>` : ''}
+                    </div>
+                </div>
+                
+                <div style="margin-top: 30px;">
+                    <div class="form-row">
+                        <div>
+                            <h3>Mission Controls</h3>
+                            <div style="display: flex; gap: 15px; margin-top: 20px; flex-wrap: wrap;">
+                                <button class="btn btn-primary" onclick="app.showAdminSection('developers')">
+                                    <i class="fas fa-user-astronaut"></i> ${translations.adminManageCrew || 'Manage Crew'}
+                                </button>
+                                <button class="btn btn-secondary" onclick="app.showAdminSection('projects')">
+                                    <i class="fas fa-rocket"></i> ${translations.adminManageMissions || 'Manage Missions'}
+                                </button>
+                                <button class="btn btn-outline" onclick="app.showAdminSection('websites')">
+                                    <i class="fas fa-globe"></i> ${translations.adminManageWebsites || 'Manage Websites'}
+                                </button>
+                                <button class="btn btn-outline" onclick="app.showAdminSection('blog')">
+                                    <i class="fas fa-edit"></i> ${translations.adminManageBriefings || 'Manage Briefings'}
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h3>${translations.adminRecentTransmissions || 'Recent Transmissions'}</h3>
+                            ${recentMessages.length > 0 ? `
+                                <div style="margin-top: 15px; max-height: 200px; overflow-y: auto;">
+                                    ${recentMessages.map(msg => `
+                                        <div style="padding: 10px; background: rgba(100, 255, 218, 0.05); border-radius: var(--radius); margin-bottom: 10px; border: 1px solid rgba(100, 255, 218, 0.1); ${!msg.read ? 'border-left: 3px solid var(--secondary);' : ''}">
+                                            <div style="display: flex; justify-content: space-between;">
+                                                <strong style="color: var(--text-primary);">${msg.name}</strong>
+                                                <small style="color: var(--text-tertiary);">${new Date(msg.created_at).toLocaleDateString()}</small>
+                                            </div>
+                                            <div style="font-size: 0.875rem; color: var(--text-secondary);">${msg.subject}</div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                                ${unreadMessages > 0 ? `
+                                    <button class="btn btn-sm btn-primary" onclick="app.showAdminSection('messages')" style="margin-top: 10px;">
+                                        <i class="fas fa-satellite"></i> ${translations.adminTransmissions || 'View All Transmissions'} (${unreadMessages} unread)
+                                    </button>
+                                ` : ''}
+                            ` : `
+                                <p style="color: var(--text-tertiary); margin-top: 10px;">No transmissions yet</p>
+                            `}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        sectionsContainer.innerHTML = dashboardHTML;
+        this.state.currentAdminSection = 'dashboard';
+        
+        // Update active nav
+        document.querySelectorAll('.admin-nav-btn').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.section === 'dashboard') {
+                btn.classList.add('active');
+            }
+        });
+    }
+
+    showAdminSection(section) {
+        this.state.currentAdminSection = section;
+        this.state.editingId = null; // Reset editing state
+        
+        const sectionsContainer = document.getElementById('admin-sections');
+        if (!sectionsContainer) return;
+        
+        let sectionHTML = '';
+        
+        switch(section) {
+            case 'developers':
+                sectionHTML = this.getDevelopersManagementHTML();
+                break;
+            case 'projects':
+                sectionHTML = this.getProjectsManagementHTML();
+                break;
+            case 'websites':
+                sectionHTML = this.getWebsiteManagementHTML();
+                break;
+            case 'blog':
+                sectionHTML = this.getBlogManagementHTML();
+                break;
+            case 'messages':
+                sectionHTML = this.getMessagesManagementHTML();
+                break;
+            case 'settings':
+                sectionHTML = this.getSettingsManagementHTML();
+                break;
+            default:
+                this.loadAdminDashboard();
+                return;
+        }
+        
+        sectionsContainer.innerHTML = sectionHTML;
+        this.setupAdminSectionEventListeners(section);
+        
+        // Update active nav
+        document.querySelectorAll('.admin-nav-btn').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.section === section) {
+                btn.classList.add('active');
+            }
+        });
+    }
+
+    setupAdminSectionEventListeners(section) {
+        // Tab switching
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tabId = btn.dataset.tab;
+                this.switchAdminTab(tabId);
+            });
+        });
+        
+        // Form submissions
+        if (section === 'developers') {
+            const form = document.getElementById('admin-developer-form');
+            if (form) {
+                form.addEventListener('submit', this.handleDeveloperFormSubmit);
+            }
+        } else if (section === 'projects') {
+            const form = document.getElementById('admin-project-form');
+            if (form) {
+                form.addEventListener('submit', this.handleProjectFormSubmit);
+            }
+        } else if (section === 'websites') {
+            const form = document.getElementById('admin-website-form');
+            if (form) {
+                form.addEventListener('submit', this.handleWebsiteFormSubmit);
+            }
+        } else if (section === 'blog') {
+            const form = document.getElementById('admin-blog-form');
+            if (form) {
+                form.addEventListener('submit', this.handleBlogFormSubmit);
+            }
+        } else if (section === 'settings') {
+            const form = document.getElementById('admin-settings-form');
+            if (form) {
+                form.addEventListener('submit', this.handleSettingsFormSubmit);
+            }
+        }
+    }
+
+    switchAdminTab(tabId) {
+        // Hide all tab contents
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.remove('active');
+        });
+        
+        // Remove active class from all tab buttons
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        
+        // Show selected tab content
+        const tabContent = document.getElementById(tabId);
+        if (tabContent) {
+            tabContent.classList.add('active');
+        }
+        
+        // Activate corresponding tab button
+        const tabBtn = document.querySelector(`[data-tab="${tabId}"]`);
+        if (tabBtn) {
+            tabBtn.classList.add('active');
+        }
+    }
+
+    getDevelopersManagementHTML() {
+        const developersListHTML = this.state.developers.map(dev => `
+            <div class="admin-list-item">
+                <div>
+                    <h4 style="margin: 0; color: var(--text-primary);">${dev.name}</h4>
+                    <p style="margin: 5px 0; color: var(--text-secondary);">${dev.role}</p>
+                    <small style="color: var(--text-tertiary);">${Array.isArray(dev.skills) ? dev.skills.slice(0, 3).join(', ') : dev.skills || ''}</small>
+                </div>
+                <div class="admin-list-actions">
+                    <button class="btn btn-sm" onclick="app.editDeveloper(${dev.id})">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="app.deleteDeveloper(${dev.id})">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </div>
+            </div>
+        `).join('');
+        
+        const developerToEdit = this.state.editingId ? 
+            this.state.developers.find(d => d.id === this.state.editingId) : null;
+        
+        return `
+            <div class="admin-section">
+                <div class="tab-nav">
+                    <button class="tab-btn active" data-tab="developers-list">Mission Crew (${this.state.developers.length})</button>
+                    <button class="tab-btn" data-tab="add-developer">${this.state.editingId ? 'Edit Crew Member' : 'Assign New Crew'}</button>
+                </div>
+                
+                <div id="developers-list" class="tab-content active">
+                    <h3>Manage Mission Crew</h3>
+                    ${this.state.developers.length > 0 ? `
+                        <div class="admin-list">
+                            ${developersListHTML}
+                        </div>
+                    ` : `
+                        <div class="text-center" style="padding: var(--space-2xl);">
+                            <i class="fas fa-user-astronaut fa-3x" style="color: var(--text-tertiary); margin-bottom: var(--space-md);"></i>
+                            <h3 style="color: var(--text-primary);">No Crew Assigned</h3>
+                            <p style="color: var(--text-secondary);">Assign your first crew member to begin operations!</p>
+                            <button class="btn btn-primary" onclick="app.switchAdminTab('add-developer')" style="margin-top: var(--space-md);">
+                                <i class="fas fa-user-astronaut"></i> Assign First Crew
+                            </button>
+                        </div>
+                    `}
+                </div>
+                
+                <div id="add-developer" class="tab-content">
+                    <h3>${this.state.editingId ? 'Edit Crew Member' : 'Assign New Crew Member'}</h3>
+                    <form id="admin-developer-form">
+                        <input type="hidden" id="admin-developer-id" value="${developerToEdit?.id || ''}">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Astronaut Name *</label>
+                                <input type="text" class="form-control" id="admin-dev-name" value="${developerToEdit?.name || ''}" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Mission Role *</label>
+                                <input type="text" class="form-control" id="admin-dev-role" value="${developerToEdit?.role || ''}" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Profile Image URL *</label>
+                                <input type="text" class="form-control" id="admin-dev-image" value="${developerToEdit?.image || 'https://images.unsplash.com/photo-1534796636910-9c1825470300?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80'}" required>
+                                <small style="color: var(--text-tertiary);">Use Unsplash or similar service for space-themed images</small>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Transmission Address</label>
+                                <input type="email" class="form-control" id="admin-dev-email" value="${developerToEdit?.email || ''}">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">GitHub Callsign</label>
+                                <input type="text" class="form-control" id="admin-dev-github" value="${developerToEdit?.github || ''}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Specializations (comma separated) *</label>
+                                <input type="text" class="form-control" id="admin-dev-skills" value="${Array.isArray(developerToEdit?.skills) ? developerToEdit.skills.join(', ') : developerToEdit?.skills || ''}" required>
+                                <small style="color: var(--text-tertiary);">Example: React, Node.js, Python, AWS, Space-Tech</small>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Mission Bio *</label>
+                            <textarea class="form-control" id="admin-dev-bio" rows="4" required>${developerToEdit?.bio || ''}</textarea>
+                        </div>
+                        <div style="display: flex; gap: 15px; margin-top: 20px;">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> ${this.state.editingId ? 'Update Crew Member' : 'Assign to Mission'}
+                            </button>
+                            <button type="button" class="btn btn-outline" onclick="app.resetDeveloperForm()">
+                                <i class="fas fa-times"></i> Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+    }
+
+    getProjectsManagementHTML() {
+        const projectsListHTML = this.state.projects.map(project => `
+            <div class="admin-list-item">
+                <div>
+                    <h4 style="margin: 0; color: var(--text-primary);">${project.title}</h4>
+                    <p style="margin: 5px 0; color: var(--text-secondary);">
+                        ${project.type === 'web' ? 'Web Systems' : 
+                          project.type === 'mobile' ? 'Mobile App' : 
+                          'UI/UX Design'}
+                    </p>
+                    <small style="color: var(--text-tertiary);">${Array.isArray(project.tech) ? project.tech.slice(0, 3).join(', ') : project.tech || ''}</small>
+                </div>
+                <div class="admin-list-actions">
+                    <button class="btn btn-sm" onclick="app.editProject(${project.id})">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="app.deleteProject(${project.id})">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </div>
+            </div>
+        `).join('');
+        
+        const projectToEdit = this.state.editingId ? 
+            this.state.projects.find(p => p.id === this.state.editingId) : null;
+        
+        return `
+            <div class="admin-section">
+                <div class="tab-nav">
+                    <button class="tab-btn active" data-tab="projects-list">Mission Log (${this.state.projects.length})</button>
+                    <button class="tab-btn" data-tab="add-project">${this.state.editingId ? 'Edit Mission' : 'Log New Mission'}</button>
+                </div>
+                
+                <div id="projects-list" class="tab-content active">
+                    <h3>Manage Mission Log</h3>
+                    ${this.state.projects.length > 0 ? `
+                        <div class="admin-list">
+                            ${projectsListHTML}
+                        </div>
+                    ` : `
+                        <div class="text-center" style="padding: var(--space-2xl);">
+                            <i class="fas fa-rocket fa-3x" style="color: var(--text-tertiary); margin-bottom: var(--space-md);"></i>
+                            <h3 style="color: var(--text-primary);">No Missions Logged</h3>
+                            <p style="color: var(--text-secondary);">Log your first mission to showcase operations!</p>
+                            <button class="btn btn-primary" onclick="app.switchAdminTab('add-project')" style="margin-top: var(--space-md);">
+                                <i class="fas fa-rocket"></i> Log First Mission
+                            </button>
+                        </div>
+                    `}
+                </div>
+                
+                <div id="add-project" class="tab-content">
+                    <h3>${this.state.editingId ? 'Edit Mission' : 'Log New Mission'}</h3>
+                    <form id="admin-project-form">
+                        <input type="hidden" id="admin-project-id" value="${projectToEdit?.id || ''}">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Mission Name *</label>
+                                <input type="text" class="form-control" id="admin-project-title" value="${projectToEdit?.title || ''}" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Mission Type *</label>
+                                <select class="form-control" id="admin-project-type" required>
+                                    <option value="web" ${projectToEdit?.type === 'web' ? 'selected' : ''}>Web Systems</option>
+                                    <option value="mobile" ${projectToEdit?.type === 'mobile' ? 'selected' : ''}>Mobile App</option>
+                                    <option value="design" ${projectToEdit?.type === 'design' ? 'selected' : ''}>UI/UX Design</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Mission Image URL *</label>
+                                <input type="text" class="form-control" id="admin-project-image" value="${projectToEdit?.image || 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80'}" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Mission Link (Optional)</label>
+                                <input type="url" class="form-control" id="admin-project-link" value="${projectToEdit?.link || ''}">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Technologies Used *</label>
+                            <input type="text" class="form-control" id="admin-project-tech" value="${Array.isArray(projectToEdit?.tech) ? projectToEdit.tech.join(', ') : projectToEdit?.tech || ''}" required>
+                            <small style="color: var(--text-tertiary);">Example: React, Node.js, MongoDB, AWS, Space-Tech</small>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Mission Report *</label>
+                            <textarea class="form-control" id="admin-project-description" rows="4" required>${projectToEdit?.description || ''}</textarea>
+                        </div>
+                        <div style="display: flex; gap: 15px; margin-top: 20px;">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> ${this.state.editingId ? 'Update Mission' : 'Log Mission'}
+                            </button>
+                            <button type="button" class="btn btn-outline" onclick="app.resetProjectForm()">
+                                <i class="fas fa-times"></i> Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+    }
+
+    getWebsiteManagementHTML() {
+        const websitesListHTML = this.state.websiteProjects.map(website => `
+            <div class="admin-list-item">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <img src="${website.screenshot || 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&q=80'}" 
+                         alt="${website.title}" 
+                         style="width: 60px; height: 40px; object-fit: cover; border-radius: var(--radius);">
+                    <div>
+                        <h4 style="margin: 0; color: var(--text-primary);">${website.title}</h4>
+                        <p style="margin: 5px 0; color: var(--text-secondary); font-size: 0.875rem;">${website.url}</p>
+                        <small style="color: var(--text-tertiary);">${website.status || 'live'}</small>
+                    </div>
+                </div>
+                <div class="admin-list-actions">
+                    <button class="btn btn-sm" onclick="app.editWebsite(${website.id})">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="app.deleteWebsite(${website.id})">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </div>
+            </div>
+        `).join('');
+        
+        const websiteToEdit = this.state.editingId ? 
+            this.state.websiteProjects.find(w => w.id === this.state.editingId) : null;
+        
+        return `
+            <div class="admin-section">
+                <div class="tab-nav">
+                    <button class="tab-btn active" data-tab="websites-list">Deployed Websites (${this.state.websiteProjects.length})</button>
+                    <button class="tab-btn" data-tab="add-website">${this.state.editingId ? 'Edit Website' : 'Deploy New Website'}</button>
+                </div>
+                
+                <div id="websites-list" class="tab-content active">
+                    <h3>Manage Deployed Websites</h3>
+                    ${this.state.websiteProjects.length > 0 ? `
+                        <div class="admin-list">
+                            ${websitesListHTML}
+                        </div>
+                    ` : `
+                        <div class="text-center" style="padding: var(--space-2xl);">
+                            <i class="fas fa-globe fa-3x" style="color: var(--text-tertiary); margin-bottom: var(--space-md);"></i>
+                            <h3 style="color: var(--text-primary);">No Websites Deployed</h3>
+                            <p style="color: var(--text-secondary);">Deploy your first website project!</p>
+                            <button class="btn btn-primary" onclick="app.switchAdminTab('add-website')" style="margin-top: var(--space-md);">
+                                <i class="fas fa-cloud-upload-alt"></i> Deploy First Website
+                            </button>
+                        </div>
+                    `}
+                </div>
+                
+                <div id="add-website" class="tab-content">
+                    <h3>${this.state.editingId ? 'Edit Website' : 'Deploy New Website'}</h3>
+                    <form id="admin-website-form">
+                        <input type="hidden" id="admin-website-id" value="${websiteToEdit?.id || ''}">
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Website Title *</label>
+                                <input type="text" class="form-control" id="admin-website-title" value="${websiteToEdit?.title || ''}" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Website URL *</label>
+                                <input type="url" class="form-control" id="admin-website-url" value="${websiteToEdit?.url || ''}" required>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Screenshot URL *</label>
+                                <input type="text" class="form-control" id="admin-website-screenshot" value="${websiteToEdit?.screenshot || 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'}" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Status</label>
+                                <select class="form-control" id="admin-website-status">
+                                    <option value="live" ${websiteToEdit?.status === 'live' ? 'selected' : ''}>🚀 Live</option>
+                                    <option value="maintenance" ${websiteToEdit?.status === 'maintenance' ? 'selected' : ''}>🚧 Maintenance</option>
+                                    <option value="development" ${websiteToEdit?.status === 'development' ? 'selected' : ''}>👨‍💻 Development</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Description *</label>
+                            <textarea class="form-control" id="admin-website-description" rows="3" required>${websiteToEdit?.description || ''}</textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Technologies Used *</label>
+                            <input type="text" class="form-control" id="admin-website-technologies" value="${Array.isArray(websiteToEdit?.technologies) ? websiteToEdit.technologies.join(', ') : websiteToEdit?.technologies || ''}" required>
+                            <small style="color: var(--text-tertiary);">Separate with commas: React, Node.js, MongoDB, etc.</small>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">GitHub Repository (Optional)</label>
+                                <input type="url" class="form-control" id="admin-website-github" value="${websiteToEdit?.github || ''}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Custom Icon (Optional)</label>
+                                <input type="text" class="form-control" id="admin-website-icon" value="${websiteToEdit?.icon || 'fas fa-globe'}">
+                                <small style="color: var(--text-tertiary);">FontAwesome icon class</small>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Additional Features</label>
+                            <textarea class="form-control" id="admin-website-features" rows="2">${Array.isArray(websiteToEdit?.features) ? websiteToEdit.features.join(', ') : websiteToEdit?.features || ''}</textarea>
+                            <small style="color: var(--text-tertiary);">Separate features with commas</small>
+                        </div>
+                        
+                        <div style="display: flex; gap: 15px; margin-top: 30px;">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> ${this.state.editingId ? 'Update Website' : 'Deploy Website'}
+                            </button>
+                            <button type="button" class="btn btn-outline" onclick="app.resetWebsiteForm()">
+                                <i class="fas fa-times"></i> Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+    }
+
+    getBlogManagementHTML() {
+        const blogListHTML = this.state.blogPosts.map(post => `
+            <div class="admin-list-item">
+                <div>
+                    <h4 style="margin: 0; color: var(--text-primary);">${post.title}</h4>
+                    <p style="margin: 5px 0; color: var(--text-secondary);">
+                        ${post.category || 'Mission Briefing'} • By ${post.author || 'Mission Control'}
+                    </p>
+                    <small style="color: var(--text-tertiary);">${new Date(post.created_at).toLocaleDateString()}</small>
+                </div>
+                <div class="admin-list-actions">
+                    <button class="btn btn-sm" onclick="app.editBlogPost(${post.id})">
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="app.deleteBlogPost(${post.id})">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </div>
+            </div>
+        `).join('');
+        
+        const postToEdit = this.state.editingId ? 
+            this.state.blogPosts.find(p => p.id === this.state.editingId) : null;
+        
+        return `
+            <div class="admin-section">
+                <div class="tab-nav">
+                    <button class="tab-btn active" data-tab="blog-list">Mission Briefings (${this.state.blogPosts.length})</button>
+                    <button class="tab-btn" data-tab="add-blog">${this.state.editingId ? 'Edit Briefing' : 'Create Briefing'}</button>
+                </div>
+                
+                <div id="blog-list" class="tab-content active">
+                    <h3>Manage Mission Briefings</h3>
+                    ${this.state.blogPosts.length > 0 ? `
+                        <div class="admin-list">
+                            ${blogListHTML}
+                        </div>
+                    ` : `
+                        <div class="text-center" style="padding: var(--space-2xl);">
+                            <i class="fas fa-newspaper fa-3x" style="color: var(--text-tertiary); margin-bottom: var(--space-md);"></i>
+                            <h3 style="color: var(--text-primary);">No Briefings Available</h3>
+                            <p style="color: var(--text-secondary);">Create your first mission briefing!</p>
+                            <button class="btn btn-primary" onclick="app.switchAdminTab('add-blog')" style="margin-top: var(--space-md);">
+                                <i class="fas fa-edit"></i> Create First Briefing
+                            </button>
+                        </div>
+                    `}
+                </div>
+                
+                <div id="add-blog" class="tab-content">
+                    <h3>${this.state.editingId ? 'Edit Mission Briefing' : 'Create Mission Briefing'}</h3>
+                    <form id="admin-blog-form">
+                        <input type="hidden" id="admin-blog-id" value="${postToEdit?.id || ''}">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Briefing Title *</label>
+                                <input type="text" class="form-control" id="admin-blog-title" value="${postToEdit?.title || ''}" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Briefing Type *</label>
+                                <input type="text" class="form-control" id="admin-blog-category" value="${postToEdit?.category || 'Mission Briefing'}" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Author Callsign *</label>
+                                <input type="text" class="form-control" id="admin-blog-author" value="${postToEdit?.author || 'Mission Control'}" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Featured Image URL *</label>
+                                <input type="text" class="form-control" id="admin-blog-image" value="${postToEdit?.image || 'https://images.unsplash.com/photo-1446776653964-20c1d3a81b06?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80'}" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Briefing Summary *</label>
+                            <textarea class="form-control" id="admin-blog-excerpt" rows="3" required>${postToEdit?.excerpt || ''}</textarea>
+                            <small style="color: var(--text-tertiary);">Brief summary of the briefing (150-200 characters)</small>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Full Briefing *</label>
+                            <textarea class="form-control" id="admin-blog-content" rows="8" required>${postToEdit?.content || ''}</textarea>
+                            <small style="color: var(--text-tertiary);">Complete mission briefing content</small>
+                        </div>
+                        <div style="display: flex; gap: 15px; margin-top: 20px;">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> ${this.state.editingId ? 'Update Briefing' : 'Publish Briefing'}
+                            </button>
+                            <button type="button" class="btn btn-outline" onclick="app.resetBlogForm()">
+                                <i class="fas fa-times"></i> Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+    }
+
+    getMessagesManagementHTML() {
+        const messagesListHTML = this.state.messages.map(msg => `
+            <div class="admin-list-item" style="${!msg.read ? 'border-left: 3px solid var(--secondary);' : ''}">
+                <div>
+                    <h4 style="margin: 0; color: var(--text-primary);">${msg.name} <small style="color: var(--text-tertiary);">(${msg.email})</small></h4>
+                    <p style="margin: 5px 0; color: var(--secondary); font-weight: 600;">${msg.subject}</p>
+                    <p style="margin: 5px 0; color: var(--text-primary);">${msg.message.substring(0, 100)}${msg.message.length > 100 ? '...' : ''}</p>
+                    <small style="color: var(--text-tertiary);">${new Date(msg.created_at).toLocaleString()}</small>
+                </div>
+                <div class="admin-list-actions">
+                    <button class="btn btn-sm" onclick="app.viewMessage(${msg.id})">
+                        <i class="fas fa-eye"></i> View
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="app.deleteMessage(${msg.id})">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </div>
+            </div>
+        `).join('');
+        
+        return `
+            <div class="admin-section">
+                <h2>Transmissions (${this.state.messages.length})</h2>
+                <p style="color: var(--text-tertiary);">Manage all mission transmissions and inquiries.</p>
+                
+                ${this.state.messages.length > 0 ? `
+                    <div class="admin-list">
+                        ${messagesListHTML}
+                    </div>
+                ` : `
+                    <div class="text-center" style="padding: var(--space-2xl);">
+                        <i class="fas fa-satellite fa-3x" style="color: var(--text-tertiary); margin-bottom: var(--space-md);"></i>
+                        <h3 style="color: var(--text-primary);">No Transmissions Yet</h3>
+                        <p style="color: var(--text-secondary);">All mission control transmissions will appear here.</p>
+                    </div>
+                `}
+            </div>
+        `;
+    }
+
+    getSettingsManagementHTML() {
+        const translations = CONFIG.translations[this.state.language] || CONFIG.translations.en;
+        
+        return `
+            <div class="admin-section">
+                <h2>Mission Control Systems</h2>
+                <p style="color: var(--text-tertiary);">Configure mission control systems and preferences.</p>
+                
+                <form id="admin-settings-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Mission Name (English) *</label>
+                            <input type="text" class="form-control" id="admin-settings-title-en" value="${this.state.settings.siteTitle?.en || CONFIG.defaults.siteTitle.en}" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Mission Name (Indonesian) *</label>
+                            <input type="text" class="form-control" id="admin-settings-title-id" value="${this.state.settings.siteTitle?.id || CONFIG.defaults.siteTitle.id}" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Transmission Address *</label>
+                            <input type="email" class="form-control" id="admin-settings-email" value="${this.state.settings.contactEmail || CONFIG.defaults.contactEmail}" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Transmission Frequency *</label>
+                            <input type="text" class="form-control" id="admin-settings-phone" value="${this.state.settings.contactPhone || CONFIG.defaults.contactPhone}" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Mission Status Text (English) *</label>
+                            <input type="text" class="form-control" id="admin-settings-running-text-en" value="${this.state.settings.runningText?.en || CONFIG.defaults.runningText.en}" required>
+                            <small style="color: var(--text-tertiary);">Text that runs at the top of mission control</small>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Mission Status Text (Indonesian) *</label>
+                            <input type="text" class="form-control" id="admin-settings-running-text-id" value="${this.state.settings.runningText?.id || CONFIG.defaults.runningText.id}" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <div class="form-check" style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" class="form-control" id="admin-settings-chat-enabled" ${this.state.settings.chatEnabled !== false ? 'checked' : ''} style="width: auto;">
+                                <label class="form-label" style="margin: 0; color: var(--text-primary);">Enable AI Assistant</label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <div class="form-check" style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" class="form-control" id="admin-settings-dark-mode" ${this.state.settings.darkMode ? 'checked' : ''} style="width: auto;">
+                                <label class="form-label" style="margin: 0; color: var(--text-primary);">Enable Dark Mode by Default</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Gemini API Key (Optional)</label>
+                        <input type="password" class="form-control" id="admin-settings-gemini-key" value="${CONFIG.geminiApiKey || ''}">
+                        <small style="color: var(--text-tertiary);">
+                            Enter your Google Gemini API key to enable AI assistant. 
+                            <a href="https://makersuite.google.com/app/apikey" target="_blank" style="color: var(--secondary);">Get API key</a>
+                        </small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Cloud Systems Configuration</label>
+                        <div style="background: rgba(100, 255, 218, 0.05); padding: var(--space-md); border-radius: var(--radius); border: 1px solid rgba(100, 255, 218, 0.1);">
+                            <p style="margin-bottom: var(--space-sm); color: var(--text-primary);">
+                                <strong>System Status:</strong> 
+                                ${window.supabaseClient && CONFIG.supabaseUrl !== 'https://your-project.supabase.co' 
+                                    ? '<span style="color: var(--success);">Cloud Systems Active</span>' 
+                                    : '<span style="color: var(--warning);">Using Local Storage</span>'}
+                            </p>
+                            <p style="font-size: 0.875rem; color: var(--text-tertiary);">
+                                To enable cloud systems, update the <code style="color: var(--secondary); background: rgba(100, 255, 218, 0.1); padding: 2px 5px; border-radius: 3px;">supabaseUrl</code> and <code style="color: var(--secondary); background: rgba(100, 255, 218, 0.1); padding: 2px 5px; border-radius: 3px;">supabaseKey</code> 
+                                in the <code style="color: var(--secondary); background: rgba(100, 255, 218, 0.1); padding: 2px 5px; border-radius: 3px;">config.js</code> file with your cloud credentials.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 15px; margin-top: 30px; flex-wrap: wrap;">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Save Systems
+                        </button>
+                        <button type="button" class="btn btn-outline" onclick="app.exportData()">
+                            <i class="fas fa-download"></i> Backup Data
+                        </button>
+                        <button type="button" class="btn btn-danger" onclick="app.resetData()">
+                            <i class="fas fa-trash"></i> System Reset
+                        </button>
+                    </div>
+                </form>
+            </div>
+        `;
+    }
+
+    async handleDeveloperFormSubmit(e) {
+        e.preventDefault();
+        
+        const nameInput = document.getElementById('admin-dev-name');
+        const roleInput = document.getElementById('admin-dev-role');
+        const imageInput = document.getElementById('admin-dev-image');
+        const skillsInput = document.getElementById('admin-dev-skills');
+        const bioInput = document.getElementById('admin-dev-bio');
+        
+        if (!nameInput || !roleInput || !imageInput || !skillsInput || !bioInput) {
+            this.showNotification('Form fields missing', 'error');
+            return;
+        }
+        
+        // Get translations for error messages
+        const translations = CONFIG.translations[this.state.language] || CONFIG.translations.en;
+        
+        // Validation
+        if (!nameInput.value.trim()) {
+            this.showNotification(translations.errorNameRequired || 'Astronaut name is required', 'error');
+            return;
+        }
+        
+        if (!roleInput.value.trim()) {
+            this.showNotification(translations.errorRoleRequired || 'Mission role is required', 'error');
+            return;
+        }
+        
+        if (!bioInput.value.trim()) {
+            this.showNotification(translations.errorBioRequired || 'Mission bio is required', 'error');
+            return;
+        }
+        
+        const skills = skillsInput.value.split(',').map(s => s.trim()).filter(s => s);
+        if (skills.length === 0) {
+            this.showNotification(translations.errorSkillsRequired || 'Please enter at least one skill', 'error');
+            return;
+        }
+        
+        const developerData = {
+            id: this.state.editingId || this.state.developerIdCounter++,
+            name: nameInput.value.trim(),
+            role: roleInput.value.trim(),
+            image: imageInput.value.trim(),
+            email: document.getElementById('admin-dev-email')?.value.trim() || null,
+            github: document.getElementById('admin-dev-github')?.value.trim() || null,
+            skills: skills,
+            bio: bioInput.value.trim(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        };
+        
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.classList.add('loading');
+            submitBtn.disabled = true;
+        }
+        
+        try {
+            const saved = await this.saveToSupabase('developers', developerData);
+            
+            if (saved) {
+                this.showNotification(`Crew member ${this.state.editingId ? 'updated' : 'assigned'} successfully!`, 'success');
+                this.state.editingId = null;
+                await this.loadData();
+                this.showAdminSection('developers');
+            } else {
+                this.showNotification('Error saving crew member', 'error');
+            }
+        } catch (error) {
+            console.error('Error saving crew member:', error);
+            this.showNotification('Error saving crew member: ' + error.message, 'error');
+        } finally {
+            if (submitBtn) {
+                submitBtn.classList.remove('loading');
+                submitBtn.disabled = false;
+            }
+        }
+    }
+
+    async handleProjectFormSubmit(e) {
+        e.preventDefault();
+        
+        const titleInput = document.getElementById('admin-project-title');
+        const typeInput = document.getElementById('admin-project-type');
+        const imageInput = document.getElementById('admin-project-image');
+        const techInput = document.getElementById('admin-project-tech');
+        const descriptionInput = document.getElementById('admin-project-description');
+        
+        if (!titleInput || !typeInput || !imageInput || !techInput || !descriptionInput) {
+            this.showNotification('Form fields missing', 'error');
+            return;
+        }
+        
+        // Get translations for error messages
+        const translations = CONFIG.translations[this.state.language] || CONFIG.translations.en;
+        
+        // Validation
+        if (!titleInput.value.trim()) {
+            this.showNotification(translations.errorTitleRequired || 'Mission name is required', 'error');
+            return;
+        }
+        
+        if (!descriptionInput.value.trim()) {
+            this.showNotification(translations.errorDescriptionRequired || 'Mission report is required', 'error');
+            return;
+        }
+        
+        const tech = techInput.value.split(',').map(t => t.trim()).filter(t => t);
+        if (tech.length === 0) {
+            this.showNotification(translations.errorAtLeastOneTech || 'Please enter at least one technology', 'error');
+            return;
+        }
+        
+        const projectData = {
+            id: this.state.editingId || this.state.projectIdCounter++,
+            title: titleInput.value.trim(),
+            type: typeInput.value,
+            image: imageInput.value.trim(),
+            link: document.getElementById('admin-project-link')?.value.trim() || null,
+            tech: tech,
+            description: descriptionInput.value.trim(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        };
+        
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.classList.add('loading');
+            submitBtn.disabled = true;
+        }
+        
+        try {
+            const saved = await this.saveToSupabase('projects', projectData);
+            
+            if (saved) {
+                this.showNotification(`Mission ${this.state.editingId ? 'updated' : 'logged'} successfully!`, 'success');
+                this.state.editingId = null;
+                await this.loadData();
+                this.showAdminSection('projects');
+            } else {
+                this.showNotification('Error saving mission', 'error');
+            }
+        } catch (error) {
+            console.error('Error saving mission:', error);
+            this.showNotification('Error saving mission: ' + error.message, 'error');
+        } finally {
+            if (submitBtn) {
+                submitBtn.classList.remove('loading');
+                submitBtn.disabled = false;
+            }
+        }
+    }
+
+    async handleWebsiteFormSubmit(e) {
+        e.preventDefault();
+        
+        const titleInput = document.getElementById('admin-website-title');
+        const urlInput = document.getElementById('admin-website-url');
+        const screenshotInput = document.getElementById('admin-website-screenshot');
+        const descriptionInput = document.getElementById('admin-website-description');
+        const technologiesInput = document.getElementById('admin-website-technologies');
+        
+        if (!titleInput || !urlInput || !screenshotInput || !descriptionInput || !technologiesInput) {
+            this.showNotification('Required fields missing', 'error');
+            return;
+        }
+        
+        // Get translations for error messages
+        const translations = CONFIG.translations[this.state.language] || CONFIG.translations.en;
+        
+        // Validasi URL
+        try {
+            new URL(urlInput.value.trim());
+        } catch (error) {
+            this.showNotification(translations.errorInvalidUrl || 'Please enter a valid URL', 'error');
+            return;
+        }
+        
+        // Validasi technologies
+        const technologies = technologiesInput.value.split(',').map(t => t.trim()).filter(t => t);
+        if (technologies.length === 0) {
+            this.showNotification(translations.errorAtLeastOneTech || 'Please enter at least one technology', 'error');
+            return;
+        }
+        
+        // Validasi required fields
+        if (!titleInput.value.trim()) {
+            this.showNotification(translations.errorTitleRequired || 'Website title is required', 'error');
+            return;
+        }
+        
+        if (!descriptionInput.value.trim()) {
+            this.showNotification(translations.errorDescriptionRequired || 'Description is required', 'error');
+            return;
+        }
+        
+        const websiteData = {
+            id: this.state.editingId || this.state.websiteIdCounter++,
+            title: titleInput.value.trim(),
+            url: urlInput.value.trim(),
+            screenshot: screenshotInput.value.trim(),
+            status: document.getElementById('admin-website-status')?.value || 'live',
+            description: descriptionInput.value.trim(),
+            technologies: technologies,
+            github: document.getElementById('admin-website-github')?.value.trim() || '',
+            icon: document.getElementById('admin-website-icon')?.value.trim() || 'fas fa-globe',
+            features: document.getElementById('admin-website-features')?.value.split(',').map(f => f.trim()).filter(f => f) || [],
+            views: 0,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        };
+        
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.classList.add('loading');
+            submitBtn.disabled = true;
+        }
+        
+        try {
+            const saved = await this.saveToSupabase('website_projects', websiteData);
+            
+            if (saved) {
+                this.showNotification(`Website ${this.state.editingId ? 'updated' : 'deployed'} successfully!`, 'success');
+                this.state.editingId = null;
+                await this.loadData();
+                this.showAdminSection('websites');
+            } else {
+                this.showNotification('Error saving website', 'error');
+            }
+        } catch (error) {
+            console.error('Error saving website:', error);
+            this.showNotification('Error saving website: ' + error.message, 'error');
+        } finally {
+            if (submitBtn) {
+                submitBtn.classList.remove('loading');
+                submitBtn.disabled = false;
+            }
+        }
+    }
+
+    async handleBlogFormSubmit(e) {
+        e.preventDefault();
+        
+        const titleInput = document.getElementById('admin-blog-title');
+        const categoryInput = document.getElementById('admin-blog-category');
+        const authorInput = document.getElementById('admin-blog-author');
+        const imageInput = document.getElementById('admin-blog-image');
+        const excerptInput = document.getElementById('admin-blog-excerpt');
+        const contentInput = document.getElementById('admin-blog-content');
+        
+        if (!titleInput || !categoryInput || !authorInput || !imageInput || !excerptInput || !contentInput) {
+            this.showNotification('Form fields missing', 'error');
+            return;
+        }
+        
+        // Get translations for error messages
+        const translations = CONFIG.translations[this.state.language] || CONFIG.translations.en;
+        
+        // Validation
+        if (!titleInput.value.trim()) {
+            this.showNotification(translations.errorTitleRequired || 'Briefing title is required', 'error');
+            return;
+        }
+        
+        if (!excerptInput.value.trim()) {
+            this.showNotification(translations.errorDescriptionRequired || 'Briefing summary is required', 'error');
+            return;
+        }
+        
+        if (!contentInput.value.trim()) {
+            this.showNotification(translations.errorMessageRequired || 'Full briefing is required', 'error');
+            return;
+        }
+        
+        if (excerptInput.value.length > 200) {
+            this.showNotification(translations.errorExcerptTooLong || 'Briefing summary should be 200 characters or less', 'error');
+            return;
+        }
+        
+        const blogData = {
+            id: this.state.editingId || this.state.blogIdCounter++,
+            title: titleInput.value.trim(),
+            category: categoryInput.value.trim(),
+            author: authorInput.value.trim(),
+            image: imageInput.value.trim(),
+            excerpt: excerptInput.value.trim(),
+            content: contentInput.value.trim(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        };
+        
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.classList.add('loading');
+            submitBtn.disabled = true;
+        }
+        
+        try {
+            const saved = await this.saveToSupabase('blog_posts', blogData);
+            
+            if (saved) {
+                this.showNotification(`Mission briefing ${this.state.editingId ? 'updated' : 'published'} successfully!`, 'success');
+                this.state.editingId = null;
+                await this.loadData();
+                this.showAdminSection('blog');
+            } else {
+                this.showNotification('Error saving briefing', 'error');
+            }
+        } catch (error) {
+            console.error('Error saving briefing:', error);
+            this.showNotification('Error saving briefing: ' + error.message, 'error');
+        } finally {
+            if (submitBtn) {
+                submitBtn.classList.remove('loading');
+                submitBtn.disabled = false;
+            }
+        }
+    }
+
+    async handleSettingsFormSubmit(e) {
+        e.preventDefault();
+        
+        const titleInputEn = document.getElementById('admin-settings-title-en');
+        const titleInputId = document.getElementById('admin-settings-title-id');
+        const emailInput = document.getElementById('admin-settings-email');
+        const phoneInput = document.getElementById('admin-settings-phone');
+        const runningTextEn = document.getElementById('admin-settings-running-text-en');
+        const runningTextId = document.getElementById('admin-settings-running-text-id');
+        const chatEnabledInput = document.getElementById('admin-settings-chat-enabled');
+        const darkModeInput = document.getElementById('admin-settings-dark-mode');
+        const geminiKeyInput = document.getElementById('admin-settings-gemini-key');
+        
+        if (!titleInputEn || !titleInputId || !emailInput || !phoneInput || !runningTextEn || !runningTextId || !chatEnabledInput || !darkModeInput) {
+            this.showNotification('Form fields missing', 'error');
+            return;
+        }
+        
+        const settingsData = {
+            siteTitle: {
+                en: titleInputEn.value.trim(),
+                id: titleInputId.value.trim()
+            },
+            contactEmail: emailInput.value.trim(),
+            contactPhone: phoneInput.value.trim(),
+            runningText: {
+                en: runningTextEn.value.trim(),
+                id: runningTextId.value.trim()
+            },
+            chatEnabled: chatEnabledInput.checked,
+            darkMode: darkModeInput.checked
+        };
+        
+        // Update Gemini API key in config
+        if (geminiKeyInput && geminiKeyInput.value.trim()) {
+            CONFIG.geminiApiKey = geminiKeyInput.value.trim();
+        }
+        
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.classList.add('loading');
+            submitBtn.disabled = true;
+        }
+        
+        try {
+            const saved = await this.saveToSupabase('settings', settingsData);
+            
+            if (saved) {
+                this.showNotification('Systems updated successfully!', 'success');
+                await this.loadData();
+                this.showAdminSection('settings');
+            } else {
+                this.showNotification('Error saving systems', 'error');
+            }
+        } catch (error) {
+            console.error('Error saving systems:', error);
+            this.showNotification('Error saving systems', 'error');
+        } finally {
+            if (submitBtn) {
+                submitBtn.classList.remove('loading');
+                submitBtn.disabled = false;
+            }
+        }
+    }
+
+    // Edit methods
+    editDeveloper(id) {
+        this.state.editingId = id;
+        this.showAdminSection('developers');
+        this.switchAdminTab('add-developer');
+    }
+
+    editProject(id) {
+        this.state.editingId = id;
+        this.showAdminSection('projects');
+        this.switchAdminTab('add-project');
+    }
+
+    editWebsite(id) {
+        this.state.editingId = id;
+        this.showAdminSection('websites');
+        this.switchAdminTab('add-website');
+    }
+
+    editBlogPost(id) {
+        this.state.editingId = id;
+        this.showAdminSection('blog');
+        this.switchAdminTab('add-blog');
+    }
+
+    // Delete methods - FIXED
+    async deleteDeveloper(id) {
+        if (!confirm('Are you sure you want to remove this crew member from the mission?')) return;
+        
+        try {
+            const deleted = await this.deleteFromSupabase('developers', id);
+            
+            if (deleted) {
+                this.showNotification('Crew member removed successfully!', 'success');
+                await this.loadData();
+                this.showAdminSection('developers');
+            } else {
+                this.showNotification('Error removing crew member', 'error');
+            }
+        } catch (error) {
+            console.error('Error removing crew member:', error);
+            this.showNotification('Error removing crew member: ' + error.message, 'error');
+        }
+    }
+
+    async deleteProject(id) {
+        if (!confirm('Are you sure you want to delete this mission from the log?')) return;
+        
+        try {
+            const deleted = await this.deleteFromSupabase('projects', id);
+            
+            if (deleted) {
+                this.showNotification('Mission deleted from log!', 'success');
+                await this.loadData();
+                this.showAdminSection('projects');
+            } else {
+                this.showNotification('Error deleting mission', 'error');
+            }
+        } catch (error) {
+            console.error('Error deleting mission:', error);
+            this.showNotification('Error deleting mission: ' + error.message, 'error');
+        }
+    }
+
+    async deleteWebsite(id) {
+        if (!confirm('Are you sure you want to delete this website project?')) return;
+        
+        try {
+            const deleted = await this.deleteFromSupabase('website_projects', id);
+            
+            if (deleted) {
+                this.showNotification('Website deleted successfully!', 'success');
+                await this.loadData();
+                this.showAdminSection('websites');
+            } else {
+                this.showNotification('Error deleting website', 'error');
+            }
+        } catch (error) {
+            console.error('Error deleting website:', error);
+            this.showNotification('Error deleting website: ' + error.message, 'error');
+        }
+    }
+
+    async deleteBlogPost(id) {
+        if (!confirm('Are you sure you want to delete this mission briefing?')) return;
+        
+        try {
+            const deleted = await this.deleteFromSupabase('blog_posts', id);
+            
+            if (deleted) {
+                this.showNotification('Mission briefing deleted!', 'success');
+                await this.loadData();
+                this.showAdminSection('blog');
+            } else {
+                this.showNotification('Error deleting briefing', 'error');
+            }
+        } catch (error) {
+            console.error('Error deleting briefing:', error);
+            this.showNotification('Error deleting briefing: ' + error.message, 'error');
+        }
+    }
+
+    async deleteMessage(id) {
+        if (!confirm('Are you sure you want to delete this transmission?')) return;
+        
+        try {
+            const deleted = await this.deleteFromSupabase('messages', id);
+            
+            if (deleted) {
+                this.showNotification('Transmission deleted!', 'success');
+                await this.loadData();
+                this.showAdminSection('messages');
+            } else {
+                this.showNotification('Error deleting transmission', 'error');
+            }
+        } catch (error) {
+            console.error('Error deleting transmission:', error);
+            this.showNotification('Error deleting transmission: ' + error.message, 'error');
+        }
+    }
+
+    // View methods
+    viewMessage(id) {
+        const message = this.state.messages.find(m => m.id === id);
+        if (message) {
+            // Mark as read
+            message.read = true;
+            this.saveToSupabase('messages', message).catch(console.error);
+            
+            alert(`Transmission Details:\n\nFrom: ${message.name} (${message.email})\nMission Type: ${message.subject}\nTransmission Time: ${new Date(message.created_at).toLocaleString()}\n\nTransmission:\n${message.message}`);
+        }
+    }
+
+    viewProjectDetails(id) {
+        const project = this.state.projects.find(p => p.id === id);
+        if (project) {
+            const typeMap = {
+                'web': 'Web Systems',
+                'mobile': 'Mobile App',
+                'design': 'UI/UX Design'
+            };
+            
+            alert(`Mission Details:\n\nMission Name: ${project.title}\nMission Type: ${typeMap[project.type] || project.type}\nMission Report: ${project.description}\nTechnologies: ${Array.isArray(project.tech) ? project.tech.join(', ') : project.tech || 'Not specified'}\n${project.link ? `Mission Link: ${project.link}` : ''}`);
+        }
+    }
+
+    viewWebsiteDetails(id) {
+        const website = this.state.websiteProjects.find(w => w.id === id);
+        if (website) {
+            alert(`Website Details:\n\nTitle: ${website.title}\nURL: ${website.url}\nStatus: ${website.status}\nDescription: ${website.description}\nTechnologies: ${Array.isArray(website.technologies) ? website.technologies.join(', ') : website.technologies || 'Not specified'}\n${website.github ? `GitHub: ${website.github}` : ''}`);
+        }
+    }
+
+    viewBlogPost(id) {
+        const post = this.state.blogPosts.find(p => p.id === id);
+        if (post) {
+            alert(`Mission Briefing:\n\nTitle: ${post.title}\nAuthor: ${post.author}\nBriefing Type: ${post.category}\nTransmission Date: ${new Date(post.created_at).toLocaleDateString()}\n\n${post.content || post.excerpt}`);
+        }
+    }
+
+    // Reset methods
+    resetDeveloperForm() {
+        this.state.editingId = null;
+        this.showAdminSection('developers');
+    }
+
+    resetProjectForm() {
+        this.state.editingId = null;
+        this.showAdminSection('projects');
+    }
+
+    resetWebsiteForm() {
+        this.state.editingId = null;
+        this.showAdminSection('websites');
+    }
+
+    resetBlogForm() {
+        this.state.editingId = null;
+        this.showAdminSection('blog');
+    }
+
+    // Export and reset data
+    exportData() {
+        const data = {
+            developers: this.state.developers,
+            projects: this.state.projects,
+            websiteProjects: this.state.websiteProjects,
+            blogPosts: this.state.blogPosts,
+            messages: this.state.messages,
+            settings: this.state.settings,
+            exportedAt: new Date().toISOString()
+        };
+        
+        const dataStr = JSON.stringify(data, null, 2);
+        const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+        
+        const exportFileDefaultName = `spaceteam-backup-${new Date().toISOString().split('T')[0]}.json`;
+        
+        const linkElement = document.createElement('a');
+        linkElement.setAttribute('href', dataUri);
+        linkElement.setAttribute('download', exportFileDefaultName);
+        document.body.appendChild(linkElement);
+        linkElement.click();
+        document.body.removeChild(linkElement);
+        
+        this.showNotification('Mission data backed up successfully!', 'success');
+    }
+
+    resetData() {
+        if (!confirm('WARNING: This will delete ALL mission data including crew, missions, websites, briefings, and transmissions. This action cannot be undone. Are you sure?')) {
+            return;
+        }
+        
+        if (!confirm('Are you absolutely sure? All mission data will be permanently deleted.')) {
+            return;
+        }
+        
+        // Reset all data
+        this.state.developers = [];
+        this.state.projects = [];
+        this.state.websiteProjects = [];
+        this.state.blogPosts = [];
+        this.state.messages = [];
+        this.state.settings = { ...CONFIG.defaults };
+        
+        // Reset counters
+        this.state.developerIdCounter = 1;
+        this.state.projectIdCounter = 1;
+        this.state.websiteIdCounter = 1;
+        this.state.blogIdCounter = 1;
+        this.state.messageIdCounter = 1;
+        
+        // Clear localStorage
+        localStorage.removeItem('spaceteam_developers');
+        localStorage.removeItem('spaceteam_projects');
+        localStorage.removeItem('spaceteam_websites');
+        localStorage.removeItem('spaceteam_blog');
+        localStorage.removeItem('spaceteam_messages');
+        localStorage.removeItem('spaceteam_settings');
+        
+        // Clear Supabase data
+        if (window.supabaseClient && CONFIG.supabaseUrl !== 'https://your-project.supabase.co') {
+            // We'll save empty arrays to clear data
+            this.saveToSupabase('developers', []);
+            this.saveToSupabase('projects', []);
+            this.saveToSupabase('website_projects', []);
+            this.saveToSupabase('blog_posts', []);
+            this.saveToSupabase('messages', []);
+        }
+        
+        this.showNotification('All mission data has been reset!', 'success');
+        this.updateUI();
+        
+        if (this.state.isAdmin) {
+            this.loadAdminDashboard();
+        }
+    }
+
+    showNotification(message, type = 'info') {
+        const container = document.getElementById('notification-container');
+        if (!container) return;
+        
+        const translations = CONFIG.translations[this.state.language] || CONFIG.translations.en;
+        const typeLabels = {
+            success: translations.notificationSuccess || 'Success',
+            error: translations.notificationError || 'Error',
+            warning: translations.notificationWarning || 'Warning',
+            info: translations.notificationInfo || 'Info'
+        };
+        
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        
+        const icons = {
+            success: 'check-circle',
+            error: 'exclamation-circle',
+            warning: 'exclamation-triangle',
+            info: 'info-circle'
+        };
+        
+        notification.innerHTML = `
+            <i class="fas fa-${icons[type] || 'info-circle'}"></i>
+            <span>${message}</span>
+        `;
+        
+        container.appendChild(notification);
+        
+        // Remove after 5 seconds
+        setTimeout(() => {
+            notification.style.animation = 'slideInRight 0.3s ease reverse';
+            setTimeout(() => {
+                if (notification.parentNode === container) {
+                    container.removeChild(notification);
+                }
+            }, 300);
+        }, 5000);
+    }
+
+    showLoading() {
+        const loadingOverlay = document.getElementById('loading-overlay');
+        if (loadingOverlay) {
+            loadingOverlay.classList.remove('hidden');
+        }
+    }
+
+    hideLoading() {
+        const loadingOverlay = document.getElementById('loading-overlay');
+        if (loadingOverlay) {
+            loadingOverlay.classList.add('hidden');
+        }
+    }
 }
 
-// ----------------- Initialization -----------------
+// Initialize the application
+let app;
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('🚀 Safenest initializing...')
-  
-  // Cek Supabase availability
-  if (supabase) {
-    console.log('✅ Supabase ready')
-  } else {
-    console.warn('⚠️ Supabase not available, some features may not work')
-    // Don't show alert on initial load
-  }
-  
-  const uiManager = new UIManager()
-
-  initializeUpdateCountdown()
-
-  // Background cleanup dengan error handling
-  setInterval(async () => {
     try {
-      await cleanExpiredFiles()
-    } catch (e) {
-      console.warn('Background cleanup failed:', e.message || e)
+        app = new SpaceTeamApp();
+        window.app = app;
+        
+        // Expose methods for inline onclick handlers
+        window.showAdminSection = (section) => app.showAdminSection(section);
+        window.viewProjectDetails = (id) => app.viewProjectDetails(id);
+        window.viewWebsiteDetails = (id) => app.viewWebsiteDetails(id);
+        window.viewBlogPost = (id) => app.viewBlogPost(id);
+        window.switchAdminTab = (tabId) => app.switchAdminTab(tabId);
+        window.resetDeveloperForm = () => app.resetDeveloperForm();
+        window.resetProjectForm = () => app.resetProjectForm();
+        window.resetWebsiteForm = () => app.resetWebsiteForm();
+        window.resetBlogForm = () => app.resetBlogForm();
+        window.editDeveloper = (id) => app.editDeveloper(id);
+        window.editProject = (id) => app.editProject(id);
+        window.editWebsite = (id) => app.editWebsite(id);
+        window.editBlogPost = (id) => app.editBlogPost(id);
+        window.deleteDeveloper = (id) => app.deleteDeveloper(id);
+        window.deleteProject = (id) => app.deleteProject(id);
+        window.deleteWebsite = (id) => app.deleteWebsite(id);
+        window.deleteBlogPost = (id) => app.deleteBlogPost(id);
+        window.deleteMessage = (id) => app.deleteMessage(id);
+        window.viewMessage = (id) => app.viewMessage(id);
+        window.exportData = () => app.exportData();
+        window.resetData = () => app.resetData();
+        
+    } catch (error) {
+        console.error('Failed to initialize application:', error);
+        // Show error message to user
+        const errorDiv = document.createElement('div');
+        errorDiv.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; background: #e53e3e; color: white; padding: 1rem; text-align: center; z-index: 9999;';
+        errorDiv.textContent = 'Failed to load application. Please refresh the page.';
+        document.body.appendChild(errorDiv);
     }
-  }, 2 * 60 * 1000)
-
-  // Initial cleanup dengan error handling
-  setTimeout(() => {
-    cleanExpiredFiles().catch(e => {
-      console.warn('Initial cleanup failed:', e.message || e)
-    })
-  }, 3000);
-  
-  $$('.nav-btn').forEach((btn, i) => {
-    btn.animate([
-      { opacity: 0, transform: 'translateY(8px)' },
-      { opacity: 1, transform: 'translateY(0)' }
-    ], {
-      duration: 420,
-      delay: i * 80,
-      easing: 'cubic-bezier(.2,.9,.3,1)'
-    })
-  })
-
-  window.addEventListener('load', () => {
-    setTimeout(() => {
-      const loader = $('globalLoader')
-      if (loader) {
-        loader.style.opacity = '0'
-        setTimeout(() => loader.remove(), 300)
-      }
-    }, 1000)
-  })
-})
-
-window.hideUpdateBanner = hideUpdateBanner
-window.checkMaintenanceForUpload = checkMaintenanceForUpload
-window.supabase = supabase // Ekspos supabase untuk debugging
-window.cleanupAuthTokens = cleanupAuthTokens // 🔥 Ekspos fungsi cleanup untuk debugging
+});
+[file content end]
